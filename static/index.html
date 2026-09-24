@@ -38,6 +38,8 @@
       <p class="hint" data-en="Upload a photo of the suit or outfit to use:"
          data-fr="Téléversez une photo du complet ou de la tenue à utiliser :">Upload a photo of the suit or outfit to use:</p>
       <input type="file" id="suitPhoto" accept="image/*">
+      <p class="hint" data-en="Tip: for best results, upload a clear photo of the garment itself. An old photo of the person wearing the outfit can confuse the AI — results may vary."
+         data-fr="Astuce : pour de meilleurs résultats, téléversez une photo claire du vêtement lui-même. Une vieille photo de la personne portant la tenue peut perturber l'IA — les résultats peuvent varier.">Tip: for best results, upload a clear photo of the garment itself. An old photo of the person wearing the outfit can confuse the AI — results may vary.</p>
     </div>
   </section>
 
@@ -47,6 +49,10 @@
       <span data-en="Photographic portrait — $10" data-fr="Portrait photographique — 10 $">Photographic portrait — $10</span></label>
     <label class="radio"><input type="radio" name="style" value="painting">
       <span data-en="Hand-painted look portrait — $25" data-fr="Portrait effet peinture — 25 $">Hand-painted look portrait — $25</span></label>
+    <label class="radio"><input type="radio" name="style" value="refine">
+      <span data-en="Photo refinement — $4.99" data-fr="Retouche photo — 4,99 $">Photo refinement — $4.99</span></label>
+    <p class="hint" data-en="Refinement cleans up scratches, fading, and blur. Your photo stays exactly as it is — no clothing change."
+       data-fr="La retouche élimine les rayures, le pâlissement et le flou. Votre photo reste exactement telle quelle — aucun changement de tenue.">Refinement cleans up scratches, fading, and blur. Your photo stays exactly as it is — no clothing change.</p>
     <button id="generateBtn" data-en="Create preview" data-fr="Créer l'aperçu">Create preview</button>
     <div id="status" class="status"></div>
   </section>
