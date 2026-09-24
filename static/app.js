@@ -3,6 +3,18 @@ let attire = "black";
 let jobId = null;
 let product = "digital";
 
+// Parse a JSON response, but show a friendly message if the server
+// answered with an HTML error page (e.g. mid-deploy) instead.
+async function safeJson(r) {
+  const text = await r.text();
+  try { return JSON.parse(text); }
+  catch (e) {
+    throw new Error(lang === "en"
+      ? "The server is briefly updating — please try again in a minute."
+      : "Le serveur est brièvement en mise à jour — réessayez dans une minute.");
+  }
+}
+
 const ATTIRE_LABELS = {
   en: { black: "Classic black suit", navy: "Navy suit", charcoal: "Charcoal suit",
         dress: "Black formal dress", blouse: "Blazer & blouse", clerical: "Clerical collar",
@@ -73,7 +85,7 @@ document.getElementById("generateBtn").onclick = async () => {
   }
   try {
     const r = await fetch("/api/generate", { method: "POST", body: fd });
-    const j = await r.json();
+    const j = await safeJson(r);
     if (!r.ok) throw new Error(j.error || "failed");
     jobId = j.job_id;
     document.getElementById("previewImg").src = j.preview_url + "?t=" + Date.now();
@@ -97,7 +109,7 @@ document.getElementById("payBtn").onclick = async () => {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ job_id: jobId, product })
   });
-  const j = await r.json();
+  const j = await safeJson(r);
   if (j.url) window.location.href = j.url;
 };
 
@@ -109,7 +121,7 @@ document.getElementById("payBtn").onclick = async () => {
     document.getElementById("step4").style.display = "block";
     for (let i = 0; i < 20; i++) {
       const r = await fetch("/api/status/" + jobId);
-      const j = await r.json();
+      const j = await safeJson(r);
       if (j.paid) {
         document.getElementById("payBtn").style.display = "none";
         const dl = document.getElementById("dlBtn");
