@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /api/
+Disallow: /preview/
+Disallow: /download/
+
+Sitemap: https://ritratto.onrender.com/sitemap.xml
