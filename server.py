@@ -2,19 +2,16 @@
 """
 Ritratto — backend.
 
-B2C:  upload -> watermarked preview -> $10/$25 one-time Stripe Checkout -> HD download
-B2B:  funeral home signs up -> $69/mo Stripe subscription (30-day trial)
-      -> staff dashboard -> unlimited portrait generation under their login
+Flow: upload -> small watermarked preview -> regenerate up to 15x with notes
+      -> $9.99 / $4.99 one-time Stripe Checkout -> HD download of the chosen version.
 
 Env vars:
   GEMINI_API_KEY, GEMINI_MODEL, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
-  STRIPE_PRICE_ID (created automatically if missing), SITE_URL,
-  SECRET_KEY (flask sessions), DEMO_MODE=true (skip real payments)
+  SITE_URL, SECRET_KEY (flask sessions), DEMO_MODE=true (skip real payments)
 """
 import os
 import io
 import uuid
-import json
 import base64
 import sqlite3
 import shutil
@@ -24,8 +21,7 @@ from datetime import datetime, timedelta
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
-from flask import Flask, request, jsonify, send_file, abort, session, redirect
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, request, jsonify, send_file, abort
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", BASE)  # /var/data on Render (persistent disk)
@@ -39,16 +35,15 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-image")
 STRIPE_SECRET = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")
 DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
 
 PRICES = {
-    "digital": {"amount": 1000, "label": "Memorial portrait — HD digital download"},
-    "painted": {"amount": 2500, "label": "Memorial portrait — painted style HD download"},
+    "digital": {"amount": 999, "label": "Memorial portrait — HD digital download"},
     "refined": {"amount": 499, "label": "Photo refinement — restored HD download"},
 }
-B2B_PRICE_CAD = 6900  # $69/month
+MAX_ATTEMPTS = 15  # first generation + up to 14 regenerations
+SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 
 SUITS = {
     "black": "a classic black suit, white dress shirt, and dark tie",
@@ -72,36 +67,49 @@ def db():
     conn.execute(
         "CREATE TABLE IF NOT EXISTS jobs "
         "(id TEXT PRIMARY KEY, created TEXT, product TEXT, paid INTEGER DEFAULT 0, "
-        " user_id TEXT)"
+        " attire TEXT, style TEXT, attempts INTEGER DEFAULT 1)"
     )
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS users "
-        "(id TEXT PRIMARY KEY, created TEXT, business TEXT, email TEXT UNIQUE, "
-        " pw_hash TEXT, stripe_customer TEXT, stripe_sub TEXT, sub_status TEXT DEFAULT 'none', "
-        " newsletter INTEGER DEFAULT 0)"
-    )
-    try:
-        conn.execute("ALTER TABLE jobs ADD COLUMN user_id TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN newsletter INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
+    for col, ddl in (("attire", "ALTER TABLE jobs ADD COLUMN attire TEXT"),
+                     ("style", "ALTER TABLE jobs ADD COLUMN style TEXT"),
+                     ("attempts", "ALTER TABLE jobs ADD COLUMN attempts INTEGER DEFAULT 1")):
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass
     return conn
 
 
-def new_job(product, user_id=None):
+def new_job(product, attire, style):
     jid = uuid.uuid4().hex[:12]
     conn = db()
     conn.execute(
-        "INSERT INTO jobs (id, created, product, paid, user_id) VALUES (?,?,?,?,?)",
-        (jid, datetime.utcnow().isoformat(), product, 0, user_id),
+        "INSERT INTO jobs (id, created, product, paid, attire, style, attempts)"
+        " VALUES (?,?,?,?,?,?,1)",
+        (jid, datetime.utcnow().isoformat(), product, 0, attire, style),
     )
     conn.commit()
     conn.close()
     os.makedirs(os.path.join(OUTPUTS, jid), exist_ok=True)
     return jid
+
+
+def get_job(jid):
+    conn = db()
+    row = conn.execute(
+        "SELECT product, paid, attire, style, attempts FROM jobs WHERE id=?", (jid,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {"product": row[0], "paid": bool(row[1]), "attire": row[2],
+            "style": row[3], "attempts": row[4] or 1}
+
+
+def bump_attempts(jid, attempts):
+    conn = db()
+    conn.execute("UPDATE jobs SET attempts=? WHERE id=?", (attempts, jid))
+    conn.commit()
+    conn.close()
 
 
 def mark_paid(jid):
@@ -111,31 +119,7 @@ def mark_paid(jid):
     conn.close()
 
 
-def job_owner(jid):
-    conn = db()
-    row = conn.execute("SELECT user_id, paid FROM jobs WHERE id=?", (jid,)).fetchone()
-    conn.close()
-    return (row[0], bool(row[1])) if row else (None, False)
-
-
-def get_user(uid):
-    conn = db()
-    row = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
-    cols = [d[0] for d in conn.execute("SELECT * FROM users LIMIT 0").description]
-    conn.close()
-    return dict(zip(cols, row)) if row else None
-
-
-def sub_active(user):
-    return user and user.get("sub_status") in ("active", "trialing")
-
-
-def current_user():
-    uid = session.get("uid")
-    return get_user(uid) if uid else None
-
-
-# ---------- image generation (shared) ----------
+# ---------- image generation ----------
 def gemini_edit(image_paths, prompt):
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not set")
@@ -163,8 +147,8 @@ def gemini_edit(image_paths, prompt):
     raise RuntimeError("Model returned no image.")
 
 
-def portrait_prompt(attire_desc):
-    return (
+def portrait_prompt(attire_desc, note=None):
+    p = (
         "You are creating a dignified memorial portrait for a funeral display. "
         "CRITICAL: keep this person's face exactly identical to the photo — same facial "
         "features, same expression, same apparent age, same skin tone, same identity. "
@@ -173,22 +157,13 @@ def portrait_prompt(attire_desc):
         "Formal shoulders-up studio portrait, soft respectful lighting, "
         "plain dark neutral background. Must look like a real photograph, not an illustration."
     )
+    if note:
+        p += f" Additional revision request from the customer — apply it while keeping everything else the same: {note}"
+    return p
 
 
-def painted_prompt(attire_desc):
-    return (
-        "You are creating a dignified memorial portrait for a funeral display, rendered as "
-        "a classical oil painting with visible brushstrokes and a timeless feel. "
-        "CRITICAL: keep this person's face exactly identical to the photo — same facial "
-        "features, same expression, same apparent age, same skin tone, same identity. "
-        "Do NOT beautify, de-age, slim, or alter the face in any way. "
-        "Change ONLY the clothing: dress the person in " + attire_desc + ". "
-        "Formal shoulders-up composition, soft respectful lighting, dark neutral background."
-    )
-
-
-def refine_prompt():
-    return (
+def refine_prompt(note=None):
+    p = (
         "You are restoring an old or damaged photograph for a memorial display. "
         "CRITICAL: keep this person's face exactly identical — same facial features, "
         "same expression, same apparent age, same skin tone, same identity, same clothing, "
@@ -198,46 +173,61 @@ def refine_prompt():
         "reduce noise and grain. The result must look like a clean, high-quality scan of the "
         "same photograph — a real photograph, not an illustration."
     )
+    if note:
+        p += f" Additional revision request from the customer — apply it while keeping everything else the same: {note}"
+    return p
 
 
 def add_watermark(img):
+    """Small watermarked preview (max 640px) so screenshots stay low-value."""
     w, h = img.size
-    scale = 900 / max(w, h)
+    scale = 640 / max(w, h)
     prev = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS).convert("RGB")
     overlay = Image.new("RGBA", prev.size, (0, 0, 0, 0))
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 44)
     except OSError:
         font = ImageFont.load_default()
-    for x in range(-200, prev.size[0] + 200, 320):
-        t = Image.new("RGBA", (320, 80), (0, 0, 0, 0))
-        ImageDraw.Draw(t).text((10, 10), "PREVIEW", font=font, fill=(255, 255, 255, 90))
+    for x in range(-160, prev.size[0] + 160, 240):
+        t = Image.new("RGBA", (240, 60), (0, 0, 0, 0))
+        ImageDraw.Draw(t).text((10, 8), "PREVIEW", font=font, fill=(255, 255, 255, 90))
         overlay = Image.alpha_composite(overlay, t.rotate(30, expand=True))
     return Image.alpha_composite(prev.convert("RGBA"), overlay).convert("RGB")
 
 
-def run_generation(jobdir, photo_file, attire_id, style, suit_file=None):
-    """Shared generation pipeline. Returns PIL image. Raises on failure."""
+def save_version(jobdir, img, version):
+    img.save(os.path.join(jobdir, f"v{version}.png"))
+    add_watermark(img).save(os.path.join(jobdir, f"v{version}_preview.jpg"),
+                            "JPEG", quality=80)
+
+
+def run_generation(jobdir, photo_file, attire_id, style, suit_file=None, note=None):
+    """Shared generation pipeline. Returns PIL image. Raises on failure.
+    Pass photo_file=None to reuse the already-saved source photo (regeneration)."""
     src = os.path.join(jobdir, "source.jpg")
-    Image.open(photo_file.stream).convert("RGB").save(src, "JPEG", quality=92)
+    if photo_file is not None:
+        Image.open(photo_file.stream).convert("RGB").save(src, "JPEG", quality=92)
     if style == "refine":
-        # photo restoration only: no attire change
-        return gemini_edit([src], refine_prompt())
+        return gemini_edit([src], refine_prompt(note))
     images = [src]
     if attire_id == "custom":
-        if not suit_file:
-            raise ValueError("custom attire needs a suit reference photo")
         ref_path = os.path.join(jobdir, "suit_ref.jpg")
-        Image.open(suit_file.stream).convert("RGB").save(ref_path, "JPEG", quality=92)
+        if suit_file is not None:
+            Image.open(suit_file.stream).convert("RGB").save(ref_path, "JPEG", quality=92)
+        if not os.path.exists(ref_path):
+            raise ValueError("custom attire needs a suit reference photo")
         images.append(ref_path)
         attire_desc = "the suit/outfit shown in the second reference image"
     else:
         attire_desc = SUITS.get(attire_id, SUITS["black"])
-    prompt = painted_prompt(attire_desc) if style == "painting" else portrait_prompt(attire_desc)
-    return gemini_edit(images, prompt)
+    return gemini_edit(images, portrait_prompt(attire_desc, note))
 
 
-# ---------- B2C routes ----------
+def valid_version(v):
+    return v.isdigit() and int(v) >= 1
+
+
+# ---------- routes ----------
 @app.route("/")
 def index():
     return app.send_static_file("index.html")
@@ -250,24 +240,51 @@ def generate():
         return jsonify({"error": "no photo uploaded"}), 400
     attire_id = request.form.get("attire", "black")
     style = request.form.get("style", "photo")
-    product = "painted" if style == "painting" else "refined" if style == "refine" else "digital"
-    jid = new_job(product)
+    if style not in ("photo", "refine"):
+        return jsonify({"error": "unknown style"}), 400
+    product = "refined" if style == "refine" else "digital"
+    jid = new_job(product, attire_id, style)
     jobdir = os.path.join(OUTPUTS, jid)
     try:
         result = run_generation(jobdir, photo, attire_id, style, request.files.get("suit_photo"))
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": f"generation failed: {e}"}), 502
-    result.save(os.path.join(jobdir, "result.png"))
-    add_watermark(result).save(os.path.join(jobdir, "preview.jpg"), "JPEG", quality=80)
-    return jsonify({"job_id": jid, "preview_url": f"/preview/{jid}", "product": product})
+    save_version(jobdir, result, 1)
+    return jsonify({"job_id": jid, "version": 1,
+                    "preview_url": f"/preview/{jid}?v=1",
+                    "attempts_left": MAX_ATTEMPTS - 1, "product": product})
+
+
+@app.route("/api/regenerate", methods=["POST"])
+def regenerate():
+    data = request.get_json(force=True)
+    jid = data.get("job_id") or ""
+    note = (data.get("note") or "").strip()[:500]
+    job = get_job(jid)
+    if not job:
+        return jsonify({"error": "unknown job"}), 404
+    if job["attempts"] >= MAX_ATTEMPTS:
+        return jsonify({"error": "no attempts left"}), 400
+    jobdir = os.path.join(OUTPUTS, jid)
+    try:
+        result = run_generation(jobdir, None, job["attire"] or "black",
+                                job["style"] or "photo", None, note or None)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": f"generation failed: {e}"}), 502
+    version = job["attempts"] + 1
+    save_version(jobdir, result, version)
+    bump_attempts(jid, version)
+    return jsonify({"job_id": jid, "version": version,
+                    "preview_url": f"/preview/{jid}?v={version}",
+                    "attempts_left": MAX_ATTEMPTS - version})
 
 
 @app.route("/preview/<jid>")
 def preview(jid):
-    p = os.path.join(OUTPUTS, jid, "preview.jpg")
-    if not os.path.exists(p):
-        # staff jobs have no watermarked preview; serve full result as preview
-        p = os.path.join(OUTPUTS, jid, "result.png")
+    v = request.args.get("v", "1")
+    if not valid_version(v):
+        abort(404)
+    p = os.path.join(OUTPUTS, jid, f"v{v}_preview.jpg")
     if not os.path.exists(p):
         abort(404)
     return send_file(p)
@@ -275,12 +292,13 @@ def preview(jid):
 
 @app.route("/download/<jid>")
 def download(jid):
-    owner, paid = job_owner(jid)
-    user = current_user()
-    allowed = paid or (owner and user and owner == user["id"] and sub_active(user))
-    if not allowed:
+    v = request.args.get("v", "1")
+    if not valid_version(v):
+        abort(404)
+    job = get_job(jid)
+    if not job or not job["paid"]:
         abort(402, "payment required")
-    p = os.path.join(OUTPUTS, jid, "result.png")
+    p = os.path.join(OUTPUTS, jid, f"v{v}.png")
     if not os.path.exists(p):
         abort(404)
     return send_file(p, mimetype="image/png", as_attachment=True,
@@ -289,22 +307,32 @@ def download(jid):
 
 @app.route("/api/status/<jid>")
 def status(jid):
-    owner, paid = job_owner(jid)
-    user = current_user()
-    ok = paid or (owner and user and owner == user["id"] and sub_active(user))
-    return jsonify({"paid": ok})
+    job = get_job(jid)
+    if not job:
+        return jsonify({"paid": False, "versions": 0, "attempts_left": 0})
+    return jsonify({"paid": job["paid"], "versions": job["attempts"],
+                    "attempts_left": MAX_ATTEMPTS - job["attempts"]})
 
 
 @app.route("/api/checkout", methods=["POST"])
 def checkout():
     data = request.get_json(force=True)
-    jid = data.get("job_id")
+    jid = data.get("job_id") or ""
     product = data.get("product", "digital")
+    version = str(data.get("version", 1))
     if product not in PRICES:
         return jsonify({"error": "unknown product"}), 400
-    if DEMO_MODE or not STRIPE_SECRET:
-        mark_paid(jid)
-        return jsonify({"url": f"{SITE_URL}/?paid=1&job={jid}", "demo": True})
+    if not valid_version(version):
+        return jsonify({"error": "unknown version"}), 400
+    job = get_job(jid)
+    if not job or int(version) > job["attempts"]:
+        return jsonify({"error": "unknown job"}), 404
+    if not STRIPE_SECRET:
+        if DEMO_MODE:
+            mark_paid(jid)
+            return jsonify({"url": f"{SITE_URL}/?paid=1&job={jid}&v={version}", "demo": True})
+        # Fail closed: never hand out portraits without a working payment setup.
+        return jsonify({"error": "payments are not configured yet — please try again later"}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
     sess = stripe.checkout.Session.create(
@@ -313,161 +341,11 @@ def checkout():
             "currency": "cad", "unit_amount": PRICES[product]["amount"],
             "product_data": {"name": PRICES[product]["label"]}}, "quantity": 1}],
         mode="payment",
-        success_url=f"{SITE_URL}/?paid=1&job={jid}",
+        success_url=f"{SITE_URL}/?paid=1&job={jid}&v={version}",
         cancel_url=f"{SITE_URL}/?cancelled=1&job={jid}",
-        metadata={"job_id": jid, "kind": "b2c"},
+        metadata={"job_id": jid, "kind": "b2c", "version": version},
     )
     return jsonify({"url": sess.url})
-
-
-# ---------- B2B: accounts + subscriptions ----------
-def get_or_create_price():
-    global STRIPE_PRICE_ID
-    if STRIPE_PRICE_ID:
-        return STRIPE_PRICE_ID
-    import stripe
-    stripe.api_key = STRIPE_SECRET
-    price = stripe.Price.create(
-        unit_amount=B2B_PRICE_CAD, currency="cad",
-        recurring={"interval": "month"},
-        product_data={"name": "Funeral Home Plan — unlimited memorial portraits"},
-    )
-    STRIPE_PRICE_ID = price.id
-    print(f"*** SAVE THIS: STRIPE_PRICE_ID={price.id} ***")
-    return price.id
-
-
-@app.route("/api/signup", methods=["POST"])
-def signup():
-    data = request.get_json(force=True)
-    email = (data.get("email") or "").strip().lower()
-    pw = data.get("password") or ""
-    business = (data.get("business") or "").strip()
-    newsletter = 1 if data.get("newsletter") else 0
-    if not email or len(pw) < 8 or not business:
-        return jsonify({"error": "business name, email, and a password (8+ chars) are required"}), 400
-    uid = uuid.uuid4().hex[:12]
-    conn = db()
-    try:
-        conn.execute(
-            "INSERT INTO users (id, created, business, email, pw_hash, newsletter) VALUES (?,?,?,?,?,?)",
-            (uid, datetime.utcnow().isoformat(), business, email, generate_password_hash(pw), newsletter),
-        )
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({"error": "that email is already registered"}), 400
-    conn.close()
-
-    if DEMO_MODE or not STRIPE_SECRET:
-        conn = db()  # testing shortcut: active sub, no Stripe
-        conn.execute("UPDATE users SET sub_status='active' WHERE id=?", (uid,))
-        conn.commit()
-        conn.close()
-        session["uid"] = uid
-        return jsonify({"url": "/dashboard.html", "demo": True})
-
-    import stripe
-    stripe.api_key = STRIPE_SECRET
-    customer = stripe.Customer.create(email=email, name=business,
-                                      metadata={"user_id": uid})
-    sess = stripe.checkout.Session.create(
-        customer=customer.id,
-        payment_method_types=["card"],
-        line_items=[{"price": get_or_create_price(), "quantity": 1}],
-        mode="subscription",
-        subscription_data={"trial_period_days": 30,
-                           "metadata": {"user_id": uid}},
-        success_url=f"{SITE_URL}/dashboard.html?welcome=1",
-        cancel_url=f"{SITE_URL}/funeral-homes.html?cancelled=1",
-        metadata={"user_id": uid, "kind": "b2b"},
-    )
-    conn = db()
-    conn.execute("UPDATE users SET stripe_customer=? WHERE id=?", (customer.id, uid))
-    conn.commit()
-    conn.close()
-    return jsonify({"url": sess.url})
-
-
-@app.route("/api/login", methods=["POST"])
-def login():
-    data = request.get_json(force=True)
-    email = (data.get("email") or "").strip().lower()
-    conn = db()
-    row = conn.execute("SELECT id, pw_hash FROM users WHERE email=?", (email,)).fetchone()
-    conn.close()
-    if not row or not check_password_hash(row[1], data.get("password") or ""):
-        return jsonify({"error": "invalid email or password"}), 401
-    session["uid"] = row[0]
-    return jsonify({"ok": True})
-
-
-@app.route("/api/logout", methods=["POST"])
-def logout():
-    session.pop("uid", None)
-    return jsonify({"ok": True})
-
-
-@app.route("/api/me")
-def me():
-    user = current_user()
-    if not user:
-        return jsonify({"user": None})
-    return jsonify({"user": {
-        "business": user["business"], "email": user["email"],
-        "sub_status": user["sub_status"], "active": sub_active(user),
-    }})
-
-
-@app.route("/api/portal", methods=["POST"])
-def portal():
-    user = current_user()
-    if not user:
-        return jsonify({"error": "not logged in"}), 401
-    if DEMO_MODE or not STRIPE_SECRET or not user.get("stripe_customer"):
-        return jsonify({"url": "/dashboard.html", "demo": True})
-    import stripe
-    stripe.api_key = STRIPE_SECRET
-    ps = stripe.billing_portal.Session.create(
-        customer=user["stripe_customer"], return_url=f"{SITE_URL}/dashboard.html")
-    return jsonify({"url": ps.url})
-
-
-@app.route("/api/staff/generate", methods=["POST"])
-def staff_generate():
-    user = current_user()
-    if not user:
-        return jsonify({"error": "not logged in"}), 401
-    if not sub_active(user):
-        return jsonify({"error": "subscription not active"}), 403
-    photo = request.files.get("photo")
-    if not photo:
-        return jsonify({"error": "no photo uploaded"}), 400
-    attire_id = request.form.get("attire", "black")
-    style = request.form.get("style", "photo")
-    jid = new_job("painted" if style == "painting" else "refined" if style == "refine" else "digital", user_id=user["id"])
-    jobdir = os.path.join(OUTPUTS, jid)
-    try:
-        result = run_generation(jobdir, photo, attire_id, style, request.files.get("suit_photo"))
-    except Exception as e:  # noqa: BLE001
-        return jsonify({"error": f"generation failed: {e}"}), 502
-    result.save(os.path.join(jobdir, "result.png"))
-    return jsonify({"job_id": jid, "image_url": f"/preview/{jid}"})
-
-
-@app.route("/api/staff/jobs")
-def staff_jobs():
-    user = current_user()
-    if not user:
-        return jsonify({"error": "not logged in"}), 401
-    conn = db()
-    rows = conn.execute(
-        "SELECT id, created, product FROM jobs WHERE user_id=? ORDER BY created DESC LIMIT 50",
-        (user["id"],)).fetchall()
-    conn.close()
-    return jsonify([{"id": r[0], "created": r[1], "product": r[2],
-                     "image_url": f"/preview/{r[0]}",
-                     "download_url": f"/download/{r[0]}"} for r in rows])
 
 
 @app.route("/webhook/stripe", methods=["POST"])
@@ -480,28 +358,11 @@ def webhook():
     except Exception:
         return "bad signature", 400
     stripe.api_key = STRIPE_SECRET
-    etype = event["type"]
-    if etype == "checkout.session.completed":
+    if event["type"] == "checkout.session.completed":
         obj = event["data"]["object"]
         meta = obj.get("metadata", {})
         if meta.get("kind") == "b2c" and meta.get("job_id"):
             mark_paid(meta["job_id"])
-        elif meta.get("kind") == "b2b" and meta.get("user_id"):
-            sub = stripe.Subscription.retrieve(obj["subscription"])
-            conn = db()
-            conn.execute(
-                "UPDATE users SET stripe_sub=?, sub_status=? WHERE id=?",
-                (sub.id, sub.status, meta["user_id"]))
-            conn.commit()
-            conn.close()
-    elif etype in ("customer.subscription.updated", "customer.subscription.deleted"):
-        sub = event["data"]["object"]
-        uid = (sub.get("metadata") or {}).get("user_id")
-        if uid:
-            conn = db()
-            conn.execute("UPDATE users SET sub_status=? WHERE id=?", (sub["status"], uid))
-            conn.commit()
-            conn.close()
     return "ok", 200
 
 
