@@ -2,6 +2,11 @@ let lang = "fr";
 let attire = "black";
 let jobId = null;
 let product = "digital";
+let versions = 0;
+let currentVersion = 1;
+let attemptsLeft = 0;
+let paidMode = false;
+const MAX_ATTEMPTS = 15;
 
 // Parse a JSON response, but show a friendly message if the server
 // answered with an HTML error page (e.g. mid-deploy) instead.
@@ -30,6 +35,10 @@ function applyLang() {
   });
   document.documentElement.lang = lang;
   document.getElementById("langToggle").textContent = lang === "en" ? "FR" : "EN";
+  document.getElementById("regenNote").placeholder = lang === "en"
+    ? "E.g. make the suit darker, fix the smile…"
+    : "Ex. : complet plus foncé, corriger le sourire…";
+  updateRegenUI();
   renderAttire();
 }
 document.getElementById("langToggle").onclick = () => {
@@ -65,11 +74,69 @@ document.getElementById("photo").onchange = e => {
 const statusEl = document.getElementById("status");
 const setStatus = t => statusEl.textContent = t;
 
+// ---------- version browsing ----------
+function showVersion(v) {
+  currentVersion = Math.min(Math.max(v, 1), versions);
+  document.getElementById("previewImg").src =
+    `/preview/${jobId}?v=${currentVersion}&t=${Date.now()}`;
+  document.getElementById("verLabel").textContent = lang === "en"
+    ? `Version ${currentVersion} of ${versions}`
+    : `Version ${currentVersion} sur ${versions}`;
+  document.getElementById("prevVer").disabled = currentVersion <= 1;
+  document.getElementById("nextVer").disabled = currentVersion >= versions;
+  if (paidMode) {
+    document.getElementById("dlBtn").onclick = () =>
+      window.location.href = `/download/${jobId}?v=${currentVersion}`;
+  }
+}
+
+function updateRegenUI() {
+  const left = attemptsLeft;
+  document.getElementById("attemptsLabel").textContent = lang === "en"
+    ? `${left} regeneration${left === 1 ? "" : "s"} left`
+    : `${left} régénération${left === 1 ? "" : "s"} restante${left === 1 ? "" : "s"}`;
+  if (left <= 0 && !paidMode) {
+    document.getElementById("regenBox").style.display = "none";
+    document.getElementById("sorryBox").style.display = "block";
+  }
+}
+
+document.getElementById("prevVer").onclick = () => showVersion(currentVersion - 1);
+document.getElementById("nextVer").onclick = () => showVersion(currentVersion + 1);
+
+document.getElementById("regenBtn").onclick = async () => {
+  const btn = document.getElementById("regenBtn");
+  const note = document.getElementById("regenNote").value.trim();
+  const rs = document.getElementById("regenStatus");
+  btn.disabled = true;
+  rs.textContent = lang === "en"
+    ? "Creating a new version… about 30 seconds."
+    : "Création d'une nouvelle version… environ 30 secondes.";
+  try {
+    const r = await fetch("/api/regenerate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, note })
+    });
+    const j = await safeJson(r);
+    if (!r.ok) throw new Error(j.error || "failed");
+    versions = j.version;
+    attemptsLeft = j.attempts_left;
+    document.getElementById("regenNote").value = "";
+    rs.textContent = "";
+    showVersion(j.version);
+    updateRegenUI();
+  } catch (e) {
+    rs.textContent = (lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + e.message;
+  }
+  btn.disabled = false;
+};
+
+// ---------- first generation ----------
 document.getElementById("generateBtn").onclick = async () => {
   const photo = document.getElementById("photo").files[0];
   if (!photo) { setStatus(lang === "en" ? "Please upload a photo first." : "Veuillez d'abord téléverser une photo."); return; }
   const style = document.querySelector('input[name=style]:checked').value;
-  product = style === "painting" ? "painted" : style === "refine" ? "refined" : "digital";
+  product = style === "refine" ? "refined" : "digital";
   const btn = document.getElementById("generateBtn");
   btn.disabled = true;
   setStatus(lang === "en" ? "Creating your portrait… about 30 seconds." : "Création de votre portrait… environ 30 secondes.");
@@ -88,14 +155,20 @@ document.getElementById("generateBtn").onclick = async () => {
     const j = await safeJson(r);
     if (!r.ok) throw new Error(j.error || "failed");
     jobId = j.job_id;
-    document.getElementById("previewImg").src = j.preview_url + "?t=" + Date.now();
+    versions = j.version;
+    attemptsLeft = j.attempts_left;
+    paidMode = false;
     document.getElementById("step4").style.display = "block";
+    document.getElementById("regenBox").style.display = "block";
+    document.getElementById("sorryBox").style.display = "none";
+    document.getElementById("payBtn").style.display = "inline-block";
+    document.getElementById("dlBtn").style.display = "none";
     const payBtn = document.getElementById("payBtn");
-    payBtn.textContent = product === "painted"
-      ? (lang === "en" ? "Purchase — $25" : "Acheter — 25 $")
-      : product === "refined"
+    payBtn.textContent = product === "refined"
       ? (lang === "en" ? "Purchase — $4.99" : "Acheter — 4,99 $")
-      : (lang === "en" ? "Purchase — $10" : "Acheter — 10 $");
+      : (lang === "en" ? "Purchase — $9.99" : "Acheter — 9,99 $");
+    showVersion(1);
+    updateRegenUI();
     document.getElementById("step4").scrollIntoView({ behavior: "smooth" });
     setStatus("");
   } catch (e) {
@@ -107,26 +180,33 @@ document.getElementById("generateBtn").onclick = async () => {
 document.getElementById("payBtn").onclick = async () => {
   const r = await fetch("/api/checkout", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ job_id: jobId, product })
+    body: JSON.stringify({ job_id: jobId, product, version: currentVersion })
   });
   const j = await safeJson(r);
   if (j.url) window.location.href = j.url;
+  else if (j.error) setStatus((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + j.error);
 };
 
-// After Stripe redirect (?paid=1&job=...)
+// After Stripe redirect (?paid=1&job=...&v=...)
 (async () => {
   const q = new URLSearchParams(location.search);
   if (q.get("paid") === "1" && q.get("job")) {
     jobId = q.get("job");
+    const v = parseInt(q.get("v") || "1", 10);
     document.getElementById("step4").style.display = "block";
     for (let i = 0; i < 20; i++) {
       const r = await fetch("/api/status/" + jobId);
       const j = await safeJson(r);
       if (j.paid) {
+        paidMode = true;
+        versions = j.versions || 1;
+        attemptsLeft = j.attempts_left || 0;
         document.getElementById("payBtn").style.display = "none";
+        document.getElementById("regenBox").style.display = "none";
+        document.getElementById("sorryBox").style.display = "none";
         const dl = document.getElementById("dlBtn");
         dl.style.display = "inline-block";
-        dl.onclick = () => window.location.href = "/download/" + jobId;
+        showVersion(Math.min(v, versions));
         break;
       }
       await new Promise(r => setTimeout(r, 1500));
