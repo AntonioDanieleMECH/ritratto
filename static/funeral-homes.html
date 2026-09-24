@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>For Funeral Homes — Ritratto</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><a href="/" style="color:inherit;text-decoration:none">Ritratto</a></div>
+  <button id="langToggle" class="lang">EN</button>
+</header>
+
+<main>
+  <section class="hero">
+    <h1 data-en="Offer every family a dignified portrait — in 30 seconds."
+        data-fr="Offrez à chaque famille un portrait digne — en 30 secondes.">Offer every family a dignified portrait — in 30 seconds.</h1>
+    <p data-en="Your staff upload any photo of the deceased. Our system gently places them in formal attire — ready for the service, the obituary, and the memorial table. No Photoshop, no waiting, no designer needed."
+       data-fr="Votre personnel téléverse n'importe quelle photo du défunt. Notre système le place avec soin en tenue de cérémonie — prêt pour les funérailles, l'avis de décès et la table commémorative. Sans Photoshop, sans attente, sans graphiste.">Your staff upload any photo of the deceased. Our system gently places them in formal attire — ready for the service, the obituary, and the memorial table. No Photoshop, no waiting, no designer needed.</p>
+  </section>
+
+  <section class="card">
+    <h2 data-en="How it works" data-fr="Comment ça fonctionne">How it works</h2>
+    <p><span class="n">1</span> <span data-en="Sign up below — first 30 days free." data-fr="Inscrivez-vous ci-dessous — les 30 premiers jours sont gratuits.">Sign up below — first 30 days free.</span></p>
+    <p><span class="n">2</span> <span data-en="Your staff log in to a private dashboard." data-fr="Votre personnel se connecte à un tableau de bord privé.">Your staff log in to a private dashboard.</span></p>
+    <p><span class="n">3</span> <span data-en="Upload any family photo, choose the attire, download a print-ready portrait." data-fr="Téléversez n'importe quelle photo, choisissez la tenue, téléchargez un portrait prêt à imprimer.">Upload any family photo, choose the attire, download a print-ready portrait.</span></p>
+  </section>
+
+  <section class="card print-upsell">
+    <h2 data-en="$69/month — unlimited portraits" data-fr="69 $/mois — portraits illimités"> $69/month — unlimited portraits</h2>
+    <p data-en="One flat monthly fee. Every portrait your home creates is included — for every family, every service. Cancel anytime. Photos are auto-deleted after 24 hours and never used for training."
+       data-fr="Un seul tarif mensuel fixe. Chaque portrait créé par votre maison est inclus — pour chaque famille, chaque service. Annulez en tout temps. Les photos sont supprimées après 24 heures et ne servent jamais à entraîner l'IA.">One flat monthly fee. Every portrait your home creates is included — for every family, every service. Cancel anytime. Photos are auto-deleted after 24 hours and never used for training.</p>
+  </section>
+
+  <section class="card" id="signupCard">
+    <h2><span class="n">✦</span> <span data-en="Start your free 30-day trial" data-fr="Commencez votre essai gratuit de 30 jours">Start your free 30-day trial</span></h2>
+    <p class="hint" data-en="No charge for 30 days. Cancel anytime."
+       data-fr="Aucun frais pendant 30 jours. Annulez en tout temps.">No charge for 30 days. Cancel anytime.</p>
+    <p><input type="text" id="biz" data-ph-en="Funeral home name" data-ph-fr="Nom de la maison funéraire" placeholder="Funeral home name" style="width:100%;padding:0.7rem;margin-bottom:0.5rem"></p>
+    <p><input type="email" id="email" placeholder="Email" style="width:100%;padding:0.7rem;margin-bottom:0.5rem"></p>
+    <p><input type="password" id="pw" data-ph-en="Password (8+ characters)" data-ph-fr="Mot de passe (8+ caractères)" placeholder="Password (8+ characters)" style="width:100%;padding:0.7rem;margin-bottom:0.5rem"></p>
+    <p><label class="radio" style="font-size:0.9rem"><input type="checkbox" id="newsletter" style="margin-right:0.5rem">
+      <span data-en="Email me product updates (optional, unsubscribe anytime)" data-fr="Envoyez-moi les mises à jour par courriel (facultatif, désinscription en tout temps)">Email me product updates (optional, unsubscribe anytime)</span></label></p>
+    <button id="signupBtn" data-en="Start free trial" data-fr="Commencer l'essai gratuit">Start free trial</button>
+    <div id="status" class="status"></div>
+    <p class="hint" style="margin-top:1rem"><a href="/privacy.html" style="color:var(--gold)" data-en="Privacy policy" data-fr="Politique de confidentialité">Privacy policy</a> ·
+      <a href="/dashboard.html" style="color:var(--gold)" data-en="Already a member? Log in" data-fr="Déjà membre? Se connecter">Already a member? Log in</a></p>
+  </section>
+</main>
+
+<script>
+let lang = "fr";
+document.getElementById("langToggle").onclick = () => {
+  lang = lang === "en" ? "fr" : "en";
+  document.querySelectorAll("[data-en]").forEach(el => el.textContent = el.dataset[lang]);
+  document.querySelectorAll("[data-ph-en]").forEach(el => el.placeholder = el.dataset[lang === "en" ? "phEn" : "phFr"]);
+  document.documentElement.lang = lang;
+  document.getElementById("langToggle").textContent = lang === "en" ? "FR" : "EN";
+};
+document.getElementById("signupBtn").onclick = async () => {
+  const btn = document.getElementById("signupBtn");
+  const status = document.getElementById("status");
+  btn.disabled = true;
+  status.textContent = lang === "en" ? "Creating your account…" : "Création de votre compte…";
+  try {
+    const r = await fetch("/api/signup", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        business: document.getElementById("biz").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("pw").value,
+        newsletter: document.getElementById("newsletter").checked
+      })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "failed");
+    window.location.href = j.url;
+  } catch (e) {
+    status.textContent = e.message;
+    btn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
