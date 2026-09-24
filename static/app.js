@@ -57,7 +57,7 @@ document.getElementById("generateBtn").onclick = async () => {
   const photo = document.getElementById("photo").files[0];
   if (!photo) { setStatus(lang === "en" ? "Please upload a photo first." : "Veuillez d'abord téléverser une photo."); return; }
   const style = document.querySelector('input[name=style]:checked').value;
-  product = style === "painting" ? "painted" : "digital";
+  product = style === "painting" ? "painted" : style === "refine" ? "refined" : "digital";
   const btn = document.getElementById("generateBtn");
   btn.disabled = true;
   setStatus(lang === "en" ? "Creating your portrait… about 30 seconds." : "Création de votre portrait… environ 30 secondes.");
@@ -81,6 +81,8 @@ document.getElementById("generateBtn").onclick = async () => {
     const payBtn = document.getElementById("payBtn");
     payBtn.textContent = product === "painted"
       ? (lang === "en" ? "Purchase — $25" : "Acheter — 25 $")
+      : product === "refined"
+      ? (lang === "en" ? "Purchase — $4.99" : "Acheter — 4,99 $")
       : (lang === "en" ? "Purchase — $10" : "Acheter — 10 $");
     document.getElementById("step4").scrollIntoView({ behavior: "smooth" });
     setStatus("");
@@ -119,5 +121,13 @@ document.getElementById("payBtn").onclick = async () => {
     }
   }
 })();
+
+// Refinement needs no attire choice — hide step 2 when it's selected
+document.querySelectorAll('input[name=style]').forEach(r => {
+  r.addEventListener("change", () => {
+    const style = document.querySelector('input[name=style]:checked').value;
+    document.getElementById("step2").style.display = style === "refine" ? "none" : "block";
+  });
+});
 
 applyLang();
