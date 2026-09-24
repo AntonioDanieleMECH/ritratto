@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Dashboard — Ritratto</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Ritratto</div>
+  <div>
+    <span id="bizName" style="color:var(--muted);margin-right:1rem"></span>
+    <button id="portalBtn" class="lang" style="margin-right:0.5rem">Billing</button>
+    <button id="logoutBtn" class="lang">Log out</button>
+  </div>
+</header>
+
+<main>
+  <!-- login form (shown when logged out) -->
+  <section class="card" id="loginCard" style="display:none">
+    <h2>Staff log in</h2>
+    <p><input type="email" id="email" placeholder="Email" style="width:100%;padding:0.7rem;margin-bottom:0.5rem"></p>
+    <p><input type="password" id="pw" placeholder="Password" style="width:100%;padding:0.7rem;margin-bottom:0.5rem"></p>
+    <button id="loginBtn">Log in</button>
+    <div id="loginStatus" class="status"></div>
+  </section>
+
+  <div id="dash" style="display:none">
+    <section class="card" id="inactiveCard" style="display:none;border-color:#a33">
+      <h2>Subscription inactive</h2>
+      <p class="hint">Your trial or subscription is not active. Update billing to keep creating portraits.</p>
+      <button id="portalBtn2">Manage billing</button>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">1</span> Upload their photo</h2>
+      <p class="hint">Any photo works — old, faded, or casual. The face is kept exactly as it is.</p>
+      <input type="file" id="photo" accept="image/*">
+      <img id="photoThumb" class="thumb" alt="">
+    </section>
+
+    <section class="card">
+      <h2><span class="n">2</span> Choose their attire</h2>
+      <div class="attire-grid" id="attireGrid"></div>
+      <div id="suitUploadWrap" style="display:none">
+        <p class="hint">Upload a photo of the suit or outfit to use:</p>
+        <input type="file" id="suitPhoto" accept="image/*">
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">3</span> Generate portrait</h2>
+      <label class="radio"><input type="radio" name="style" value="photo" checked> Photographic portrait</label>
+      <label class="radio"><input type="radio" name="style" value="painting"> Hand-painted look</label>
+      <button id="generateBtn">Create portrait</button>
+      <div id="status" class="status"></div>
+      <img id="resultImg" class="preview" alt="" style="display:none">
+      <a id="dlLink" href="#" style="display:none;color:var(--gold)">Download full-resolution portrait</a>
+    </section>
+
+    <section class="card">
+      <h2>Recent portraits</h2>
+      <div id="history" class="attire-grid"></div>
+    </section>
+  </div>
+</main>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
