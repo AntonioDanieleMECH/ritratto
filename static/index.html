@@ -15,10 +15,21 @@
 <meta property="og:image" content="https://ritratto.onrender.com/og-card.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Service","name":"Ritratto","alternateName":"Ritratto — Portraits funéraires","description":"AI memorial portraits from any photo: dignified funeral attire, old photo restoration, and painted-style portraits.","url":"https://ritratto.onrender.com/","logo":"https://ritratto.onrender.com/icon.png","image":"https://ritratto.onrender.com/og-card.jpg","provider":{"@type":"Organization","name":"Ritratto","email":"antonio.learningisfun@gmail.com"},"areaServed":{"@type":"AdministrativeArea","name":"Quebec, Canada"},"hasOfferCatalog":{"@type":"OfferCatalog","name":"Memorial portraits","itemListElement":[{"@type":"Offer","name":"Photo refinement — old photo restoration","price":"4.99","priceCurrency":"CAD"},{"@type":"Offer","name":"Memorial portrait — HD digital download","price":"10","priceCurrency":"CAD"},{"@type":"Offer","name":"Memorial portrait — hand-painted style","price":"25","priceCurrency":"CAD"}]}}
+{"@context":"https://schema.org","@type":"Service","name":"Ritratto","alternateName":"Ritratto — Portraits funéraires",
+"description":"AI memorial portraits from any photo: dignified funeral attire and old photo restoration.",
+"url":"https://ritratto.onrender.com/","logo":"https://ritratto.onrender.com/icon.png","image":"https://ritratto.onrender.com/og-card.jpg",
+"provider":{"@type":"Organization","name":"Ritratto","email":"antonio.learningisfun@gmail.com"},
+"areaServed":{"@type":"AdministrativeArea","name":"Quebec, Canada"},
+"hasOfferCatalog":{"@type":"OfferCatalog","name":"Memorial portraits","itemListElement":[
+{"@type":"Offer","name":"Photo refinement — old photo restoration","price":"4.99","priceCurrency":"CAD"},
+{"@type":"Offer","name":"Memorial portrait — HD digital download","price":"9.99","priceCurrency":"CAD"}]}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Will the portrait still look like my loved one?","acceptedAnswer":{"@type":"Answer","text":"Yes. The face is kept exactly identical — same features, expression, and age. Only the clothing and presentation change."}},{"@type":"Question","name":"What kind of photo can I upload?","acceptedAnswer":{"@type":"Answer","text":"Any photo works — old, faded, blurry, or casual. Our photo refinement option can also restore damaged photos without changing anything else."}},{"@type":"Question","name":"How long does it take?","acceptedAnswer":{"@type":"Answer","text":"Your watermarked preview is ready in about 30 seconds. Pay only if you love it, then download the full HD portrait."}},{"@type":"Question","name":"Is my photo kept private?","acceptedAnswer":{"@type":"Answer","text":"Yes. Photos are automatically deleted after 24 hours and are never used to train AI."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Will the portrait still look like my loved one?","acceptedAnswer":{"@type":"Answer","text":"Yes. The face is kept exactly identical — same features, expression, and age. Only the clothing and presentation change."}},
+{"@type":"Question","name":"What kind of photo can I upload?","acceptedAnswer":{"@type":"Answer","text":"Any photo works — old, faded, blurry, or casual. Our photo refinement option can also restore damaged photos without changing anything else."}},
+{"@type":"Question","name":"How long does it take?","acceptedAnswer":{"@type":"Answer","text":"Your watermarked preview is ready in about 30 seconds. Pay only if you love it, then download the full HD portrait."}},
+{"@type":"Question","name":"Is my photo kept private?","acceptedAnswer":{"@type":"Answer","text":"Yes. Photos are automatically deleted after 24 hours and are never used to train AI."}}]}
 </script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -26,7 +37,6 @@
 <header>
   <div class="brand">Ritratto</div>
   <div>
-    <a href="/funeral-homes.html" style="color:var(--gold);margin-right:1rem;font-size:0.9rem" data-en="For funeral homes" data-fr="Pour maisons funéraires">For funeral homes</a>
     <button id="langToggle" class="lang">FR</button>
   </div>
 </header>
@@ -44,7 +54,7 @@
     <p class="hint" data-en="Any photo works — old, faded, or casual. We keep the face exactly as it is."
        data-fr="N'importe quelle photo convient — ancienne, pâle ou décontractée. Nous gardons le visage exactement tel quel.">Any photo works — old, faded, or casual. We keep the face exactly as it is.</p>
     <input type="file" id="photo" accept="image/*">
-    <img id="photoThumb" class="thumb" alt="">
+    <img id="photoThumb" class="thumb" alt="Uploaded photo preview">
   </section>
 
   <section class="card" id="step2">
@@ -62,9 +72,7 @@
   <section class="card" id="step3">
     <h2><span class="n">3</span> <span data-en="Choose a style" data-fr="Choisissez un style">Choose a style</span></h2>
     <label class="radio"><input type="radio" name="style" value="photo" checked>
-      <span data-en="Photographic portrait — $10" data-fr="Portrait photographique — 10 $">Photographic portrait — $10</span></label>
-    <label class="radio"><input type="radio" name="style" value="painting">
-      <span data-en="Hand-painted look portrait — $25" data-fr="Portrait effet peinture — 25 $">Hand-painted look portrait — $25</span></label>
+      <span data-en="Photographic portrait — $9.99" data-fr="Portrait photographique — 9,99 $">Photographic portrait — $9.99</span></label>
     <label class="radio"><input type="radio" name="style" value="refine">
       <span data-en="Photo refinement — $4.99" data-fr="Retouche photo — 4,99 $">Photo refinement — $4.99</span></label>
     <p class="hint" data-en="Refinement cleans up scratches, fading, and blur. Your photo stays exactly as it is — no clothing change."
@@ -76,16 +84,34 @@
   <section class="card" id="step4" style="display:none">
     <h2><span class="n">4</span> <span data-en="Your preview" data-fr="Votre aperçu">Your preview</span></h2>
     <img id="previewImg" class="preview" alt="">
-    <p class="hint" data-en="Watermarked preview. The full-resolution portrait is delivered after payment — yours to keep, print, and share."
-       data-fr="Aperçu avec filigrane. Le portrait haute résolution est livré après le paiement — à vous pour toujours.">Watermarked preview. The full-resolution portrait is delivered after payment — yours to keep, print, and share.</p>
-    <button id="payBtn" data-en="Purchase — $10" data-fr="Acheter — 10 $">Purchase — $10</button>
+    <div class="version-nav">
+      <button id="prevVer" class="navbtn">←</button>
+      <span id="verLabel" class="hint"></span>
+      <button id="nextVer" class="navbtn">→</button>
+    </div>
+    <p class="hint" data-en="Watermarked preview, shown smaller than the final portrait. The full-resolution portrait is delivered after payment — yours to keep, print, and share."
+       data-fr="Aperçu avec filigrane, affiché plus petit que le portrait final. Le portrait haute résolution est livré après le paiement — à vous pour toujours.">Watermarked preview, shown smaller than the final portrait. The full-resolution portrait is delivered after payment — yours to keep, print, and share.</p>
+    <div id="regenBox">
+      <p class="hint" data-en="Not quite right? Tell us what to change and we'll try again — free, up to 15 versions."
+         data-fr="Pas tout à fait ça ? Dites-nous quoi changer et nous réessaierons — gratuit, jusqu'à 15 versions.">Not quite right? Tell us what to change and we'll try again — free, up to 15 versions.</p>
+      <input type="text" id="regenNote" maxlength="500">
+      <button id="regenBtn" data-en="Regenerate" data-fr="Régénérer">Regenerate</button>
+      <span id="attemptsLabel" class="hint"></span>
+      <div id="regenStatus" class="status"></div>
+    </div>
+    <div id="sorryBox" class="sorry" style="display:none">
+      <p data-en="We're sorry we weren't able to help. Email us and we'll finish your portrait by hand:"
+         data-fr="Nous sommes désolés de ne pas avoir pu vous aider. Écrivez-nous et nous terminerons votre portrait à la main :">We're sorry we weren't able to help. Email us and we'll finish your portrait by hand:</p>
+      <a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a>
+    </div>
+    <button id="payBtn" data-en="Purchase — $9.99" data-fr="Acheter — 9,99 $">Purchase — $9.99</button>
     <button id="dlBtn" style="display:none" data-en="Download full-resolution portrait" data-fr="Télécharger le portrait haute résolution">Download full-resolution portrait</button>
   </section>
 
   <section class="card print-upsell">
-    <h2 data-en="Also available: canvas print" data-fr="Aussi offert : impression sur toile">Also available: canvas print</h2>
-    <p data-en="Have the portrait printed on gallery canvas, ready to hang — from $59. Contact us after your purchase and we'll arrange printing and delivery."
-       data-fr="Faites imprimer le portrait sur toile galerie, prêt à accrocher — à partir de 59 $. Contactez-nous après votre achat et nous organiserons l'impression et la livraison.">Have the portrait printed on gallery canvas, ready to hang — from $59. Contact us after your purchase and we'll arrange printing and delivery.</p>
+    <h2 data-en="Canvas prints — coming soon" data-fr="Impressions sur toile — bientôt offertes">Canvas prints — coming soon</h2>
+    <p data-en="Gallery canvas prints, ready to hang. We're setting this up now — check back soon."
+       data-fr="Impressions sur toile galerie, prêtes à accrocher. Nous sommes en train de mettre ce service en place — revenez bientôt.">Gallery canvas prints, ready to hang. We're setting this up now — check back soon.</p>
   </section>
 
   <section class="privacy">
