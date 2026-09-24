@@ -1,0 +1,56 @@
+:root {
+  --bg: #141210;
+  --card: #1e1b17;
+  --gold: #c9a86a;
+  --text: #ece5d8;
+  --muted: #a89e8d;
+  --line: #35302a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: Georgia, 'Times New Roman', serif; line-height: 1.6;
+}
+header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1rem 1.5rem; border-bottom: 1px solid var(--line);
+}
+.brand { font-size: 1.1rem; letter-spacing: 2px; color: var(--gold); }
+.lang {
+  background: none; border: 1px solid var(--gold); color: var(--gold);
+  padding: 0.3rem 0.9rem; cursor: pointer; font-size: 0.9rem; border-radius: 4px;
+}
+main { max-width: 640px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.hero { text-align: center; margin: 2rem 0 2.5rem; }
+.hero h1 { font-size: 1.9rem; font-weight: normal; color: var(--gold); margin-bottom: 0.8rem; }
+.hero p { color: var(--muted); font-size: 1.05rem; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 1.5rem; margin-bottom: 1.2rem;
+}
+.card h2 { font-weight: normal; font-size: 1.25rem; margin: 0 0 0.6rem; }
+.n {
+  display: inline-block; width: 1.7rem; height: 1.7rem; line-height: 1.7rem;
+  text-align: center; border: 1px solid var(--gold); color: var(--gold);
+  border-radius: 50%; font-size: 0.95rem; margin-right: 0.5rem;
+}
+.hint { color: var(--muted); font-size: 0.95rem; }
+input[type=file] { margin: 0.6rem 0; color: var(--muted); }
+.thumb { max-width: 160px; border-radius: 6px; display: none; margin-top: 0.5rem; }
+.attire-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.6rem; }
+.attire {
+  border: 1px solid var(--line); border-radius: 6px; padding: 0.7rem;
+  cursor: pointer; text-align: center; font-size: 0.95rem;
+}
+.attire.selected { border-color: var(--gold); background: #2a251e; color: var(--gold); }
+.radio { display: block; margin: 0.5rem 0; cursor: pointer; }
+button {
+  background: var(--gold); color: #141210; border: none; border-radius: 6px;
+  padding: 0.8rem 1.6rem; font-size: 1rem; cursor: pointer; margin-top: 0.8rem;
+  font-family: Georgia, serif;
+}
+button:disabled { opacity: 0.5; cursor: wait; }
+.status { margin-top: 0.8rem; color: var(--muted); font-style: italic; }
+.preview { width: 100%; border-radius: 8px; margin: 0.5rem 0; }
+.print-upsell { border-color: var(--gold); }
+.privacy { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 2rem; font-style: italic; }
