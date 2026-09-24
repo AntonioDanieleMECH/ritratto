@@ -5,7 +5,7 @@ const ATTIRE = {
   clerical: "Clerical collar", custom: "Upload my own suit"
 };
 const $ = id => document.getElementById(id);
-const setStatus = t => $("status").textContent = t;
+const setStatus = t => $("status").textContent = t; /* Parse a JSON response, but show a friendly message if the server answered with an HTML error page (e.g. mid-deploy) instead. */ async function safeJson(r){const text=await r.text();try{return JSON.parse(text);}catch(e){throw new Error("The server is briefly updating — please try again in a minute.");}}
 
 function renderAttire() {
   const grid = $("attireGrid");
@@ -24,7 +24,7 @@ function renderAttire() {
 
 async function refreshMe() {
   const r = await fetch("/api/me");
-  const j = await r.json();
+  const j = await safeJson(r);
   if (!j.user) {
     $("loginCard").style.display = "block";
     $("dash").style.display = "none";
@@ -40,7 +40,7 @@ async function refreshMe() {
 async function loadHistory() {
   const r = await fetch("/api/staff/jobs");
   if (!r.ok) return;
-  const jobs = await r.json();
+  const jobs = await safeJson(r);
   const h = $("history");
   h.innerHTML = "";
   jobs.forEach(job => {
@@ -59,7 +59,7 @@ $("loginBtn").onclick = async () => {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ email: $("email").value, password: $("pw").value })
   });
-  const j = await r.json();
+  const j = await safeJson(r);
   if (!r.ok) { $("loginStatus").textContent = j.error; return; }
   await refreshMe();
   await loadHistory();
@@ -72,7 +72,7 @@ $("logoutBtn").onclick = async () => {
 
 const openPortal = async () => {
   const r = await fetch("/api/portal", { method: "POST" });
-  const j = await r.json();
+  const j = await safeJson(r);
   if (j.url) window.location.href = j.url;
 };
 $("portalBtn").onclick = openPortal;
@@ -104,7 +104,7 @@ $("generateBtn").onclick = async () => {
   }
   try {
     const r = await fetch("/api/staff/generate", { method: "POST", body: fd });
-    const j = await r.json();
+    const j = await safeJson(r);
     if (!r.ok) throw new Error(j.error || "failed");
     $("resultImg").src = j.image_url + "?t=" + Date.now();
     $("resultImg").style.display = "block";
