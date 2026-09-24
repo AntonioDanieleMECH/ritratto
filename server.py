@@ -46,6 +46,7 @@ DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
 PRICES = {
     "digital": {"amount": 1000, "label": "Memorial portrait — HD digital download"},
     "painted": {"amount": 2500, "label": "Memorial portrait — painted style HD download"},
+    "refined": {"amount": 499, "label": "Photo refinement — restored HD download"},
 }
 B2B_PRICE_CAD = 6900  # $69/month
 
@@ -186,6 +187,19 @@ def painted_prompt(attire_desc):
     )
 
 
+def refine_prompt():
+    return (
+        "You are restoring an old or damaged photograph for a memorial display. "
+        "CRITICAL: keep this person's face exactly identical — same facial features, "
+        "same expression, same apparent age, same skin tone, same identity, same clothing, "
+        "same pose and framing. Do NOT beautify, de-age, slim, or alter the person in any way. "
+        "Only repair the photograph itself: remove scratches, dust, and creases; fix fading "
+        "and discoloration; correct exposure and white balance; gently sharpen blurry areas; "
+        "reduce noise and grain. The result must look like a clean, high-quality scan of the "
+        "same photograph — a real photograph, not an illustration."
+    )
+
+
 def add_watermark(img):
     w, h = img.size
     scale = 900 / max(w, h)
@@ -206,6 +220,9 @@ def run_generation(jobdir, photo_file, attire_id, style, suit_file=None):
     """Shared generation pipeline. Returns PIL image. Raises on failure."""
     src = os.path.join(jobdir, "source.jpg")
     Image.open(photo_file.stream).convert("RGB").save(src, "JPEG", quality=92)
+    if style == "refine":
+        # photo restoration only: no attire change
+        return gemini_edit([src], refine_prompt())
     images = [src]
     if attire_id == "custom":
         if not suit_file:
@@ -233,7 +250,7 @@ def generate():
         return jsonify({"error": "no photo uploaded"}), 400
     attire_id = request.form.get("attire", "black")
     style = request.form.get("style", "photo")
-    product = "painted" if style == "painting" else "digital"
+    product = "painted" if style == "painting" else "refined" if style == "refine" else "digital"
     jid = new_job(product)
     jobdir = os.path.join(OUTPUTS, jid)
     try:
@@ -428,7 +445,7 @@ def staff_generate():
         return jsonify({"error": "no photo uploaded"}), 400
     attire_id = request.form.get("attire", "black")
     style = request.form.get("style", "photo")
-    jid = new_job("painted" if style == "painting" else "digital", user_id=user["id"])
+    jid = new_job("painted" if style == "painting" else "refined" if style == "refine" else "digital", user_id=user["id"])
     jobdir = os.path.join(OUTPUTS, jid)
     try:
         result = run_generation(jobdir, photo, attire_id, style, request.files.get("suit_photo"))
