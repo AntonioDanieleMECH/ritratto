@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ritratto — A dignified portrait for their farewell</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Ritratto</div>
+  <div>
+    <a href="/funeral-homes.html" style="color:var(--gold);margin-right:1rem;font-size:0.9rem" data-en="For funeral homes" data-fr="Pour maisons funéraires">For funeral homes</a>
+    <button id="langToggle" class="lang">FR</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1 data-en="A dignified portrait for their farewell."
+        data-fr="Un portrait digne pour leur adieu.">A dignified portrait for their farewell.</h1>
+    <p data-en="Upload any photo of your loved one. We gently place them in formal attire — the portrait they deserve for the service, the obituary, and your home."
+       data-fr="Téléversez n'importe quelle photo de votre proche. Nous le plaçons avec soin en tenue de cérémonie — le portrait qu'il mérite pour les funérailles, l'avis de décès et votre foyer.">Upload any photo of your loved one. We gently place them in formal attire — the portrait they deserve for the service, the obituary, and your home.</p>
+  </section>
+
+  <section class="card" id="step1">
+    <h2><span class="n">1</span> <span data-en="Upload their photo" data-fr="Téléversez sa photo">Upload their photo</span></h2>
+    <p class="hint" data-en="Any photo works — old, faded, or casual. We keep the face exactly as it is."
+       data-fr="N'importe quelle photo convient — ancienne, pâle ou décontractée. Nous gardons le visage exactement tel quel.">Any photo works — old, faded, or casual. We keep the face exactly as it is.</p>
+    <input type="file" id="photo" accept="image/*">
+    <img id="photoThumb" class="thumb" alt="">
+  </section>
+
+  <section class="card" id="step2">
+    <h2><span class="n">2</span> <span data-en="Choose their attire" data-fr="Choisissez sa tenue">Choose their attire</span></h2>
+    <div class="attire-grid" id="attireGrid"></div>
+    <div id="suitUploadWrap" style="display:none">
+      <p class="hint" data-en="Upload a photo of the suit or outfit to use:"
+         data-fr="Téléversez une photo du complet ou de la tenue à utiliser :">Upload a photo of the suit or outfit to use:</p>
+      <input type="file" id="suitPhoto" accept="image/*">
+    </div>
+  </section>
+
+  <section class="card" id="step3">
+    <h2><span class="n">3</span> <span data-en="Choose a style" data-fr="Choisissez un style">Choose a style</span></h2>
+    <label class="radio"><input type="radio" name="style" value="photo" checked>
+      <span data-en="Photographic portrait — $10" data-fr="Portrait photographique — 10 $">Photographic portrait — $10</span></label>
+    <label class="radio"><input type="radio" name="style" value="painting">
+      <span data-en="Hand-painted look portrait — $25" data-fr="Portrait effet peinture — 25 $">Hand-painted look portrait — $25</span></label>
+    <button id="generateBtn" data-en="Create preview" data-fr="Créer l'aperçu">Create preview</button>
+    <div id="status" class="status"></div>
+  </section>
+
+  <section class="card" id="step4" style="display:none">
+    <h2><span class="n">4</span> <span data-en="Your preview" data-fr="Votre aperçu">Your preview</span></h2>
+    <img id="previewImg" class="preview" alt="">
+    <p class="hint" data-en="Watermarked preview. The full-resolution portrait is delivered after payment — yours to keep, print, and share."
+       data-fr="Aperçu avec filigrane. Le portrait haute résolution est livré après le paiement — à vous pour toujours.">Watermarked preview. The full-resolution portrait is delivered after payment — yours to keep, print, and share.</p>
+    <button id="payBtn" data-en="Purchase — $10" data-fr="Acheter — 10 $">Purchase — $10</button>
+    <button id="dlBtn" style="display:none" data-en="Download full-resolution portrait" data-fr="Télécharger le portrait haute résolution">Download full-resolution portrait</button>
+  </section>
+
+  <section class="card print-upsell">
+    <h2 data-en="Also available: canvas print" data-fr="Aussi offert : impression sur toile">Also available: canvas print</h2>
+    <p data-en="Have the portrait printed on gallery canvas, ready to hang — from $59. Contact us after your purchase and we'll arrange printing and delivery."
+       data-fr="Faites imprimer le portrait sur toile galerie, prêt à accrocher — à partir de 59 $. Contactez-nous après votre achat et nous organiserons l'impression et la livraison.">Have the portrait printed on gallery canvas, ready to hang — from $59. Contact us after your purchase and we'll arrange printing and delivery.</p>
+  </section>
+
+  <section class="privacy">
+    <p data-en="Your photos are never stored longer than 24 hours, never shared, and never used to train AI. What you upload belongs to you."
+       data-fr="Vos photos ne sont jamais conservées plus de 24 heures, jamais partagées, et jamais utilisées pour entraîner l'IA. Ce que vous téléversez vous appartient.">Your photos are never stored longer than 24 hours, never shared, and never used to train AI. What you upload belongs to you.</p>
+  </section>
+</main>
+
+<footer style="text-align:center;padding:2rem;color:var(--muted);font-size:0.85rem">
+  <a href="/privacy.html" style="color:var(--gold)" data-en="Privacy policy" data-fr="Politique de confidentialité">Privacy policy</a>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
