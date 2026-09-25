@@ -93,3 +93,10 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .lamp-buy button { flex: 1; min-width: 200px; padding: 0.9rem 0.5rem; }
 .lamp-buy .alt { background: none; border: 1px solid var(--gold); color: var(--gold); }
 @media (max-width: 640px) { .sides { grid-template-columns: repeat(2, 1fr); } }
+.restore-grid { display: grid; grid-template-columns: 1fr; gap: 1.2rem; margin: 1rem 0; }
+.restore-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; align-items: start; }
+.restore-pair figure { margin: 0; }
+.restore-pair img { width: 100%; border-radius: 6px; border: 1px solid var(--line); }
+.restore-pair figcaption { font-size: 0.9rem; color: var(--muted); text-align: center; margin-top: 0.3rem; }
+.restore-note { font-size: 0.95rem; color: var(--muted); text-align: center; margin-top: 0.6rem; }
+@media (min-width: 700px) { .restore-grid { grid-template-columns: 1fr 1fr; } }
