@@ -239,10 +239,12 @@ def add_watermark(img):
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 44)
     except OSError:
         font = ImageFont.load_default()
-    for x in range(-160, prev.size[0] + 160, 240):
-        t = Image.new("RGBA", (240, 60), (0, 0, 0, 0))
-        ImageDraw.Draw(t).text((10, 8), "PREVIEW", font=font, fill=(255, 255, 255, 90))
-        overlay = Image.alpha_composite(overlay, t.rotate(30, expand=True))
+    t = Image.new("RGBA", (240, 60), (0, 0, 0, 0))
+    ImageDraw.Draw(t).text((10, 8), "PREVIEW", font=font, fill=(255, 255, 255, 90))
+    tile = t.rotate(30, expand=True)
+    for y in range(-tile.height, prev.size[1] + tile.height, 220):
+        for x in range(-tile.width, prev.size[0] + tile.width, 340):
+            overlay.paste(tile, (x, y), tile)
     return Image.alpha_composite(prev.convert("RGBA"), overlay).convert("RGB")
 
 
