@@ -450,7 +450,7 @@ def validate_sides(sides):
             if not os.path.isfile(src):
                 raise ValueError("portrait file missing")
             clean.append({"kind": "portrait", "job": jid, "version": int(v)})
-            names.append("AI portrait")
+            names.append("edited photo")
         else:
             raise ValueError("choose all 4 sides")
     return clean, names
