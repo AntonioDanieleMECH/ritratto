@@ -106,6 +106,11 @@ def db():
         conn.execute("ALTER TABLE lamp_orders ADD COLUMN sides TEXT")
     except sqlite3.OperationalError:
         pass
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bundles "
+        "(id TEXT PRIMARY KEY, created TEXT, credits_total INTEGER DEFAULT 4, "
+        " credits_used INTEGER DEFAULT 0, paid INTEGER DEFAULT 0, stripe_session TEXT)"
+    )
     return conn
 
 
@@ -168,6 +173,58 @@ def mark_lamp_paid(oid):
     conn.execute("UPDATE lamp_orders SET paid=1 WHERE id=?", (oid,))
     conn.commit()
     conn.close()
+
+
+# ---------- portrait bundles: 4 portraits for the price of 3 ----------
+BUNDLE_CREDITS = 4
+BUNDLE_PRICE = 2997  # cents CAD = 3 x $9.99
+BUNDLE_LABEL = "4 memorial portraits — 4 for the price of 3"
+
+
+def new_bundle():
+    bid = "bundle_" + uuid.uuid4().hex[:10]
+    conn = db()
+    conn.execute(
+        "INSERT INTO bundles (id, created, credits_total, credits_used, paid)"
+        " VALUES (?,?,?,?,0)",
+        (bid, datetime.utcnow().isoformat(), BUNDLE_CREDITS, 0),
+    )
+    conn.commit()
+    conn.close()
+    return bid
+
+
+def get_bundle(bid):
+    conn = db()
+    row = conn.execute(
+        "SELECT credits_total, credits_used, paid FROM bundles WHERE id=?", (bid,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {"total": row[0], "used": row[1], "paid": bool(row[2]),
+            "left": row[0] - row[1]}
+
+
+def mark_bundle_paid(bid):
+    conn = db()
+    conn.execute("UPDATE bundles SET paid=1 WHERE id=?", (bid,))
+    conn.commit()
+    conn.close()
+
+
+def consume_bundle_credit(bid):
+    """Atomically consume one credit. Returns True when a credit was used."""
+    conn = db()
+    cur = conn.execute(
+        "UPDATE bundles SET credits_used = credits_used + 1"
+        " WHERE id=? AND paid=1 AND credits_used < credits_total",
+        (bid,),
+    )
+    ok = cur.rowcount == 1
+    conn.commit()
+    conn.close()
+    return ok
 
 
 # ---------- image generation ----------
@@ -296,7 +353,20 @@ def generate():
     if style not in ("photo", "refine"):
         return jsonify({"error": "unknown style"}), 400
     product = "refined" if style == "refine" else "digital"
+    bundle_id = (request.form.get("bundle_id") or "").strip()
+    if bundle_id:
+        if product != "digital":
+            return jsonify({"error": "portrait packs cover memorial portraits only"}), 400
+        b = get_bundle(bundle_id)
+        if not b:
+            return jsonify({"error": "unknown portrait pack"}), 404
+        if not b["paid"] or b["left"] <= 0:
+            return jsonify({"error": "no portrait credits left on this pack"}), 402
     jid = new_job(product, attire_id, style)
+    if bundle_id:
+        if not consume_bundle_credit(bundle_id):
+            return jsonify({"error": "no portrait credits left on this pack"}), 402
+        mark_paid(jid)
     jobdir = os.path.join(OUTPUTS, jid)
     try:
         result = run_generation(jobdir, photo, attire_id, style, request.files.get("suit_photo"))
@@ -399,6 +469,44 @@ def checkout():
         metadata={"job_id": jid, "kind": "b2c", "version": version},
     )
     return jsonify({"url": sess.url})
+
+
+@app.route("/api/bundle_checkout", methods=["POST"])
+def bundle_checkout():
+    """Sell a 4-portrait pack ($29.97 = 4 for the price of 3), paid upfront."""
+    bid = new_bundle()
+    if not STRIPE_SECRET:
+        if DEMO_MODE:
+            mark_bundle_paid(bid)
+            return jsonify({"url": f"{SITE_URL}/?bundle_paid=1&bundle={bid}", "demo": True})
+        # Fail closed: never hand out portraits without a working payment setup.
+        return jsonify({"error": "payments are not configured yet — please try again later"}), 503
+    import stripe
+    stripe.api_key = STRIPE_SECRET
+    sess = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{"price_data": {
+            "currency": "cad", "unit_amount": BUNDLE_PRICE,
+            "product_data": {"name": BUNDLE_LABEL}}, "quantity": 1}],
+        mode="payment",
+        success_url=f"{SITE_URL}/?bundle_paid=1&bundle={bid}",
+        cancel_url=f"{SITE_URL}/",
+        metadata={"kind": "bundle", "bundle_id": bid},
+    )
+    conn = db()
+    conn.execute("UPDATE bundles SET stripe_session=? WHERE id=?", (sess.id, bid))
+    conn.commit()
+    conn.close()
+    return jsonify({"url": sess.url})
+
+
+@app.route("/api/bundle/<bid>")
+def bundle_status(bid):
+    b = get_bundle(bid)
+    if not b:
+        return jsonify({"error": "unknown portrait pack"}), 404
+    return jsonify({"paid": b["paid"], "total": b["total"],
+                    "used": b["used"], "left": b["left"]})
 
 
 @app.route("/api/lamp-upload", methods=["POST"])
@@ -547,6 +655,8 @@ def webhook():
             mark_paid(meta["job_id"])
         elif meta.get("kind") == "lamp" and meta.get("order_id"):
             mark_lamp_paid(meta["order_id"])
+        elif meta.get("kind") == "bundle" and meta.get("bundle_id"):
+            mark_bundle_paid(meta["bundle_id"])
     return "ok", 200
 
 
