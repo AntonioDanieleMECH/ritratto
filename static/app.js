@@ -187,6 +187,36 @@ document.getElementById("payBtn").onclick = async () => {
   else if (j.error) setStatus((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + j.error);
 };
 
+document.querySelectorAll(".buyLamp").forEach(b => {
+  b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const r = await fetch("/api/lamp-checkout", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ design: b.dataset.design, pack: b.dataset.pack })
+      });
+      const j = await safeJson(r);
+      if (!r.ok) throw new Error(j.error || "failed");
+      if (j.url) window.location.href = j.url;
+    } catch (e) {
+      alert((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + e.message);
+    }
+    b.disabled = false;
+  };
+});
+
+// After lamp purchase (?lamp_paid=1)
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (q.get("lamp_paid") === "1") {
+    const t = document.getElementById("lampThanks");
+    if (t) {
+      t.style.display = "block";
+      document.getElementById("shop").scrollIntoView({ behavior: "smooth" });
+    }
+  }
+})();
+
 // After Stripe redirect (?paid=1&job=...&v=...)
 (async () => {
   const q = new URLSearchParams(location.search);
