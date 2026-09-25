@@ -2,7 +2,7 @@
 """
 Ritratto — backend.
 
-Flow: upload -> small watermarked preview -> regenerate up to 15x with notes
+Flow: upload -> small watermarked preview -> regenerate up to 5x with notes
       -> $9.99 / $4.99 one-time Stripe Checkout -> HD download of the chosen version.
 
 Env vars:
@@ -22,7 +22,7 @@ import time
 from datetime import datetime, timedelta
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from flask import Flask, request, jsonify, send_file, abort
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -47,7 +47,7 @@ PRICES = {
     "digital": {"amount": 999, "label": "Memorial portrait — HD digital download"},
     "refined": {"amount": 499, "label": "Photo refinement — restored HD download"},
 }
-MAX_ATTEMPTS = 15  # first generation + up to 14 regenerations
+MAX_ATTEMPTS = 5  # first generation + up to 4 regenerations
 SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 
 # 4-faced custom memorial lamps (physical product, shipped)
@@ -288,6 +288,12 @@ def refine_prompt(note=None):
     return p
 
 
+def load_upright(stream):
+    """Open an uploaded image with EXIF orientation applied, so phone photos
+    are saved upright instead of sideways. Returns an RGB PIL image."""
+    return ImageOps.exif_transpose(Image.open(stream)).convert("RGB")
+
+
 def add_watermark(img):
     """Small watermarked preview (max 640px) so screenshots stay low-value."""
     w, h = img.size
@@ -299,7 +305,7 @@ def add_watermark(img):
     except OSError:
         font = ImageFont.load_default()
     t = Image.new("RGBA", (240, 60), (0, 0, 0, 0))
-    ImageDraw.Draw(t).text((10, 8), "PREVIEW", font=font, fill=(255, 255, 255, 90))
+    ImageDraw.Draw(t).text((10, 8), "PREVIEW", font=font, fill=(255, 255, 255, 140))
     tile = t.rotate(30, expand=True)
     for y in range(-tile.height, prev.size[1] + tile.height, 220):
         for x in range(-tile.width, prev.size[0] + tile.width, 340):
@@ -318,14 +324,14 @@ def run_generation(jobdir, photo_file, attire_id, style, suit_file=None, note=No
     Pass photo_file=None to reuse the already-saved source photo (regeneration)."""
     src = os.path.join(jobdir, "source.jpg")
     if photo_file is not None:
-        Image.open(photo_file.stream).convert("RGB").save(src, "JPEG", quality=92)
+        load_upright(photo_file.stream).save(src, "JPEG", quality=92)
     if style == "refine":
         return gemini_edit([src], refine_prompt(note))
     images = [src]
     if attire_id in ("custom", "custom_dress"):
         ref_path = os.path.join(jobdir, "suit_ref.jpg")
         if suit_file is not None:
-            Image.open(suit_file.stream).convert("RGB").save(ref_path, "JPEG", quality=92)
+            load_upright(suit_file.stream).save(ref_path, "JPEG", quality=92)
         if not os.path.exists(ref_path):
             raise ValueError("custom attire needs a garment reference photo")
         images.append(ref_path)
@@ -364,7 +370,7 @@ def stage():
         return jsonify({"error": "no photo uploaded"}), 400
     sid = uuid.uuid4().hex[:16]
     try:
-        Image.open(f.stream).convert("RGB").save(
+        load_upright(f.stream).save(
             os.path.join(STAGED, sid + ".jpg"), "JPEG", quality=92)
     except Exception:
         return jsonify({"error": "invalid image"}), 400
@@ -569,7 +575,7 @@ def lamp_upload():
     name = "side_" + uuid.uuid4().hex[:10] + ".jpg"
     path = os.path.join(LAMP_UPLOAD_DIR, name)
     try:
-        img = Image.open(f.stream).convert("RGB")
+        img = load_upright(f.stream)
         img.thumbnail((1200, 1200), Image.LANCZOS)
         img.save(path, "JPEG", quality=88)
     except Exception:
