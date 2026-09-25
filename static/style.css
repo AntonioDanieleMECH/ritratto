@@ -67,3 +67,10 @@ button:disabled { opacity: 0.5; cursor: wait; }
   margin: 1rem 0; background: #2a251e;
 }
 .sorry a { color: var(--gold); }
+.lamp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.lamp-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem; text-align: center; }
+.lamp-card img { width: 100%; border-radius: 6px; margin-bottom: 0.5rem; }
+.lamp-name { font-size: 1.05rem; margin-bottom: 0.4rem; }
+.buyLamp { width: 100%; margin-top: 0.4rem; padding: 0.7rem 0.5rem; }
+.buyLamp.alt { background: none; border: 1px solid var(--gold); color: var(--gold); }
+.thanks { border: 1px solid var(--gold); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #2a251e; }
