@@ -29,6 +29,9 @@ main { max-width: 640px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
   padding: 1.5rem; margin-bottom: 1.2rem;
 }
 .card h2 { font-weight: normal; font-size: 1.25rem; margin: 0 0 0.6rem; }
+.card h3 { font-weight: normal; font-size: 1.05rem; color: var(--gold); margin: 1.1rem 0 0.3rem; }
+.card h3:first-of-type { margin-top: 0.4rem; }
+#faq p { color: var(--muted); margin: 0 0 0.4rem; }
 .n {
   display: inline-block; width: 1.7rem; height: 1.7rem; line-height: 1.7rem;
   text-align: center; border: 1px solid var(--gold); color: var(--gold);

@@ -1,4 +1,4 @@
-let lang = "fr";
+let lang = new URLSearchParams(location.search).get("lang") === "en" ? "en" : "fr";
 let attire = "black";
 let jobId = null;
 let product = "digital";
@@ -55,6 +55,7 @@ function applyLang() {
 }
 document.getElementById("langToggle").onclick = () => {
   lang = lang === "en" ? "fr" : "en";
+  setParams({ lang });
   applyLang();
 };
 
