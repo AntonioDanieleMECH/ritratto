@@ -52,6 +52,7 @@ SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 # Customers design the 4 sides: pick saint illustrations or upload their own photos.
 GALLERY = {
     "solanus-casey": {"name": "Blessed Solanus Casey", "image": "/lamps/gallery/solanus-casey.jpg"},
+    "frere-andre": {"name": "Frère André", "image": "/lamps/gallery/bishop-example.jpg"},
     "padrepio-face": {"name": "Padre Pio", "image": "/lamps/gallery/padrepio-face.jpg"},
     "padrepio-mass": {"name": "Padre Pio — Mass", "image": "/lamps/gallery/padrepio-mass.jpg"},
     "ourlady-child": {"name": "Our Lady with Child", "image": "/lamps/gallery/ourlady-child.jpg"},
@@ -437,9 +438,46 @@ def validate_sides(sides):
                 raise ValueError("upload not found")
             clean.append({"kind": "upload", "file": fname})
             names.append("your photo")
+        elif kind == "portrait":
+            jid = s.get("job") or ""
+            v = str(s.get("version") or "1")
+            job = get_job(jid)
+            if not job or not job["paid"]:
+                raise ValueError("portrait not available")
+            if not valid_version(v) or int(v) > (job["attempts"] or 1):
+                raise ValueError("portrait version unknown")
+            src = os.path.join(OUTPUTS, jid, f"v{v}.png")
+            if not os.path.isfile(src):
+                raise ValueError("portrait file missing")
+            clean.append({"kind": "portrait", "job": jid, "version": int(v)})
+            names.append("AI portrait")
         else:
             raise ValueError("choose all 4 sides")
     return clean, names
+
+
+def persist_portrait_sides(oid, sides):
+    """Copy paid AI portraits chosen for lamp sides into the order's upload
+    dir so the maker can actually access them. Returns updated sides list."""
+    updated = []
+    for i, s in enumerate(sides):
+        if s.get("kind") == "portrait":
+            src = os.path.join(OUTPUTS, s["job"], f"v{s['version']}.png")
+            fname = f"portrait_{oid}_{i}.png"
+            try:
+                os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
+                shutil.copyfile(src, os.path.join(LAMP_UPLOAD_DIR, fname))
+                updated.append({"kind": "portrait", "file": fname})
+                continue
+            except OSError:
+                pass
+        updated.append(s)
+    conn = db()
+    conn.execute("UPDATE lamp_orders SET sides=? WHERE id=?",
+                 (json.dumps(updated), oid))
+    conn.commit()
+    conn.close()
+    return updated
 
 
 @app.route("/api/lamp-checkout", methods=["POST"])
@@ -458,13 +496,15 @@ def lamp_checkout():
              f" — {side_summary[:120]}")
     if not STRIPE_SECRET:
         if DEMO_MODE:
-            new_lamp_order(sides, pack, amount)
+            oid = new_lamp_order(sides, pack, amount)
+            persist_portrait_sides(oid, sides)
             return jsonify({"url": f"{SITE_URL}/?lamp_paid=1", "demo": True})
         # Fail closed: never take orders without a working payment setup.
         return jsonify({"error": "payments are not configured yet — please try again later"}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
     oid = new_lamp_order(sides, pack, amount)
+    sides = persist_portrait_sides(oid, sides)
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
         line_items=[{"price_data": {
