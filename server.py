@@ -45,16 +45,22 @@ PRICES = {
 MAX_ATTEMPTS = 15  # first generation + up to 14 regenerations
 SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 
-# 4-faced sympathy-gift lamps (physical product, shipped)
-LAMPS = {
+# 4-faced custom memorial lamps (physical product, shipped)
+# Customers design the 4 sides: pick saint illustrations or upload their own photos.
+GALLERY = {
+    "frere-andre": {"name": "Saint Frère André", "image": "/lamps/gallery/frere-andre.jpg"},
+    "padrepio-face": {"name": "Padre Pio", "image": "/lamps/gallery/padrepio-face.jpg"},
+    "padrepio-mass": {"name": "Padre Pio — Mass", "image": "/lamps/gallery/padrepio-mass.jpg"},
+    "ourlady-child": {"name": "Our Lady with Child", "image": "/lamps/gallery/ourlady-child.jpg"},
     "carlo-standing": {"name": "Carlo Acutis — Standing", "image": "/lamps/carlo-standing.jpg"},
     "carlo-monstrance": {"name": "Carlo Acutis — Monstrance", "image": "/lamps/carlo-monstrance.jpg"},
     "our-lady": {"name": "Our Lady of the Rosary", "image": "/lamps/our-lady.jpg"},
     "basilica-padrepio": {"name": "Basilica & Padre Pio", "image": "/lamps/basilica-padrepio.jpg"},
 }
 LAMP_SINGLE = 2500   # $25 each
-LAMP_SET4 = 8000     # $80 for 4
+LAMP_SET4 = 8000     # $80 for 4 copies of the same custom design
 LAMP_SHIPPING = 1000  # $10 flat-rate Canada shipping
+LAMP_UPLOAD_DIR = os.path.join(STATIC_DIR, "lamp_uploads")
 
 SUITS = {
     "black": "a classic black suit, white dress shirt, and dark tie",
@@ -92,6 +98,10 @@ def db():
         "(id TEXT PRIMARY KEY, created TEXT, design TEXT, pack TEXT, "
         " amount INTEGER, paid INTEGER DEFAULT 0, stripe_session TEXT)"
     )
+    try:
+        conn.execute("ALTER TABLE lamp_orders ADD COLUMN sides TEXT")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 
@@ -135,13 +145,14 @@ def mark_paid(jid):
     conn.close()
 
 
-def new_lamp_order(design, pack, amount):
+def new_lamp_order(sides, pack, amount):
     oid = "lamp_" + uuid.uuid4().hex[:10]
     conn = db()
     conn.execute(
-        "INSERT INTO lamp_orders (id, created, design, pack, amount, paid)"
-        " VALUES (?,?,?,?,?,0)",
-        (oid, datetime.utcnow().isoformat(), design, pack, amount),
+        "INSERT INTO lamp_orders (id, created, design, pack, amount, paid, sides)"
+        " VALUES (?,?,?,?,?,0,?)",
+        (oid, datetime.utcnow().isoformat(), "custom", pack, amount,
+         json.dumps(sides)),
     )
     conn.commit()
     conn.close()
@@ -384,25 +395,73 @@ def checkout():
     return jsonify({"url": sess.url})
 
 
+@app.route("/api/lamp-upload", methods=["POST"])
+def lamp_upload():
+    """Customer uploads their own photo for one lamp side. Kept to make the lamp."""
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
+    name = "side_" + uuid.uuid4().hex[:10] + ".jpg"
+    path = os.path.join(LAMP_UPLOAD_DIR, name)
+    try:
+        img = Image.open(f.stream).convert("RGB")
+        img.thumbnail((1200, 1200), Image.LANCZOS)
+        img.save(path, "JPEG", quality=88)
+    except Exception:
+        return jsonify({"error": "could not read that image"}), 400
+    return jsonify({"file": name, "url": "/lamp_uploads/" + name})
+
+
+def validate_sides(sides):
+    """Returns (clean_sides, summary) or raises ValueError."""
+    if not isinstance(sides, list) or len(sides) != 4:
+        raise ValueError("choose all 4 sides")
+    clean, names = [], []
+    for s in sides:
+        kind = (s or {}).get("kind")
+        if kind == "gallery":
+            gid = s.get("id") or ""
+            if gid not in GALLERY:
+                raise ValueError("unknown illustration")
+            clean.append({"kind": "gallery", "id": gid})
+            names.append(GALLERY[gid]["name"])
+        elif kind == "upload":
+            fname = s.get("file") or ""
+            if not re.fullmatch(r"side_[0-9a-f]{10}\.jpg", fname):
+                raise ValueError("unknown upload")
+            if not os.path.isfile(os.path.join(LAMP_UPLOAD_DIR, fname)):
+                raise ValueError("upload not found")
+            clean.append({"kind": "upload", "file": fname})
+            names.append("your photo")
+        else:
+            raise ValueError("choose all 4 sides")
+    return clean, names
+
+
 @app.route("/api/lamp-checkout", methods=["POST"])
 def lamp_checkout():
     data = request.get_json(force=True)
-    design = data.get("design") or ""
     pack = data.get("pack") or "single"
-    if design not in LAMPS or pack not in ("single", "set4"):
+    if pack not in ("single", "set4"):
         return jsonify({"error": "unknown lamp option"}), 400
+    try:
+        sides, names = validate_sides(data.get("sides"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     amount = LAMP_SET4 if pack == "set4" else LAMP_SINGLE
-    label = (f"4-faced lamp — {LAMPS[design]['name']} "
-             f"({'set of 4' if pack == 'set4' else 'single'})")
+    side_summary = " / ".join(names)
+    label = (f"Custom 4-faced lamp ({'4 copies' if pack == 'set4' else 'single'})"
+             f" — {side_summary[:120]}")
     if not STRIPE_SECRET:
         if DEMO_MODE:
-            new_lamp_order(design, pack, amount)
+            new_lamp_order(sides, pack, amount)
             return jsonify({"url": f"{SITE_URL}/?lamp_paid=1", "demo": True})
         # Fail closed: never take orders without a working payment setup.
         return jsonify({"error": "payments are not configured yet — please try again later"}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
-    oid = new_lamp_order(design, pack, amount)
+    oid = new_lamp_order(sides, pack, amount)
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
         line_items=[{"price_data": {
@@ -416,7 +475,8 @@ def lamp_checkout():
             "display_name": "Flat-rate shipping"}}],
         success_url=f"{SITE_URL}/?lamp_paid=1",
         cancel_url=f"{SITE_URL}/?cancelled=1",
-        metadata={"order_id": oid, "kind": "lamp"},
+        metadata={"order_id": oid, "kind": "lamp",
+                  "sides": side_summary[:400]},
     )
     conn = db()
     conn.execute("UPDATE lamp_orders SET stripe_session=? WHERE id=?", (sess.id, oid))
