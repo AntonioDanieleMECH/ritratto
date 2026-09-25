@@ -59,7 +59,7 @@ GALLERY = {
     "carlo-standing": {"name": "Carlo Acutis — Standing", "image": "/lamps/carlo-standing.jpg"},
     "carlo-monstrance": {"name": "Carlo Acutis — Monstrance", "image": "/lamps/carlo-monstrance.jpg"},
     "our-lady": {"name": "Our Lady of the Rosary", "image": "/lamps/our-lady.jpg"},
-    "basilica-padrepio": {"name": "Basilica & Padre Pio", "image": "/lamps/basilica-padrepio.jpg"},
+    "basilica-padrepio": {"name": "Santa Maria Church", "image": "/lamps/basilica-padrepio.jpg"},
 }
 LAMP_SINGLE = 2500   # $25 each
 LAMP_SET4 = 8000     # $80 for 4 copies of the same custom design
