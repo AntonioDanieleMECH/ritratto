@@ -187,23 +187,94 @@ document.getElementById("payBtn").onclick = async () => {
   else if (j.error) setStatus((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + j.error);
 };
 
-document.querySelectorAll(".buyLamp").forEach(b => {
-  b.onclick = async () => {
-    b.disabled = true;
+// ---- Custom lamp designer ----
+const lampSides = [null, null, null, null]; // {kind:'gallery',id,name,img} | {kind:'upload',file,img}
+let activeSide = 0;
+const sideSlots = [...document.querySelectorAll(".side-slot")];
+
+function renderSides() {
+  sideSlots.forEach((slot, i) => {
+    slot.classList.toggle("active", i === activeSide);
+    const prev = slot.querySelector(".side-prev");
+    const s = lampSides[i];
+    prev.innerHTML = s ? `<img src="${s.img}" alt="">` : `<span class="empty">${lang === "en" ? "tap a saint or upload" : "touchez un saint ou téléversez"}</span>`;
+  });
+}
+sideSlots.forEach((slot, i) => {
+  slot.addEventListener("click", e => {
+    if (e.target.closest(".side-upload") || e.target.closest(".side-file")) return;
+    activeSide = i;
+    renderSides();
+  });
+  const upBtn = slot.querySelector(".side-upload");
+  const fileInput = slot.querySelector(".side-file");
+  upBtn.onclick = () => fileInput.click();
+  fileInput.onchange = async () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    upBtn.disabled = true;
+    upBtn.textContent = lang === "en" ? "Uploading…" : "Téléversement…";
     try {
-      const r = await fetch("/api/lamp-checkout", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ design: b.dataset.design, pack: b.dataset.pack })
-      });
+      const fd = new FormData();
+      fd.append("file", f);
+      const r = await fetch("/api/lamp-upload", { method: "POST", body: fd });
       const j = await safeJson(r);
       if (!r.ok) throw new Error(j.error || "failed");
-      if (j.url) window.location.href = j.url;
+      lampSides[i] = { kind: "upload", file: j.file, img: j.url, name: lang === "en" ? "your photo" : "votre photo" };
+      activeSide = Math.min(i + 1, 3);
+      renderSides();
     } catch (e) {
-      alert((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + e.message);
+      alert((lang === "en" ? "Upload failed: " : "Échec du téléversement : ") + e.message);
     }
-    b.disabled = false;
+    upBtn.disabled = false;
+    upBtn.textContent = lang === "en" ? "Upload photo" : "Téléverser une photo";
+    fileInput.value = "";
   };
 });
+document.querySelectorAll("#saintGallery .gal").forEach(card => {
+  card.addEventListener("click", () => {
+    lampSides[activeSide] = {
+      kind: "gallery",
+      id: card.dataset.gid,
+      name: lang === "en" ? card.dataset.nameEn : card.dataset.nameFr,
+      img: card.querySelector("img").src
+    };
+    activeSide = Math.min(activeSide + 1, 3);
+    renderSides();
+  });
+});
+
+async function buyLamp(pack, btn) {
+  if (lampSides.some(s => !s)) {
+    alert(lang === "en" ? "Please choose all 4 sides first." : "Veuillez d'abord choisir les 4 faces.");
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/lamp-checkout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pack,
+        sides: lampSides.map(s => s.kind === "gallery"
+          ? { kind: "gallery", id: s.id }
+          : { kind: "upload", file: s.file })
+      })
+    });
+    const j = await safeJson(r);
+    if (!r.ok) throw new Error(j.error || "failed");
+    if (j.url) window.location.href = j.url;
+  } catch (e) {
+    alert((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + e.message);
+  }
+  btn.disabled = false;
+}
+const buyLampSingle = document.getElementById("buyLampSingle");
+const buyLampSet4 = document.getElementById("buyLampSet4");
+if (buyLampSingle) {
+  buyLampSingle.onclick = () => buyLamp("single", buyLampSingle);
+  buyLampSet4.onclick = () => buyLamp("set4", buyLampSet4);
+  renderSides();
+}
 
 // After lamp purchase (?lamp_paid=1)
 (() => {
