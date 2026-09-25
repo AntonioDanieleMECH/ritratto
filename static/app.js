@@ -9,7 +9,7 @@ let paidMode = false;
 let bundleId = null; // set when the customer bought a 4-portrait pack
 let stagedId = null; // pre-generation photo upload id (survives refresh)
 let stagedSuitId = null; // pre-generation garment upload id (survives refresh)
-const MAX_ATTEMPTS = 15;
+const MAX_ATTEMPTS = 5;
 
 // Parse a JSON response, but show a friendly message if the server
 // answered with an HTML error page (e.g. mid-deploy) instead.
@@ -273,8 +273,8 @@ async function refreshBundleBar() {
     const left = j.left;
     if (left > 0) {
       document.getElementById("bundleBarText").textContent = lang === "en"
-        ? `4-portrait pack: ${left} portrait${left === 1 ? "" : "s"} left — each includes 15 versions and HD download.`
-        : `Lot de 4 portraits : ${left} portrait${left === 1 ? "" : "s"} restant${left === 1 ? "" : "s"} — chacun inclut 15 versions et le téléchargement HD.`;
+        ? `4-portrait pack: ${left} portrait${left === 1 ? "" : "s"} left — each includes 5 versions and HD download.`
+        : `Lot de 4 portraits : ${left} portrait${left === 1 ? "" : "s"} restant${left === 1 ? "" : "s"} — chacun inclut 5 versions et le téléchargement HD.`;
       document.getElementById("bundleStartBtn").style.display = "inline-block";
     } else {
       document.getElementById("bundleBarText").textContent = lang === "en"
