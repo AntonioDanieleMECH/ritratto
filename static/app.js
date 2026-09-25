@@ -277,7 +277,7 @@ sideSlots.forEach((slot, i) => {
       lampSides[i] = {
         kind: "portrait", job: jobId, version: currentVersion,
         img: `/preview/${jobId}?v=${currentVersion}`,
-        name: lang === "en" ? "my AI portrait" : "mon portrait IA"
+        name: lang === "en" ? "edited photo of loved one" : "photo retouchée d'un proche"
       };
       renderSides();
     } catch (e) {
