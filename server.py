@@ -320,14 +320,16 @@ def run_generation(jobdir, photo_file, attire_id, style, suit_file=None, note=No
     if style == "refine":
         return gemini_edit([src], refine_prompt(note))
     images = [src]
-    if attire_id == "custom":
+    if attire_id in ("custom", "custom_dress"):
         ref_path = os.path.join(jobdir, "suit_ref.jpg")
         if suit_file is not None:
             Image.open(suit_file.stream).convert("RGB").save(ref_path, "JPEG", quality=92)
         if not os.path.exists(ref_path):
-            raise ValueError("custom attire needs a suit reference photo")
+            raise ValueError("custom attire needs a garment reference photo")
         images.append(ref_path)
-        attire_desc = "the suit/outfit shown in the second reference image"
+        attire_desc = ("the dress/outfit shown in the second reference image"
+                       if attire_id == "custom_dress"
+                       else "the suit/outfit shown in the second reference image")
     else:
         attire_desc = SUITS.get(attire_id, SUITS["black"])
     return gemini_edit(images, portrait_prompt(attire_desc, note))
