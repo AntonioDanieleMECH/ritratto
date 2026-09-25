@@ -24,17 +24,19 @@ async function safeJson(r) {
 const ATTIRE_LABELS = {
   en: { black: "Classic black suit", navy: "Navy suit", charcoal: "Charcoal suit",
         dress: "Black formal dress", blouse: "Blazer & blouse", clerical: "Clerical collar",
-        custom: "Upload my own suit" },
+        custom: "Upload my own suit", custom_dress: "Upload my own outfit" },
   fr: { black: "Complet noir classique", navy: "Complet bleu marine", charcoal: "Complet gris anthracite",
         dress: "Robe noire de cérémonie", blouse: "Veston et chemisier", clerical: "Col romain",
-        custom: "Téléverser mon propre complet" }
+        custom: "Téléverser mon propre complet", custom_dress: "Téléverser ma propre tenue" }
 };
+
+const CUSTOM_ATTIRE = ["custom", "custom_dress"];
 
 const ATTIRE_GROUPS = {
   en: [ { title: "For him", ids: ["black", "navy", "charcoal", "clerical", "custom"] },
-        { title: "For her", ids: ["dress", "blouse"] } ],
+        { title: "For her", ids: ["dress", "blouse", "custom_dress"] } ],
   fr: [ { title: "Pour lui", ids: ["black", "navy", "charcoal", "clerical", "custom"] },
-        { title: "Pour elle", ids: ["dress", "blouse"] } ]
+        { title: "Pour elle", ids: ["dress", "blouse", "custom_dress"] } ]
 };
 
 function applyLang() {
@@ -70,7 +72,7 @@ function renderAttire() {
         attire = id;
         renderAttire();
         document.getElementById("suitUploadWrap").style.display =
-          id === "custom" ? "block" : "none";
+          CUSTOM_ATTIRE.includes(id) ? "block" : "none";
       };
       grid.appendChild(d);
     });
@@ -160,9 +162,9 @@ document.getElementById("generateBtn").onclick = async () => {
   fd.append("attire", attire);
   fd.append("style", style);
   if (bundleId) fd.append("bundle_id", bundleId);
-  if (attire === "custom") {
+  if (CUSTOM_ATTIRE.includes(attire)) {
     const ref = document.getElementById("suitPhoto").files[0];
-    if (!ref) { setStatus(lang === "en" ? "Please upload the suit photo." : "Veuillez téléverser la photo du complet."); btn.disabled = false; return; }
+    if (!ref) { setStatus(lang === "en" ? "Please upload a photo of the garment." : "Veuillez téléverser une photo du vêtement."); btn.disabled = false; return; }
     fd.append("suit_photo", ref);
   }
   try {
