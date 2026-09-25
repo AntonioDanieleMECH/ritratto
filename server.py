@@ -51,7 +51,7 @@ SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 # 4-faced custom memorial lamps (physical product, shipped)
 # Customers design the 4 sides: pick saint illustrations or upload their own photos.
 GALLERY = {
-    "frere-andre": {"name": "Saint Frère André", "image": "/lamps/gallery/frere-andre.jpg"},
+    "solanus-casey": {"name": "Blessed Solanus Casey", "image": "/lamps/gallery/solanus-casey.jpg"},
     "padrepio-face": {"name": "Padre Pio", "image": "/lamps/gallery/padrepio-face.jpg"},
     "padrepio-mass": {"name": "Padre Pio — Mass", "image": "/lamps/gallery/padrepio-mass.jpg"},
     "ourlady-child": {"name": "Our Lady with Child", "image": "/lamps/gallery/ourlady-child.jpg"},
@@ -62,7 +62,7 @@ GALLERY = {
 }
 LAMP_SINGLE = 2500   # $25 each
 LAMP_SET4 = 8000     # $80 for 4 copies of the same custom design
-LAMP_SHIPPING = 1000  # $10 flat-rate Canada shipping
+LAMP_SHIPPING = 1000  # $10 flat-rate Canada & US shipping
 LAMP_UPLOAD_DIR = os.path.join(STATIC_DIR, "lamp_uploads")
 
 SUITS = {
@@ -471,7 +471,7 @@ def lamp_checkout():
             "currency": "cad", "unit_amount": amount,
             "product_data": {"name": label}}, "quantity": 1}],
         mode="payment",
-        shipping_address_collection={"allowed_countries": ["CA"]},
+        shipping_address_collection={"allowed_countries": ["CA", "US"]},
         shipping_options=[{"shipping_rate_data": {
             "type": "fixed_amount",
             "fixed_amount": {"amount": LAMP_SHIPPING, "currency": "cad"},
