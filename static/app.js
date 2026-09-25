@@ -6,6 +6,7 @@ let versions = 0;
 let currentVersion = 1;
 let attemptsLeft = 0;
 let paidMode = false;
+let bundleId = null; // set when the customer bought a 4-portrait pack
 const MAX_ATTEMPTS = 15;
 
 // Parse a JSON response, but show a friendly message if the server
@@ -158,6 +159,7 @@ document.getElementById("generateBtn").onclick = async () => {
   fd.append("photo", photo);
   fd.append("attire", attire);
   fd.append("style", style);
+  if (bundleId) fd.append("bundle_id", bundleId);
   if (attire === "custom") {
     const ref = document.getElementById("suitPhoto").files[0];
     if (!ref) { setStatus(lang === "en" ? "Please upload the suit photo." : "Veuillez téléverser la photo du complet."); btn.disabled = false; return; }
@@ -170,18 +172,19 @@ document.getElementById("generateBtn").onclick = async () => {
     jobId = j.job_id;
     versions = j.version;
     attemptsLeft = j.attempts_left;
-    paidMode = false;
+    paidMode = !!bundleId; // pack portraits are already paid
     document.getElementById("step4").style.display = "block";
     document.getElementById("regenBox").style.display = "block";
     document.getElementById("sorryBox").style.display = "none";
-    document.getElementById("payBtn").style.display = "inline-block";
-    document.getElementById("dlBtn").style.display = "none";
+    document.getElementById("payBtn").style.display = bundleId ? "none" : "inline-block";
+    document.getElementById("dlBtn").style.display = bundleId ? "inline-block" : "none";
     const payBtn = document.getElementById("payBtn");
     payBtn.textContent = product === "refined"
       ? (lang === "en" ? "Purchase — $4.99" : "Acheter — 4,99 $")
       : (lang === "en" ? "Purchase — $9.99" : "Acheter — 9,99 $");
     showVersion(1);
     updateRegenUI();
+    if (bundleId) refreshBundleBar();
     document.getElementById("step4").scrollIntoView({ behavior: "smooth" });
     setStatus("");
   } catch (e) {
@@ -199,6 +202,65 @@ document.getElementById("payBtn").onclick = async () => {
   if (j.url) window.location.href = j.url;
   else if (j.error) setStatus((lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + j.error);
 };
+
+// ---------- 4-portrait pack (4 for the price of 3) ----------
+document.getElementById("bundleBtn").onclick = async () => {
+  const st = document.getElementById("bundleStatus");
+  st.textContent = lang === "en" ? "Opening checkout…" : "Ouverture du paiement…";
+  try {
+    const r = await fetch("/api/bundle_checkout", { method: "POST" });
+    const j = await safeJson(r);
+    if (j.url) window.location.href = j.url;
+    else throw new Error(j.error || "failed");
+  } catch (e) {
+    st.textContent = (lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + e.message;
+  }
+};
+
+document.getElementById("bundleStartBtn").onclick = () => {
+  document.getElementById("step1").scrollIntoView({ behavior: "smooth" });
+};
+
+async function refreshBundleBar() {
+  if (!bundleId) return;
+  const bar = document.getElementById("bundleBar");
+  try {
+    const r = await fetch("/api/bundle/" + bundleId);
+    const j = await safeJson(r);
+    if (!r.ok || !j.paid) { bar.style.display = "none"; return; }
+    bar.style.display = "flex";
+    document.getElementById("bundlePromo").style.display = "none";
+    const left = j.left;
+    if (left > 0) {
+      document.getElementById("bundleBarText").textContent = lang === "en"
+        ? `4-portrait pack: ${left} portrait${left === 1 ? "" : "s"} left — each includes 15 versions and HD download.`
+        : `Lot de 4 portraits : ${left} portrait${left === 1 ? "" : "s"} restant${left === 1 ? "" : "s"} — chacun inclut 15 versions et le téléchargement HD.`;
+      document.getElementById("bundleStartBtn").style.display = "inline-block";
+    } else {
+      document.getElementById("bundleBarText").textContent = lang === "en"
+        ? "Your 4-portrait pack is fully used. Thank you!"
+        : "Votre lot de 4 portraits est épuisé. Merci !";
+      document.getElementById("bundleStartBtn").style.display = "none";
+    }
+  } catch (e) { bar.style.display = "none"; }
+}
+
+// After buying the pack (?bundle_paid=1&bundle=...)
+(async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.get("bundle_paid") === "1" && q.get("bundle")) {
+    bundleId = q.get("bundle");
+    for (let i = 0; i < 20; i++) {
+      const r = await fetch("/api/bundle/" + bundleId);
+      const j = await safeJson(r);
+      if (j.paid) break;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+    await refreshBundleBar();
+    applyLang();
+    document.getElementById("step1").scrollIntoView({ behavior: "smooth" });
+  }
+})();;
 
 // ---- Custom lamp designer ----
 const lampSides = [null, null, null, null]; // {kind:'gallery',id,name,img} | {kind:'upload',file,img}

@@ -49,6 +49,11 @@
   </div>
 </header>
 
+<div id="bundleBar" class="bundle-bar" style="display:none">
+  <span id="bundleBarText"></span>
+  <button id="bundleStartBtn" data-en="Start a portrait" data-fr="Créer un portrait">Start a portrait</button>
+</div>
+
 <div class="layout">
 <main>
   <section class="hero">
@@ -86,6 +91,13 @@
       <span data-en="Photo refinement — $4.99" data-fr="Retouche photo — 4,99 $">Photo refinement — $4.99</span></label>
     <p class="hint" data-en="Refinement cleans up scratches, fading, and blur. Your photo stays exactly as it is — no clothing change."
        data-fr="La retouche élimine les rayures, le pâlissement et le flou. Votre photo reste exactement telle quelle — aucun changement de tenue.">Refinement cleans up scratches, fading, and blur. Your photo stays exactly as it is — no clothing change.</p>
+    <div class="bundle-promo" id="bundlePromo">
+      <h3 data-en="Need more than one?" data-fr="Besoin de plus d'un portrait ?">Need more than one?</h3>
+      <p data-en="Get 4 memorial portraits for $29.97 — that's 4 for the price of 3. Each portrait includes 15 versions and an HD download."
+         data-fr="Obtenez 4 portraits souvenir pour 29,97 $ — c'est 4 pour le prix de 3. Chaque portrait inclut 15 versions et un téléchargement HD.">Get 4 memorial portraits for $29.97 — that's 4 for the price of 3. Each portrait includes 15 versions and an HD download.</p>
+      <button id="bundleBtn" data-en="Buy the 4-pack — $29.97" data-fr="Acheter le lot de 4 — 29,97 $">Buy the 4-pack — $29.97</button>
+      <div id="bundleStatus" class="status"></div>
+    </div>
     <button id="generateBtn" data-en="Create preview" data-fr="Créer l'aperçu">Create preview</button>
     <div id="status" class="status"></div>
   </section>

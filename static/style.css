@@ -45,6 +45,11 @@ input[type=file] { margin: 0.6rem 0; color: var(--muted); }
 .attire.selected { border-color: var(--gold); background: #2a251e; color: var(--gold); }
 .attire-group-title { grid-column: 1 / -1; color: var(--gold); font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5rem; }
 .attire-group-title:first-child { margin-top: 0; }
+.bundle-bar { max-width: 1150px; margin: 0 auto; padding: 0.8rem 1rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between; background: #1c1813; border-bottom: 1px solid var(--gold); color: var(--gold); font-size: 0.95rem; }
+.bundle-bar button { background: var(--gold); color: #14110d; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+.bundle-promo { border: 1px dashed var(--gold); border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+.bundle-promo h3 { color: var(--gold); font-weight: normal; margin: 0 0 0.4rem; font-size: 1.05rem; }
+.bundle-promo p { color: var(--muted); font-size: 0.92rem; margin: 0 0 0.7rem; }
 .radio { display: block; margin: 0.5rem 0; cursor: pointer; }
 button {
   background: var(--gold); color: #141210; border: none; border-radius: 6px;
