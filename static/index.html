@@ -27,7 +27,7 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Product","name":"Custom 4-Faced Memorial Lamp",
 "description":"Customizable 4-faced memorial lamp with a flickering, candle-like glow. Choose saint illustrations or upload your own photos for each of the 4 sides. Made in Quebec from plant-based bioplastic.",
-"image":["https://ritratto.onrender.com/lamps/gallery/solanus-casey.jpg","https://ritratto.onrender.com/lamps/gallery/padrepio-face.jpg","https://ritratto.onrender.com/lamps/gallery/ourlady-child.jpg","https://ritratto.onrender.com/lamps/gallery/padrepio-mass.jpg"],
+"image":["https://ritratto.onrender.com/lamps/gallery/solanus-casey.jpg","https://ritratto.onrender.com/lamps/gallery/bishop-example.jpg","https://ritratto.onrender.com/lamps/gallery/memorial-example.jpg","https://ritratto.onrender.com/lamps/gallery/padrepio-face.jpg","https://ritratto.onrender.com/lamps/gallery/ourlady-child.jpg","https://ritratto.onrender.com/lamps/gallery/padrepio-mass.jpg"],
 "brand":{"@type":"Brand","name":"Ritratto"},
 "offers":[{"@type":"Offer","name":"Single lamp","price":"25","priceCurrency":"CAD"},
 {"@type":"Offer","name":"Set of 4 lamps","price":"80","priceCurrency":"CAD"}]}
@@ -142,14 +142,16 @@
     <p class="hint" data-en="Tap a side, then tap a saint below — or upload your own photo for that side."
        data-fr="Touchez une face, puis touchez un saint ci-dessous — ou téléversez votre propre photo pour cette face.">Tap a side, then tap a saint below — or upload your own photo for that side.</p>
     <div class="sides" id="sides">
-      <div class="side-slot" data-side="0"><span class="side-label" data-en="Side 1" data-fr="Face 1">Side 1</span><div class="side-prev"></div><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
-      <div class="side-slot" data-side="1"><span class="side-label" data-en="Side 2" data-fr="Face 2">Side 2</span><div class="side-prev"></div><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
-      <div class="side-slot" data-side="2"><span class="side-label" data-en="Side 3" data-fr="Face 3">Side 3</span><div class="side-prev"></div><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
-      <div class="side-slot" data-side="3"><span class="side-label" data-en="Side 4" data-fr="Face 4">Side 4</span><div class="side-prev"></div><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
+      <div class="side-slot" data-side="0"><span class="side-label" data-en="Side 1" data-fr="Face 1">Side 1</span><div class="side-prev"></div><label class="side-ai"><input type="checkbox" class="side-ai-check"><span data-en="Use my AI portrait" data-fr="Utiliser mon portrait IA">Use my AI portrait</span></label><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
+      <div class="side-slot" data-side="1"><span class="side-label" data-en="Side 2" data-fr="Face 2">Side 2</span><div class="side-prev"></div><label class="side-ai"><input type="checkbox" class="side-ai-check"><span data-en="Use my AI portrait" data-fr="Utiliser mon portrait IA">Use my AI portrait</span></label><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
+      <div class="side-slot" data-side="2"><span class="side-label" data-en="Side 3" data-fr="Face 3">Side 3</span><div class="side-prev"></div><label class="side-ai"><input type="checkbox" class="side-ai-check"><span data-en="Use my AI portrait" data-fr="Utiliser mon portrait IA">Use my AI portrait</span></label><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
+      <div class="side-slot" data-side="3"><span class="side-label" data-en="Side 4" data-fr="Face 4">Side 4</span><div class="side-prev"></div><label class="side-ai"><input type="checkbox" class="side-ai-check"><span data-en="Use my AI portrait" data-fr="Utiliser mon portrait IA">Use my AI portrait</span></label><button class="side-upload" data-en="Upload photo" data-fr="Téléverser une photo">Upload photo</button><input type="file" accept="image/*" class="side-file" hidden></div>
     </div>
 
     <h3 data-en="Saint illustrations" data-fr="Illustrations de saints">Saint illustrations</h3>
     <div class="lamp-grid" id="saintGallery">
+      <div class="lamp-card gal" data-gid="frere-andre" data-name-en="Frère André" data-name-fr="Frère André"><img src="/lamps/gallery/bishop-example.jpg" alt="Frère André lamp illustration" loading="lazy"><div class="lamp-name" data-en="Frère André" data-fr="Frère André">Frère André</div></div>
+      <div class="lamp-card gal" data-gid="loved-one" data-upload="1" data-name-en="Photo of your loved one" data-name-fr="Photo de votre proche"><img src="/lamps/gallery/memorial-example.jpg" alt="Memorial lamp with a loved one's photo" loading="lazy"><div class="lamp-name" data-en="Photo of your loved one" data-fr="Photo de votre proche">Photo of your loved one</div></div>
       <div class="lamp-card gal" data-gid="solanus-casey" data-name-en="Blessed Solanus Casey" data-name-fr="Bienheureux Solanus Casey"><img src="/lamps/gallery/solanus-casey.jpg" alt="Blessed Solanus Casey lamp illustration" loading="lazy"><div class="lamp-name" data-en="Blessed Solanus Casey" data-fr="Bienheureux Solanus Casey">Blessed Solanus Casey</div></div>
       <div class="lamp-card gal" data-gid="ourlady-child" data-name-en="Our Lady with Child" data-name-fr="Notre-Dame et l'Enfant"><img src="/lamps/gallery/ourlady-child.jpg" alt="Our Lady with Child lamp illustration" loading="lazy"><div class="lamp-name" data-en="Our Lady with Child" data-fr="Notre-Dame et l'Enfant">Our Lady with Child</div></div>
       <div class="lamp-card gal" data-gid="carlo-standing" data-name-en="Carlo Acutis — Standing" data-name-fr="Carlo Acutis — Debout"><img src="/lamps/carlo-standing.jpg" alt="Carlo Acutis lamp illustration" loading="lazy"><div class="lamp-name" data-en="Carlo Acutis — Standing" data-fr="Carlo Acutis — Debout">Carlo Acutis — Standing</div></div>
@@ -158,12 +160,6 @@
       <div class="lamp-card gal" data-gid="basilica-padrepio" data-name-en="Basilica & Padre Pio" data-name-fr="Basilique et Padre Pio"><img src="/lamps/basilica-padrepio.jpg" alt="Basilica and Padre Pio lamp illustration" loading="lazy"><div class="lamp-name" data-en="Basilica & Padre Pio" data-fr="Basilique et Padre Pio">Basilica & Padre Pio</div></div>
       <div class="lamp-card gal" data-gid="padrepio-face" data-name-en="Padre Pio" data-name-fr="Padre Pio"><img src="/lamps/gallery/padrepio-face.jpg" alt="Padre Pio lamp illustration" loading="lazy"><div class="lamp-name" data-en="Padre Pio" data-fr="Padre Pio">Padre Pio</div></div>
       <div class="lamp-card gal" data-gid="padrepio-mass" data-name-en="Padre Pio — Mass" data-name-fr="Padre Pio — Messe"><img src="/lamps/gallery/padrepio-mass.jpg" alt="Padre Pio celebrating Mass lamp illustration" loading="lazy"><div class="lamp-name" data-en="Padre Pio — Mass" data-fr="Padre Pio — Messe">Padre Pio — Mass</div></div>
-    </div>
-
-    <h3 data-en="Examples of finished custom lamps" data-fr="Exemples de lampes personnalisées terminées">Examples of finished custom lamps</h3>
-    <div class="lamp-grid" id="lampExamples">
-      <div class="lamp-card example"><img src="/lamps/gallery/memorial-example.jpg" alt="Custom memorial lamp with a loved one's photo" loading="lazy"><div class="lamp-name" data-en="Memorial lamp — your loved one's photo" data-fr="Lampe commémorative — photo de votre proche">Memorial lamp — your loved one's photo</div></div>
-      <div class="lamp-card example"><img src="/lamps/gallery/bishop-example.jpg" alt="Custom lamp with a bishop's portrait" loading="lazy"><div class="lamp-name" data-en="Custom portrait lamp" data-fr="Lampe portrait personnalisée">Custom portrait lamp</div></div>
     </div>
 
     <div class="lamp-buy">

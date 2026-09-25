@@ -221,6 +221,7 @@ sideSlots.forEach((slot, i) => {
       const j = await safeJson(r);
       if (!r.ok) throw new Error(j.error || "failed");
       lampSides[i] = { kind: "upload", file: j.file, img: j.url, name: lang === "en" ? "your photo" : "votre photo" };
+      slot.querySelector(".side-ai-check").checked = false;
       activeSide = Math.min(i + 1, 3);
       renderSides();
     } catch (e) {
@@ -233,14 +234,57 @@ sideSlots.forEach((slot, i) => {
 });
 document.querySelectorAll("#saintGallery .gal").forEach(card => {
   card.addEventListener("click", () => {
+    if (card.dataset.upload) { // "Photo of your loved one" -> upload for active side
+      sideSlots[activeSide].querySelector(".side-file").click();
+      return;
+    }
     lampSides[activeSide] = {
       kind: "gallery",
       id: card.dataset.gid,
       name: lang === "en" ? card.dataset.nameEn : card.dataset.nameFr,
       img: card.querySelector("img").src
     };
+    sideSlots[activeSide].querySelector(".side-ai-check").checked = false;
     activeSide = Math.min(activeSide + 1, 3);
     renderSides();
+  });
+});
+
+// "Use my AI portrait" checkbox in each side slot: uses the customer's
+// paid, currently-selected portrait version for that side.
+sideSlots.forEach((slot, i) => {
+  const check = slot.querySelector(".side-ai-check");
+  check.addEventListener("change", async () => {
+    if (!check.checked) {
+      if (lampSides[i] && lampSides[i].kind === "portrait") lampSides[i] = null;
+      renderSides();
+      return;
+    }
+    if (!jobId) {
+      alert(lang === "en"
+        ? "Generate a portrait above first, then tick this box."
+        : "Générez d'abord un portrait ci-dessus, puis cochez cette case.");
+      check.checked = false;
+      return;
+    }
+    check.disabled = true;
+    try {
+      const r = await fetch("/api/status/" + jobId);
+      const j = await safeJson(r);
+      if (!j.paid || !j.versions) throw new Error(lang === "en"
+        ? "That portrait hasn't been purchased yet — buy it above first."
+        : "Ce portrait n'a pas encore été acheté — achetez-le ci-dessus d'abord.");
+      lampSides[i] = {
+        kind: "portrait", job: jobId, version: currentVersion,
+        img: `/preview/${jobId}?v=${currentVersion}`,
+        name: lang === "en" ? "my AI portrait" : "mon portrait IA"
+      };
+      renderSides();
+    } catch (e) {
+      alert((lang === "en" ? "Can't use that portrait: " : "Impossible d'utiliser ce portrait : ") + e.message);
+      check.checked = false;
+    }
+    check.disabled = false;
   });
 });
 
@@ -257,7 +301,9 @@ async function buyLamp(pack, btn) {
         pack,
         sides: lampSides.map(s => s.kind === "gallery"
           ? { kind: "gallery", id: s.id }
-          : { kind: "upload", file: s.file })
+          : s.kind === "portrait"
+            ? { kind: "portrait", job: s.job, version: s.version }
+            : { kind: "upload", file: s.file })
       })
     });
     const j = await safeJson(r);
