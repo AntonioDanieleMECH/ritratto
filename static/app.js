@@ -7,6 +7,8 @@ let currentVersion = 1;
 let attemptsLeft = 0;
 let paidMode = false;
 let bundleId = null; // set when the customer bought a 4-portrait pack
+let stagedId = null; // pre-generation photo upload id (survives refresh)
+let stagedSuitId = null; // pre-generation garment upload id (survives refresh)
 const MAX_ATTEMPTS = 15;
 
 // Parse a JSON response, but show a friendly message if the server
@@ -85,7 +87,35 @@ document.getElementById("photo").onchange = e => {
   const img = document.getElementById("photoThumb");
   img.src = URL.createObjectURL(f);
   img.style.display = "block";
+  // save to the server right away so a page refresh doesn't lose it
+  stagedId = null;
+  const fd = new FormData();
+  fd.append("photo", f);
+  fetch("/api/stage", { method: "POST", body: fd })
+    .then(safeJson)
+    .then(j => { if (j.staged_id) { stagedId = j.staged_id; setParams({ upload: j.staged_id }); } })
+    .catch(() => {});
 };
+
+document.getElementById("suitPhoto").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  stagedSuitId = null;
+  const fd = new FormData();
+  fd.append("photo", f);
+  fetch("/api/stage", { method: "POST", body: fd })
+    .then(safeJson)
+    .then(j => { if (j.staged_id) { stagedSuitId = j.staged_id; setParams({ suit_upload: j.staged_id, attire }); } })
+    .catch(() => {});
+};
+
+// keep the page state in the URL so a refresh restores it
+function setParams(patch, remove) {
+  const q = new URLSearchParams(location.search);
+  Object.entries(patch).forEach(([k, v]) => q.set(k, v));
+  (remove || []).forEach(k => q.delete(k));
+  history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : ""));
+}
 
 const statusEl = document.getElementById("status");
 const setStatus = t => statusEl.textContent = t;
@@ -140,6 +170,7 @@ document.getElementById("regenBtn").onclick = async () => {
     document.getElementById("regenNote").value = "";
     rs.textContent = "";
     showVersion(j.version);
+    setParams({ v: j.version });
     updateRegenUI();
   } catch (e) {
     rs.textContent = (lang === "en" ? "Something went wrong: " : "Une erreur est survenue : ") + e.message;
@@ -150,7 +181,7 @@ document.getElementById("regenBtn").onclick = async () => {
 // ---------- first generation ----------
 document.getElementById("generateBtn").onclick = async () => {
   const photo = document.getElementById("photo").files[0];
-  if (!photo) { setStatus(lang === "en" ? "Please upload a photo first." : "Veuillez d'abord téléverser une photo."); return; }
+  if (!photo && !stagedId) { setStatus(lang === "en" ? "Please upload a photo first." : "Veuillez d'abord téléverser une photo."); return; }
   const style = document.querySelector('input[name=style]:checked').value;
   product = style === "refine" ? "refined" : "digital";
   const btn = document.getElementById("generateBtn");
@@ -158,14 +189,16 @@ document.getElementById("generateBtn").onclick = async () => {
   setStatus(lang === "en" ? "Creating your portrait… about 30 seconds." : "Création de votre portrait… environ 30 secondes.");
 
   const fd = new FormData();
-  fd.append("photo", photo);
+  if (photo) fd.append("photo", photo);
+  else fd.append("staged_id", stagedId);
   fd.append("attire", attire);
   fd.append("style", style);
   if (bundleId) fd.append("bundle_id", bundleId);
   if (CUSTOM_ATTIRE.includes(attire)) {
     const ref = document.getElementById("suitPhoto").files[0];
-    if (!ref) { setStatus(lang === "en" ? "Please upload a photo of the garment." : "Veuillez téléverser une photo du vêtement."); btn.disabled = false; return; }
-    fd.append("suit_photo", ref);
+    if (ref) fd.append("suit_photo", ref);
+    else if (stagedSuitId) fd.append("staged_suit_id", stagedSuitId);
+    else { setStatus(lang === "en" ? "Please upload a photo of the garment." : "Veuillez téléverser une photo du vêtement."); btn.disabled = false; return; }
   }
   try {
     const r = await fetch("/api/generate", { method: "POST", body: fd });
@@ -187,6 +220,9 @@ document.getElementById("generateBtn").onclick = async () => {
     showVersion(1);
     updateRegenUI();
     if (bundleId) refreshBundleBar();
+    const jp = { job: jobId };
+    if (bundleId) jp.bundle = bundleId;
+    setParams(jp, ["upload", "suit_upload", "attire", "v"]);
     document.getElementById("step4").scrollIntoView({ behavior: "smooth" });
     setStatus("");
   } catch (e) {
@@ -445,5 +481,52 @@ document.querySelectorAll('input[name=style]').forEach(r => {
     document.getElementById("step2").style.display = style === "refine" ? "none" : "block";
   });
 });
+
+// Restore state after a page refresh:
+// - ?job=... -> the generated portrait, versions, and pay/download state
+// - ?upload=... / ?suit_upload=... / ?attire=... -> staged pre-generation uploads
+(async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.get("bundle")) { bundleId = q.get("bundle"); }
+  if (q.get("job") && q.get("paid") !== "1") {
+    jobId = q.get("job");
+    const v = parseInt(q.get("v") || "1", 10);
+    const r = await fetch("/api/status/" + jobId);
+    const j = await safeJson(r);
+    if (j.versions > 0) {
+      document.getElementById("step4").style.display = "block";
+      document.getElementById("regenBox").style.display = "block";
+      document.getElementById("sorryBox").style.display = "none";
+      paidMode = j.paid;
+      versions = j.versions;
+      attemptsLeft = j.attempts_left || 0;
+      product = j.product === "refined" ? "refined" : "digital";
+      const payBtn = document.getElementById("payBtn");
+      payBtn.style.display = j.paid ? "none" : "inline-block";
+      payBtn.textContent = product === "refined"
+        ? (lang === "en" ? "Purchase — $4.99" : "Acheter — 4,99 $")
+        : (lang === "en" ? "Purchase — $9.99" : "Acheter — 9,99 $");
+      document.getElementById("dlBtn").style.display = j.paid ? "inline-block" : "none";
+      if (bundleId) refreshBundleBar();
+      updateRegenUI();
+      showVersion(Math.min(v, versions));
+    }
+  } else if (!q.get("job")) {
+    const up = q.get("upload");
+    if (up) {
+      stagedId = up;
+      const img = document.getElementById("photoThumb");
+      img.src = "/staged/" + up;
+      img.style.display = "block";
+    }
+    const at = q.get("attire");
+    if (at && CUSTOM_ATTIRE.includes(at)) attire = at;
+    const su = q.get("suit_upload");
+    if (su) {
+      stagedSuitId = su;
+      document.getElementById("suitUploadWrap").style.display = "block";
+    }
+  }
+})();
 
 applyLang();
