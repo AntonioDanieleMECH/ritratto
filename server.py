@@ -11,6 +11,8 @@ Env vars:
 """
 import os
 import io
+import re
+import json
 import uuid
 import base64
 import sqlite3
@@ -24,6 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, jsonify, send_file, abort
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE, "static")
 DATA_DIR = os.environ.get("DATA_DIR", BASE)  # /var/data on Render (persistent disk)
 UPLOADS = os.path.join(DATA_DIR, "uploads")
 OUTPUTS = os.path.join(DATA_DIR, "outputs")
