@@ -73,6 +73,7 @@ function renderAttire() {
       d.onclick = () => {
         attire = id;
         renderAttire();
+        setParams({ attire: id });
         document.getElementById("suitUploadWrap").style.display =
           CUSTOM_ATTIRE.includes(id) ? "block" : "none";
       };
@@ -520,7 +521,7 @@ document.querySelectorAll('input[name=style]').forEach(r => {
       img.style.display = "block";
     }
     const at = q.get("attire");
-    if (at && CUSTOM_ATTIRE.includes(at)) attire = at;
+    if (at && at in ATTIRE_LABELS[lang]) attire = at;
     const su = q.get("suit_upload");
     if (su) {
       stagedSuitId = su;
