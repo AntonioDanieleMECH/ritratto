@@ -29,6 +29,13 @@ const ATTIRE_LABELS = {
         custom: "Téléverser mon propre complet" }
 };
 
+const ATTIRE_GROUPS = {
+  en: [ { title: "For him", ids: ["black", "navy", "charcoal", "clerical", "custom"] },
+        { title: "For her", ids: ["dress", "blouse"] } ],
+  fr: [ { title: "Pour lui", ids: ["black", "navy", "charcoal", "clerical", "custom"] },
+        { title: "Pour elle", ids: ["dress", "blouse"] } ]
+};
+
 function applyLang() {
   document.querySelectorAll("[data-en]").forEach(el => {
     el.textContent = el.dataset[lang];
@@ -49,17 +56,23 @@ document.getElementById("langToggle").onclick = () => {
 function renderAttire() {
   const grid = document.getElementById("attireGrid");
   grid.innerHTML = "";
-  Object.keys(ATTIRE_LABELS[lang]).forEach(id => {
-    const d = document.createElement("div");
-    d.className = "attire" + (id === attire ? " selected" : "");
-    d.textContent = ATTIRE_LABELS[lang][id];
-    d.onclick = () => {
-      attire = id;
-      renderAttire();
-      document.getElementById("suitUploadWrap").style.display =
-        id === "custom" ? "block" : "none";
-    };
-    grid.appendChild(d);
+  ATTIRE_GROUPS[lang].forEach(group => {
+    const h = document.createElement("div");
+    h.className = "attire-group-title";
+    h.textContent = group.title;
+    grid.appendChild(h);
+    group.ids.forEach(id => {
+      const d = document.createElement("div");
+      d.className = "attire" + (id === attire ? " selected" : "");
+      d.textContent = ATTIRE_LABELS[lang][id];
+      d.onclick = () => {
+        attire = id;
+        renderAttire();
+        document.getElementById("suitUploadWrap").style.display =
+          id === "custom" ? "block" : "none";
+      };
+      grid.appendChild(d);
+    });
   });
 }
 

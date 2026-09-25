@@ -43,6 +43,8 @@ input[type=file] { margin: 0.6rem 0; color: var(--muted); }
   cursor: pointer; text-align: center; font-size: 0.95rem;
 }
 .attire.selected { border-color: var(--gold); background: #2a251e; color: var(--gold); }
+.attire-group-title { grid-column: 1 / -1; color: var(--gold); font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5rem; }
+.attire-group-title:first-child { margin-top: 0; }
 .radio { display: block; margin: 0.5rem 0; cursor: pointer; }
 button {
   background: var(--gold); color: #141210; border: none; border-radius: 6px;
