@@ -30,9 +30,11 @@ STATIC_DIR = os.path.join(BASE, "static")
 DATA_DIR = os.environ.get("DATA_DIR", BASE)  # /var/data on Render (persistent disk)
 UPLOADS = os.path.join(DATA_DIR, "uploads")
 OUTPUTS = os.path.join(DATA_DIR, "outputs")
+STAGED = os.path.join(DATA_DIR, "staged")  # pre-generation uploads, survive page refresh
 DB = os.path.join(DATA_DIR, "jobs.db")
 os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(OUTPUTS, exist_ok=True)
+os.makedirs(STAGED, exist_ok=True)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-image")
@@ -345,10 +347,44 @@ def index():
     return app.send_static_file("index.html")
 
 
+# ---------- staged uploads (survive a page refresh before generation) ----------
+def staged_path(sid):
+    """Return the staged file path, or None for a bad/expired id."""
+    if not re.fullmatch(r"[0-9a-f]{16}", sid or ""):
+        return None
+    p = os.path.join(STAGED, sid + ".jpg")
+    return p if os.path.exists(p) else None
+
+
+@app.route("/api/stage", methods=["POST"])
+def stage():
+    """Save an upload immediately so a page refresh doesn't lose it."""
+    f = request.files.get("photo") or request.files.get("file")
+    if not f:
+        return jsonify({"error": "no photo uploaded"}), 400
+    sid = uuid.uuid4().hex[:16]
+    try:
+        Image.open(f.stream).convert("RGB").save(
+            os.path.join(STAGED, sid + ".jpg"), "JPEG", quality=92)
+    except Exception:
+        return jsonify({"error": "invalid image"}), 400
+    return jsonify({"staged_id": sid, "url": f"/staged/{sid}"})
+
+
+@app.route("/staged/<sid>")
+def staged(sid):
+    p = staged_path(sid)
+    if not p:
+        abort(404)
+    return send_file(p)
+
+
 @app.route("/api/generate", methods=["POST"])
 def generate():
     photo = request.files.get("photo")
-    if not photo:
+    staged_id = (request.form.get("staged_id") or "").strip()
+    staged_suit_id = (request.form.get("staged_suit_id") or "").strip()
+    if not photo and not staged_id:
         return jsonify({"error": "no photo uploaded"}), 400
     attire_id = request.form.get("attire", "black")
     style = request.form.get("style", "photo")
@@ -370,6 +406,17 @@ def generate():
             return jsonify({"error": "no portrait credits left on this pack"}), 402
         mark_paid(jid)
     jobdir = os.path.join(OUTPUTS, jid)
+    if staged_id:
+        # photo was uploaded before a page refresh — reuse the staged copy
+        sp = staged_path(staged_id)
+        if not sp:
+            return jsonify({"error": "uploaded photo expired — please upload it again"}), 400
+        shutil.copy(sp, os.path.join(jobdir, "source.jpg"))
+        photo = None
+    if staged_suit_id and not request.files.get("suit_photo"):
+        ssp = staged_path(staged_suit_id)
+        if ssp:
+            shutil.copy(ssp, os.path.join(jobdir, "suit_ref.jpg"))
     try:
         result = run_generation(jobdir, photo, attire_id, style, request.files.get("suit_photo"))
     except Exception as e:  # noqa: BLE001
@@ -436,7 +483,8 @@ def status(jid):
     if not job:
         return jsonify({"paid": False, "versions": 0, "attempts_left": 0})
     return jsonify({"paid": job["paid"], "versions": job["attempts"],
-                    "attempts_left": MAX_ATTEMPTS - job["attempts"]})
+                    "attempts_left": MAX_ATTEMPTS - job["attempts"],
+                    "product": job["product"]})
 
 
 @app.route("/api/checkout", methods=["POST"])
@@ -676,6 +724,14 @@ def cleanup_loop():
                     conn.execute("DELETE FROM jobs WHERE id=?", (jid,))
             conn.commit()
             conn.close()
+            # sweep staged pre-generation uploads older than 24h
+            try:
+                for name in os.listdir(STAGED):
+                    p = os.path.join(STAGED, name)
+                    if os.path.isfile(p) and datetime.fromtimestamp(os.path.getmtime(p)) < cutoff:
+                        os.remove(p)
+            except OSError:
+                pass
         except Exception:  # noqa: BLE001
             pass
 
