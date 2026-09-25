@@ -111,3 +111,8 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .ex-card.feat .ex-caps { grid-template-columns: 1fr; gap: 0.3rem; }
 .restore-note { color: var(--muted); font-size: 0.82rem; margin-top: 0.5rem; }
 @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+@media (min-width: 921px) {
+  /* vertically center the title + intro text, and lower the examples sidebar to make room */
+  .hero { min-height: 46vh; display: flex; flex-direction: column; justify-content: center; margin-top: 0; }
+  .side-col { margin-top: 7rem; }
+}
