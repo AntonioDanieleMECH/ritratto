@@ -114,5 +114,5 @@ button:disabled { opacity: 0.5; cursor: wait; }
 @media (min-width: 921px) {
   /* vertically center the title + intro text, and lower the examples sidebar to make room */
   .hero { min-height: 46vh; display: flex; flex-direction: column; justify-content: center; margin-top: 0; }
-  .side-col { margin-top: 7rem; }
+  .side-col { margin-top: 12rem; }
 }
