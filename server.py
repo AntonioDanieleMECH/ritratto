@@ -45,6 +45,17 @@ PRICES = {
 MAX_ATTEMPTS = 15  # first generation + up to 14 regenerations
 SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 
+# 4-faced sympathy-gift lamps (physical product, shipped)
+LAMPS = {
+    "carlo-standing": {"name": "Carlo Acutis — Standing", "image": "/lamps/carlo-standing.jpg"},
+    "carlo-monstrance": {"name": "Carlo Acutis — Monstrance", "image": "/lamps/carlo-monstrance.jpg"},
+    "our-lady": {"name": "Our Lady of the Rosary", "image": "/lamps/our-lady.jpg"},
+    "basilica-padrepio": {"name": "Basilica & Padre Pio", "image": "/lamps/basilica-padrepio.jpg"},
+}
+LAMP_SINGLE = 2500   # $25 each
+LAMP_SET4 = 8000     # $80 for 4
+LAMP_SHIPPING = 1000  # $10 flat-rate Canada shipping
+
 SUITS = {
     "black": "a classic black suit, white dress shirt, and dark tie",
     "navy": "a navy blue suit, white dress shirt, and dark tie",
@@ -76,6 +87,11 @@ def db():
             conn.execute(ddl)
         except sqlite3.OperationalError:
             pass
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS lamp_orders "
+        "(id TEXT PRIMARY KEY, created TEXT, design TEXT, pack TEXT, "
+        " amount INTEGER, paid INTEGER DEFAULT 0, stripe_session TEXT)"
+    )
     return conn
 
 
@@ -115,6 +131,26 @@ def bump_attempts(jid, attempts):
 def mark_paid(jid):
     conn = db()
     conn.execute("UPDATE jobs SET paid=1 WHERE id=?", (jid,))
+    conn.commit()
+    conn.close()
+
+
+def new_lamp_order(design, pack, amount):
+    oid = "lamp_" + uuid.uuid4().hex[:10]
+    conn = db()
+    conn.execute(
+        "INSERT INTO lamp_orders (id, created, design, pack, amount, paid)"
+        " VALUES (?,?,?,?,?,0)",
+        (oid, datetime.utcnow().isoformat(), design, pack, amount),
+    )
+    conn.commit()
+    conn.close()
+    return oid
+
+
+def mark_lamp_paid(oid):
+    conn = db()
+    conn.execute("UPDATE lamp_orders SET paid=1 WHERE id=?", (oid,))
     conn.commit()
     conn.close()
 
@@ -348,6 +384,47 @@ def checkout():
     return jsonify({"url": sess.url})
 
 
+@app.route("/api/lamp-checkout", methods=["POST"])
+def lamp_checkout():
+    data = request.get_json(force=True)
+    design = data.get("design") or ""
+    pack = data.get("pack") or "single"
+    if design not in LAMPS or pack not in ("single", "set4"):
+        return jsonify({"error": "unknown lamp option"}), 400
+    amount = LAMP_SET4 if pack == "set4" else LAMP_SINGLE
+    label = (f"4-faced lamp — {LAMPS[design]['name']} "
+             f"({'set of 4' if pack == 'set4' else 'single'})")
+    if not STRIPE_SECRET:
+        if DEMO_MODE:
+            new_lamp_order(design, pack, amount)
+            return jsonify({"url": f"{SITE_URL}/?lamp_paid=1", "demo": True})
+        # Fail closed: never take orders without a working payment setup.
+        return jsonify({"error": "payments are not configured yet — please try again later"}), 503
+    import stripe
+    stripe.api_key = STRIPE_SECRET
+    oid = new_lamp_order(design, pack, amount)
+    sess = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{"price_data": {
+            "currency": "cad", "unit_amount": amount,
+            "product_data": {"name": label}}, "quantity": 1}],
+        mode="payment",
+        shipping_address_collection={"allowed_countries": ["CA"]},
+        shipping_options=[{"shipping_rate_data": {
+            "type": "fixed_amount",
+            "fixed_amount": {"amount": LAMP_SHIPPING, "currency": "cad"},
+            "display_name": "Flat-rate shipping"}}],
+        success_url=f"{SITE_URL}/?lamp_paid=1",
+        cancel_url=f"{SITE_URL}/?cancelled=1",
+        metadata={"order_id": oid, "kind": "lamp"},
+    )
+    conn = db()
+    conn.execute("UPDATE lamp_orders SET stripe_session=? WHERE id=?", (sess.id, oid))
+    conn.commit()
+    conn.close()
+    return jsonify({"url": sess.url})
+
+
 @app.route("/webhook/stripe", methods=["POST"])
 def webhook():
     import stripe
@@ -363,6 +440,8 @@ def webhook():
         meta = obj.get("metadata", {})
         if meta.get("kind") == "b2c" and meta.get("job_id"):
             mark_paid(meta["job_id"])
+        elif meta.get("kind") == "lamp" and meta.get("order_id"):
+            mark_lamp_paid(meta["order_id"])
     return "ok", 200
 
 
