@@ -113,7 +113,31 @@ def db():
         "(id TEXT PRIMARY KEY, created TEXT, credits_total INTEGER DEFAULT 4, "
         " credits_used INTEGER DEFAULT 0, paid INTEGER DEFAULT 0, stripe_session TEXT)"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS visits "
+        "(day TEXT, path TEXT, count INTEGER DEFAULT 0, PRIMARY KEY (day, path))"
+    )
     return conn
+
+
+def track_visit(path):
+    """Best-effort anonymous visit counter (day + page only, no IPs, no cookies).
+    Never raises — a counter failure must never break the site."""
+    try:
+        day = datetime.utcnow().strftime("%Y-%m-%d")
+        conn = db()
+        conn.execute(
+            "INSERT OR IGNORE INTO visits (day, path, count) VALUES (?,?,0)",
+            (day, path),
+        )
+        conn.execute(
+            "UPDATE visits SET count = count + 1 WHERE day=? AND path=?",
+            (day, path),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def new_job(product, attire, style):
@@ -350,6 +374,7 @@ def valid_version(v):
 # ---------- routes ----------
 @app.route("/")
 def index():
+    track_visit("/")
     return app.send_static_file("index.html")
 
 
@@ -465,6 +490,7 @@ def preview(jid):
     p = os.path.join(OUTPUTS, jid, f"v{v}_preview.jpg")
     if not os.path.exists(p):
         abort(404)
+    track_visit("/preview")
     return send_file(p)
 
 
@@ -479,6 +505,7 @@ def download(jid):
     p = os.path.join(OUTPUTS, jid, f"v{v}.png")
     if not os.path.exists(p):
         abort(404)
+    track_visit("/download")
     return send_file(p, mimetype="image/png", as_attachment=True,
                      download_name="ritratto-portrait.png")
 
@@ -714,6 +741,38 @@ def webhook():
         elif meta.get("kind") == "bundle" and meta.get("bundle_id"):
             mark_bundle_paid(meta["bundle_id"])
     return "ok", 200
+
+
+# ---------- private visit stats ----------
+@app.route("/admin/visits")
+def admin_visits():
+    """Private traffic stats. Requires ?token=ADMIN_TOKEN (set it in Render env)."""
+    token = os.environ.get("ADMIN_TOKEN", "")
+    if not token or request.args.get("token") != token:
+        abort(403)
+    conn = db()
+    rows = conn.execute(
+        "SELECT day, path, count FROM visits ORDER BY day DESC, path LIMIT 500"
+    ).fetchall()
+    conn.close()
+    total = sum(r[2] for r in rows)
+    tr = "".join(
+        f"<tr><td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td></tr>" for r in rows
+    ) or '<tr><td colspan="3">No visits recorded yet.</td></tr>'
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Ritratto visits</title>"
+        "<style>body{font-family:sans-serif;background:#111;color:#eee;"
+        "max-width:640px;margin:2em auto;padding:0 1em}"
+        "table{border-collapse:collapse;width:100%}"
+        "td,th{border:1px solid #444;padding:.4em .6em;text-align:left}"
+        "th{background:#222}</style></head><body>"
+        f"<h1>Ritratto visits</h1><p>Total recorded: <b>{total}</b> "
+        "(anonymous day-level counts: / = homepage, /preview = portrait views, "
+        "/download = paid downloads)</p>"
+        "<table><tr><th>Day (UTC)</th><th>Page</th><th>Visits</th></tr>"
+        f"{tr}</table></body></html>"
+    )
 
 
 # ---------- privacy: auto-delete old jobs ----------
