@@ -131,3 +131,16 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .quote { margin: 0.6rem 0 0; padding-left: 1rem; border-left: 2px solid var(--gold); }
 .quote p { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 1.05rem; }
 .quote cite { color: var(--muted); font-style: normal; font-size: 0.9rem; }
+.tester-note { color: var(--muted); font-size: 0.82rem; margin: 0.4rem 0 0; font-style: italic; }
+.purchase-facts { border: 1px dashed var(--gold); border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0; background: #191512; }
+.purchase-facts .onetime { color: var(--gold); margin: 0 0 0.5rem; font-size: 0.95rem; }
+.includes { list-style: none; margin: 0 0 0.6rem; padding: 0; color: var(--muted); font-size: 0.92rem; }
+.includes li { margin: 0.25rem 0; padding-left: 1.4rem; position: relative; }
+.includes li::before { content: "\2713"; color: var(--gold); position: absolute; left: 0; }
+.terms-links { font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0 0; }
+.terms-links a { color: var(--gold); }
+.shop-divider { display: flex; align-items: center; gap: 0.8rem; margin: 2.2rem 0 1rem; }
+.shop-divider .rule { flex: 1; height: 1px; background: var(--line); min-width: 1.5rem; }
+.shop-divider p { color: var(--gold); font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; margin: 0; text-align: center; }
+.shop-card { border-width: 3px; border-style: double; background: #1a1611; }
+.operator { margin: 0 0 0.6rem; }

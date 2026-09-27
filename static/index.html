@@ -22,7 +22,8 @@
 {"@context":"https://schema.org","@type":"Service","name":"Ritratto","alternateName":"Ritratto — Portraits funéraires",
 "description":"AI memorial portraits from any photo: dignified funeral attire and old photo restoration.",
 "url":"https://ritratto.onrender.com/","logo":"https://ritratto.onrender.com/icon.png","image":"https://ritratto.onrender.com/og-card.jpg",
-"provider":{"@type":"Organization","name":"Ritratto","email":"antonio.learningisfun@gmail.com"},
+"provider":{"@type":"Organization","name":"Ritratto","email":"antonio.learningisfun@gmail.com",
+"parentOrganization":{"@type":"Organization","name":"ADN Creations","address":{"@type":"PostalAddress","addressLocality":"Montreal","addressRegion":"QC","addressCountry":"CA"}}},
 "areaServed":{"@type":"AdministrativeArea","name":"Quebec, Canada"},
 "hasOfferCatalog":{"@type":"OfferCatalog","name":"Memorial portraits","itemListElement":[
 {"@type":"Offer","name":"Photo refinement — old photo restoration","price":"4.99","priceCurrency":"CAD"},
@@ -146,6 +147,21 @@
          data-fr="Nous sommes désolés de ne pas avoir pu vous aider. Écrivez-nous et nous terminerons votre portrait à la main :">We're sorry we weren't able to help. Email us and we'll finish your portrait by hand:</p>
       <a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a>
     </div>
+    <div class="purchase-facts">
+      <p class="onetime" data-en="One-time payment — no subscription"
+         data-fr="Paiement unique — sans abonnement">One-time payment — no subscription</p>
+      <ul class="includes">
+        <li data-en="One high-resolution portrait, yours to keep"
+            data-fr="Un portrait haute résolution, à vous pour toujours">One high-resolution portrait, yours to keep</li>
+        <li data-en="No watermark on the final image"
+            data-fr="Aucun filigrane sur l'image finale">No watermark on the final image</li>
+        <li data-en="Personal printing and sharing rights"
+            data-fr="Droits d'impression et de partage personnels">Personal printing and sharing rights</li>
+        <li data-en="Secure checkout via Stripe"
+            data-fr="Paiement sécurisé via Stripe">Secure checkout via Stripe</li>
+      </ul>
+      <p class="terms-links"><span data-en="See our " data-fr="Voir nos ">See our </span><a href="/terms.html" data-en="refund &amp; purchase terms" data-fr="conditions de remboursement et d'achat">refund &amp; purchase terms</a><span data-en=" and " data-fr=" et "> and </span><a href="/privacy.html" data-en="privacy policy" data-fr="politique de confidentialité">privacy policy</a><span data-en="." data-fr=".">.</span></p>
+    </div>
     <button id="payBtn" data-en="Purchase — $9.99" data-fr="Acheter — 9,99 $">Purchase — $9.99</button>
     <button id="dlBtn" style="display:none" data-en="Download full-resolution portrait" data-fr="Télécharger le portrait haute résolution">Download full-resolution portrait</button>
   </section>
@@ -157,6 +173,8 @@
          data-fr="J'étais déjà satisfait de ce que j'avais. Mais je voulais que mon oncle porte le complet dans lequel je l'ai toujours connu. J'ai téléversé les vêtements et la photo, l'orientation a été corrigée, et le contraste et les détails du portrait étaient parfaits. Le résultat est incroyablement net — exactement comme annoncé.">I was already happy with what I had. But I wanted my uncle to wear a suit I always remembered him in. I uploaded the clothes and the image and the orientation was fixed, the contrast and detail in the portrait were perfect. It looks incredibly sharp and turned out exactly as advertised.</p>
       <cite>— <span data-en="David" data-fr="David">David</span></cite>
     </blockquote>
+    <p class="tester-note" data-en="From David, an early product tester."
+       data-fr="De David, un des premiers à essayer le produit.">From David, an early product tester.</p>
   </section>
 <section class="card print-upsell">
     <h2 data-en="Canvas prints — coming soon" data-fr="Impressions sur toile — bientôt offertes">Canvas prints — coming soon</h2>
@@ -164,7 +182,14 @@
        data-fr="Impressions sur toile galerie, prêtes à accrocher. Nous sommes en train de mettre ce service en place — revenez bientôt.">Gallery canvas prints, ready to hang. We're setting this up now — check back soon.</p>
   </section>
 
-  <section class="card" id="shop">
+  <div class="shop-divider">
+    <span class="rule"></span>
+    <p data-en="Sympathy gifts — a separate keepsake from the same workshop"
+       data-fr="Cadeaux de sympathie — un souvenir distinct du même atelier">Sympathy gifts — a separate keepsake from the same workshop</p>
+    <span class="rule"></span>
+  </div>
+
+  <section class="card shop-card" id="shop">
     <h2 data-en="Custom 4-faced memorial lamps" data-fr="Lampes souvenir personnalisées à 4 faces">Custom 4-faced memorial lamps</h2>
     <div id="lampThanks" class="thanks" style="display:none">
       <p data-en="Thank you! Your lamp order is confirmed. We'll email you when it ships."
@@ -322,7 +347,11 @@
 </div>
 
 <footer style="text-align:center;padding:2rem;color:var(--muted);font-size:0.85rem">
+  <p class="operator" data-en="Ritratto is a service run by ADN Creations, Montreal, Quebec, Canada."
+     data-fr="Ritratto est un service exploité par ADN Creations, Montréal, Québec, Canada.">Ritratto is a service run by ADN Creations, Montreal, Quebec, Canada.</p>
   <a href="/privacy.html" style="color:var(--gold)" data-en="Privacy policy" data-fr="Politique de confidentialité">Privacy policy</a>
+  <span style="margin:0 0.5rem">·</span>
+  <a href="/terms.html" style="color:var(--gold)" data-en="Refund &amp; purchase terms" data-fr="Remboursement et conditions d'achat">Refund &amp; purchase terms</a>
 </footer>
 
 <script src="app.js"></script>
