@@ -500,8 +500,13 @@ def download(jid):
     if not valid_version(v):
         abort(404)
     job = get_job(jid)
-    if not job or not job["paid"]:
-        abort(402, "payment required")
+    if not job:
+        abort(404)
+    if not job["paid"]:
+        # NOTE: do NOT use abort(402) - Werkzeug has no aborter for 402 and it
+        # raises LookupError (500). Return the status explicitly instead.
+        return jsonify({"error": "payment required"}), 402
+        return jsonify({"error": "payment required"}), 402
     p = os.path.join(OUTPUTS, jid, f"v{v}.png")
     if not os.path.exists(p):
         abort(404)
