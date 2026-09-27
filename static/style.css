@@ -18,6 +18,7 @@ header {
 .brand { font-size: 1.1rem; letter-spacing: 2px; color: var(--gold); }
 .lang {
   background: none; border: 1px solid var(--gold); color: var(--gold);
+
   padding: 0.3rem 0.9rem; cursor: pointer; font-size: 0.9rem; border-radius: 4px;
 }
 main { max-width: 640px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
@@ -127,3 +128,6 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .ex-card.feat .ex-caps { grid-template-columns: 1fr; gap: 0.3rem; }
 .restore-note { color: var(--muted); font-size: 0.82rem; margin-top: 0.5rem; }
 @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+.quote { margin: 0.6rem 0 0; padding-left: 1rem; border-left: 2px solid var(--gold); }
+.quote p { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 1.05rem; }
+.quote cite { color: var(--muted); font-style: normal; font-size: 0.9rem; }
