@@ -89,6 +89,14 @@ document.getElementById("photo").onchange = e => {
   const img = document.getElementById("photoThumb");
   img.src = URL.createObjectURL(f);
   img.style.display = "block";
+  // collapse the drop zone into a compact "change photo" state and move on
+  const zone = document.getElementById("photoZone");
+  zone.classList.add("has-photo");
+  const title = zone.querySelector(".uz-title");
+  title.setAttribute("data-en", "\u2713 Photo ready \u2014 tap to change");
+  title.setAttribute("data-fr", "\u2713 Photo pr\u00eate \u2014 touchez pour changer");
+  title.textContent = title.dataset[lang];
+  document.getElementById("step2").scrollIntoView({ behavior: "smooth", block: "start" });
   // save to the server right away so a page refresh doesn't lose it
   stagedId = null;
   const fd = new FormData();
@@ -98,6 +106,26 @@ document.getElementById("photo").onchange = e => {
     .then(j => { if (j.staged_id) { stagedId = j.staged_id; setParams({ upload: j.staged_id }); } })
     .catch(() => {});
 };
+
+// drag & drop onto the upload zone (desktop)
+(() => {
+  const zone = document.getElementById("photoZone");
+  const input = document.getElementById("photo");
+  ["dragenter", "dragover"].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.add("dragover");
+  }));
+  ["dragleave", "drop"].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.remove("dragover");
+  }));
+  zone.addEventListener("drop", e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+})();
 
 document.getElementById("suitPhoto").onchange = e => {
   const f = e.target.files[0];

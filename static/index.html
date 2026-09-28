@@ -89,7 +89,12 @@
     <h2><span class="n">1</span> <span data-en="Upload their photo" data-fr="Téléversez sa photo">Upload their photo</span></h2>
     <p class="hint" data-en="Any photo works — old, faded, or casual. We keep the face exactly as it is."
        data-fr="N'importe quelle photo convient — ancienne, pâle ou décontractée. Nous gardons le visage exactement tel quel.">Any photo works — old, faded, or casual. We keep the face exactly as it is.</p>
-    <input type="file" id="photo" accept="image/*">
+    <label class="upload-zone" id="photoZone">
+      <input type="file" id="photo" accept="image/*" hidden>
+      <span class="uz-icon" aria-hidden="true">📷</span>
+      <span class="uz-title" data-en="Tap to upload their photo" data-fr="Touchez pour téléverser sa photo">Tap to upload their photo</span>
+      <span class="uz-sub" data-en="or drag &amp; drop an image here" data-fr="ou glissez-déposez une image ici">or drag &amp; drop an image here</span>
+    </label>
     <img id="photoThumb" class="thumb" alt="Uploaded photo preview">
   </section>
 
