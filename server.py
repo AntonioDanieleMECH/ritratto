@@ -37,7 +37,7 @@ os.makedirs(OUTPUTS, exist_ok=True)
 os.makedirs(STAGED, exist_ok=True)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-image")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-image")  # Nano Banana 2; 2.5-flash-image shut down 2026-10-02
 STRIPE_SECRET = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")
