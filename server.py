@@ -770,6 +770,12 @@ def seed():
     conn.execute(
         "UPDATE products SET photo='/img/products/custom-lighter-jdm.jpg' "
         "WHERE id='custom-lighter' AND photo='/img/products/custom-lighter-stogies.jpg'")
+    # JDM photo leads the on-page gallery too (product page shows first by sort).
+    # Idempotent: only moves it when it isn't already first.
+    conn.execute(
+        "UPDATE product_photos SET sort=(SELECT MIN(sort)-1 FROM product_photos "
+        "WHERE product_id='custom-lighter') WHERE id='php_cl_custom-lighter-jdm_jpg' "
+        "AND sort>(SELECT MIN(sort) FROM product_photos WHERE product_id='custom-lighter')")
     # 2026-10-18: mini saint busts, two sizes (Antonio: $24.99 small, $39.99 large).
     for _pid, _name, _name_fr, _cents, _photo in (
             ("mini-bust-small", "Mini Saint Bust \u2014 Small", "Mini-buste de saint \u2014 Petit",
