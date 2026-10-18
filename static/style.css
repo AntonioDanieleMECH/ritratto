@@ -67,6 +67,7 @@ p { margin: 0 0 1em; }
   margin-bottom: 12px;
 }
 .lede { font-size: 1.12rem; color: var(--ink-soft); max-width: 44em; }
+.oratory-line { font-weight: 700; color: var(--brass-deep); margin: 10px 0 0; font-size: 1.05rem; }
 .muted { color: var(--muted); }
 .small { font-size: 0.86rem; }
 

@@ -66,6 +66,13 @@ VIDEO_MAX_BYTES = 50 * 1024 * 1024  # 50 MB per video
 STRIPE_SECRET = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")
+# Canonical public domain (2026-10-18: adncreations.ca is the brand domain;
+# ritratto.ca and ritratto.onrender.com 301 here). Used for canonical tags and
+# share-preview URLs regardless of what SITE_URL is still set to.
+CANONICAL_URL = "https://adncreations.ca"
+OLD_HOSTS_URLS = ("https://ritratto.onrender.com", "http://ritratto.onrender.com",
+                  "https://ritratto.ca", "http://ritratto.ca",
+                  "https://www.ritratto.ca", "http://www.ritratto.ca")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
 ADMIN_USER = os.environ.get("ADMIN_USER", "")
@@ -205,6 +212,17 @@ if not _secret and not DEMO_MODE:
     raise RuntimeError("SECRET_KEY env var is required in production")
 app.secret_key = _secret or "dev-secret-change-me"
 app.permanent_session_lifetime = timedelta(days=30)
+
+
+@app.before_request
+def canonical_domain():
+    """301 old hosts (ritratto.onrender.com, ritratto.ca) to adncreations.ca.
+    API/admin paths are excluded so webhooks, AJAX and tooling keep working."""
+    host = request.host.split(":")[0].lower()
+    if host in ("ritratto.onrender.com", "ritratto.ca", "www.ritratto.ca") \
+            and not request.path.startswith(("/api/", "/admin")):
+        q = ("?" + request.query_string.decode()) if request.query_string else ""
+        return redirect(CANONICAL_URL + request.path + q, 301)
 
 
 # ---------- db ----------
@@ -381,11 +399,11 @@ SEED_PRODUCTS = [
      "story_fr": "Le bienheureux Fulton Sheen a porté la foi à la télévision. Quatre de ses visages s'illuminent de l'intérieur de cette lampe, imprimés en lithophanes sous une chaude lumière DEL.",
      "depts": ["religious", "electronic"], "stock": None, "sort": 2},
     {"id": "memorial-lamp", "name": "Custom Memorial Lamp", "price_cents": 3999,
-     "additional_price_cents": 2999,
+     "additional_price_cents": 2499,
      "photo": "/img/products/memorial-lamp.jpg",
-     "description": "Your photos or our saint illustrations on four glowing faces. $39.99 for the first lamp of a design, $29.99 for each additional copy of the same design, or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
+     "description": "Your photos or our saint illustrations on four glowing faces. $39.99 for the first lamp of a design, $24.99 for each additional copy of the same design, or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
      "name_fr": "Lampe commémorative personnalisée",
-     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. 39,99 $ pour la première lampe d'un modèle, 29,99 $ pour chaque exemplaire supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. Utilisez l'outil de création pour composer vos quatre faces.",
+     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. 39,99 $ pour la première lampe d'un modèle, 24,99 $ pour chaque exemplaire supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. Utilisez l'outil de création pour composer vos quatre faces.",
      "story": "A lamp that keeps someone present. Four glowing faces carry your photos or our saint illustrations, printed as lithophanes that come alive in warm light. Each one is made to order in the workshop.",
      "story_fr": "Une lampe qui garde une présence vivante. Quatre faces lumineuses portent vos photos ou nos illustrations de saints, imprimées en lithophanes qui s'animent dans une lumière chaude. Chaque lampe est fabriquée sur commande à l'atelier.",
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
@@ -514,6 +532,19 @@ def seed():
          "or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
          "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
          "39,99 $ pour la première lampe d'un modèle, 29,99 $ pour chaque exemplaire "
+         "supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. "
+         "Utilisez l'outil de création pour composer vos quatre faces."))
+    # Pricing 2026-10-18 (Antonio): additional memorial-lamp copies are $24.99
+    # (was $29.99). Only touches rows still on the $29.99 additional price,
+    # never Antonio's later edits.
+    conn.execute(
+        "UPDATE products SET additional_price_cents=2499, description=?, description_fr=? "
+        "WHERE id='memorial-lamp' AND additional_price_cents=2999",
+        ("Your photos or our saint illustrations on four glowing faces. "
+         "$39.99 for the first lamp of a design, $24.99 for each additional copy of the same design, "
+         "or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
+         "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
+         "39,99 $ pour la première lampe d'un modèle, 24,99 $ pour chaque exemplaire "
          "supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. "
          "Utilisez l'outil de création pour composer vos quatre faces."))
     for _pid, _old, _new in (("lighter", 2400, 2399), ("mug", 3400, 3399),
@@ -673,6 +704,10 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
         f'<a href="{u}" class="{"active" if k == active else ""}">{s[k2]}</a>'
         for k, k2, u in NAV_LINKS)
     other = "en" if lang == "fr" else "fr"
+    # Point all share-preview URLs at the canonical domain, whatever SITE_URL says.
+    for old in OLD_HOSTS_URLS:
+        og_url = og_url.replace(old, CANONICAL_URL)
+        og_image = og_image.replace(old, CANONICAL_URL)
     og = ""
     if og_image:
         og = (f'<meta property="og:title" content="{h(title)}">'
@@ -681,6 +716,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
               f'<meta property="og:url" content="{h(og_url)}">'
               f'<meta property="og:image" content="{h(og_image)}">'
               '<meta name="twitter:card" content="summary_large_image">')
+    canonical = CANONICAL_URL + request.path
     office = OFFICE_FR if lang == "fr" else OFFICE_EN
     html = f"""<!DOCTYPE html>
 <html lang="{lang}">
@@ -693,6 +729,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 <link rel="icon" href="/icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="stylesheet" href="/style.css">
+<link rel="canonical" href="{canonical}">
 {og}
 </head>
 <body>
@@ -1291,7 +1328,7 @@ GALLERY = {
 }
 LAMP_SINGLE = 3999   # $39.99 for one custom lamp
 LAMP_PACK4 = 9999    # $99.99 for a 4-pack of the same design
-LAMP_EXTRA = 2999    # $29.99 for each additional copy
+LAMP_EXTRA = 2499    # $24.99 for each additional copy
 LAMP_SHIPPING = 1000
 
 

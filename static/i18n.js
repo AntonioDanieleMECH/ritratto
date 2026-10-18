@@ -20,6 +20,7 @@
 
       "home.kicker": "Entreprise de design en ingénierie, Montréal",
       "home.h1": "Conçu ici. Fait à la main ici.",
+      "home.oratory": "En vente à la boutique de l'Oratoire Saint-Joseph",
       "home.lede": "ADN Creations est une entreprise de design en ingénierie à Montréal. Art dévotionnel, objets de précision et fabrication sur mesure, conçus et imprimés en 3D avec des matériaux d'origine végétale.",
       "home.shop_btn": "Voir la boutique", "home.work_btn": "Voir les réalisations",
       "home.feat_h": "Réalisations en vedette",
@@ -158,7 +159,7 @@
       "lamp.s2": "Étape 2 : choisissez votre paquet",
       "lamp.single": "Une seule 39,99 $", "lamp.pack4": "Paquet de 4 99,99 $",
       "lamp.pack_note": "Le paquet de 4 comprend 4 lampes du même modèle.",
-      "lamp.extra_note": "Des exemplaires supplémentaires du même modèle sont à 29,99 $ chacun.",
+      "lamp.extra_note": "Des exemplaires supplémentaires du même modèle sont à 24,99 $ chacun.",
       "lamp.s3": "Étape 3 : paiement",
       "lamp.checkout": "Passer à la caisse",
       "lamp.secure": "Paiement sécurisé avec Stripe. Les frais d'expédition à taux fixe pour le Canada et les États-Unis sont calculés à la caisse.",
@@ -216,6 +217,7 @@
 
       "home.kicker": "Engineering design company, Montreal",
       "home.h1": "Designed here. Hand crafted here.",
+      "home.oratory": "Sold at the Saint Joseph's Oratory boutique",
       "home.lede": "ADN Creations is an engineering design company in Montreal. Devotional art, precision objects, and custom manufacturing, designed and 3D printed from plant-based materials.",
       "home.shop_btn": "Shop the collection", "home.work_btn": "See the work",
       "home.feat_h": "Featured work",
@@ -354,7 +356,7 @@
       "lamp.s2": "Step 2: choose your pack",
       "lamp.single": "Single $39.99", "lamp.pack4": "4-pack $99.99",
       "lamp.pack_note": "The 4-pack means 4 lamps of the same design.",
-      "lamp.extra_note": "Additional copies of the same design are $29.99 each.",
+      "lamp.extra_note": "Additional copies of the same design are $24.99 each.",
       "lamp.s3": "Step 3: checkout",
       "lamp.checkout": "Continue to checkout",
       "lamp.secure": "Secure checkout with Stripe. Flat-rate shipping for Canada and the US is calculated at checkout.",
