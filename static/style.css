@@ -416,3 +416,10 @@ p { margin: 0 0 1em; }
   .hero-actions .btn { width: auto; flex: 1; }
   .buy-box { position: static; }
 }
+.design-mode { display: flex; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+.design-mode label { display: inline-flex; gap: 6px; align-items: center; font-weight: normal; }
+.design-preview { margin: 10px 0; }
+.design-preview img { max-height: 220px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.design-thumbs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 8px; }
+.design-thumbs img { width: 100%; border: 2px solid transparent; border-radius: 6px; cursor: pointer; background: #fff; }
+.design-thumbs img.on { border-color: var(--brass-deep); }

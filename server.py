@@ -54,10 +54,12 @@ STATIC_DIR = os.path.join(BASE, "static")
 DATA_DIR = os.environ.get("DATA_DIR", BASE)  # /var/data on Render (persistent disk)
 UPLOADS = os.path.join(DATA_DIR, "uploads")
 LAMP_UPLOAD_DIR = os.path.join(STATIC_DIR, "lamp_uploads")
+DESIGN_UPLOAD_DIR = os.path.join(STATIC_DIR, "design_uploads")
 PRODUCT_IMG_DIR = os.path.join(STATIC_DIR, "img", "products")
 DB = os.path.join(DATA_DIR, "jobs.db")
 os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
+os.makedirs(DESIGN_UPLOAD_DIR, exist_ok=True)
 os.makedirs(PRODUCT_IMG_DIR, exist_ok=True)
 VIDEO_DIR = os.path.join(DATA_DIR, "uploads", "videos")
 os.makedirs(VIDEO_DIR, exist_ok=True)
@@ -118,6 +120,10 @@ STR = {
         "secure_checkout": "Paiement sécurisé avec Stripe. Frais d'expédition fixes pour le Canada et les États-Unis, calculés à la caisse.",
         "engraving_label": "Texte à graver (facultatif)",
         "engraving_ph": "p. ex. Aku, depuis 2026",
+        "design_title": "Choisissez votre motif",
+        "design_gallery": "Choisir parmi nos 12 motifs",
+        "design_upload": "Téléverser mon propre dessin",
+        "saint_title": "Choisissez votre saint",
         "preorder_note": "Ceci est une précommande. Expédition prévue : {date}. Vous serez facturé aujourd'hui.",
         "design_yours": "Créez le vôtre",
         "photo_soon": "Photo à venir",
@@ -180,6 +186,10 @@ STR = {
         "secure_checkout": "Secure checkout with Stripe. Flat-rate shipping for Canada and the US calculated at checkout.",
         "engraving_label": "Custom engraving text (optional)",
         "engraving_ph": "e.g. Aku, Est. 2026",
+        "design_title": "Choose your design",
+        "design_gallery": "Pick from our 12 designs",
+        "design_upload": "Upload my own artwork",
+        "saint_title": "Choose your saint",
         "preorder_note": "This is a preorder. Expected to ship {date}. You will be charged today.",
         "design_yours": "Design yours",
         "photo_soon": "Photo coming soon",
@@ -650,18 +660,72 @@ def seed():
         conn.execute(
             "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
             "VALUES (?,?,?,?,?,?,?,?)",
-            ("mini-busts", "Mini Saint Busts \u2014 Sheen & Carlo",
-             "Mini-bustes de saints \u2014 Sheen et Carlo",
+            ("mini-busts", "Mini Saint Busts \u2014 Fr\u00e8re Andr\u00e9 & Carlo",
+             "Mini-bustes de saints \u2014 Fr\u00e8re Andr\u00e9 et Carlo",
              "In development", "En d\u00e9veloppement",
              "/img/work/mini-bust-1.jpg", 3, now_iso()))
         conn.execute(
             "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
             ("mb1", "mini-busts", now_iso(),
-             "Detailed mini busts of Fulton Sheen and Carlo Acutis, styled on the pedestal. "
+             "Detailed mini busts of Saint Fr\u00e8re Andr\u00e9 and Carlo Acutis, styled on the pedestal. "
              "Mini statues at $24.99 and $39.99.",
-             "Mini-bustes d\u00e9taill\u00e9s de Fulton Sheen et Carlo Acutis, pr\u00e9sent\u00e9s sur le pi\u00e9destal. "
+             "Mini-bustes d\u00e9taill\u00e9s de saint Fr\u00e8re Andr\u00e9 et Carlo Acutis, pr\u00e9sent\u00e9s sur le pi\u00e9destal. "
              "Mini-statues \u00e0 24,99 $ et 39,99 $."))
-    # Gallery for mug: 7 engraved-Contigo design mockups (mug-3..mug-9) plus the
+    # 2026-10-18: single lighter listing at $24.99 (Etsy parity). The older
+    # "lighter" product is retired; "custom-lighter" becomes the one listing,
+    # keeping its real Aku photo in the gallery and the Stogies mockup as card.
+    conn.execute("UPDATE products SET price_cents=2499 WHERE id='custom-lighter' AND price_cents != 2499")
+    conn.execute("UPDATE products SET active=0 WHERE id='lighter'")
+    _cl_photos = ["/img/products/custom-lighter.jpg",
+                  "/img/products/custom-lighter-stogies.jpg",
+                  "/img/products/custom-lighter-mirelas-chrome.jpg",
+                  "/img/products/custom-lighter-mirelas-chef.jpg",
+                  "/img/products/lighter.jpg",
+                  "/img/work/lighter-detail.jpg"]
+    for _s, _ph in enumerate(_cl_photos):
+        _phpid = "php_cl_" + _ph.split("/")[-1].replace(".", "_")
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "custom-lighter", _ph, _s + 2, 0, now_iso()))
+    conn.execute(
+        "UPDATE products SET photo='/img/products/custom-lighter-stogies.jpg' "
+        "WHERE id='custom-lighter' AND photo='/img/products/custom-lighter.jpg'")
+    # 2026-10-18: mini saint busts, two sizes (Antonio: $24.99 small, $39.99 large).
+    for _pid, _name, _name_fr, _cents, _photo in (
+            ("mini-bust-small", "Mini Saint Bust \u2014 Small", "Mini-buste de saint \u2014 Petit",
+             2499, "/img/work/mini-bust-1.jpg"),
+            ("mini-bust-large", "Mini Saint Bust \u2014 Large", "Mini-buste de saint \u2014 Grand",
+             3999, "/img/products/mini-bust-k1.jpg")):
+        if not conn.execute("SELECT id FROM products WHERE id=?", (_pid,)).fetchone():
+            conn.execute(
+                "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+                "description, description_fr, story, story_fr, depts, "
+                "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+                "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (_pid, _name, _name_fr, _cents, _photo,
+                 "A detailed mini bust of Saint Fr\u00e8re Andr\u00e9 or Carlo Acutis, hand finished "
+                 "in Montreal from plant-based bioplastic. Choose your saint at checkout.",
+                 "Mini-buste d\u00e9taill\u00e9 de saint Fr\u00e8re Andr\u00e9 ou Carlo Acutis, fini \u00e0 la main "
+                 "\u00e0 Montr\u00e9al en bioplastique d'origine v\u00e9g\u00e9tale. Choisissez votre saint \u00e0 la caisse.",
+                 "The collector bust, scaled for a desk or shelf. Same hand-finished detail, "
+                 "in a size that fits anywhere.",
+                 "Le buste collectionneur, en format bureau ou \u00e9tag\u00e8re. Le m\u00eame fini main, "
+                 "dans un format qui va partout.",
+                 json.dumps(["religious"]), None, 0, "", 1, 1, "", 1,
+                 8 if _pid == "mini-bust-small" else 9, now_iso()))
+    _mb_photos = ["/img/work/mini-bust-1.jpg", "/img/work/mini-bust-4.jpg",
+                  "/img/products/mini-bust-k1.jpg", "/img/products/mini-bust-k4.jpg",
+                  "/img/products/mini-bust-k6.jpg"]
+    for _pid in ("mini-bust-small", "mini-bust-large"):
+        for _s, _ph in enumerate(_mb_photos):
+            _phpid = f"php_{_pid}_" + _ph.split("/")[-1].replace(".", "_")
+            if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+                conn.execute(
+                    "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (_phpid, _pid, _ph, _s, 0, now_iso()))
     # pro-background hand-held photo (mug-10), 2026-10-18 (idempotent).
     _mug_photos = [f"/img/products/mug-{_i}.jpg" for _i in range(3, 11)]
     for _s, _ph in enumerate(_mug_photos):
@@ -1167,6 +1231,61 @@ def product_page(pid):
         engraving_field = (f'<div class="field"><label for="engraving">{t(lang, "engraving_label")}</label>'
                            f'<input type="text" id="engraving" maxlength="120" '
                            f'placeholder="{h(t(lang, "engraving_ph"))}"></div>')
+    option_field = ""
+    if p["id"] == "custom-lighter":
+        _des_opts = "".join(f'<option value="Design {i}">Design {i}</option>' for i in range(1, 13))
+        _thumbs = "".join(
+            f'<img src="/img/designs/lighter-design-{i}.jpg" data-d="{i}" alt="Design {i}" loading="lazy">'
+            for i in range(1, 13))
+        option_field = (
+            f'<div class="field"><label>{t(lang, "design_title")}</label>'
+            f'<div class="design-mode"><label><input type="radio" name="designmode" value="gallery" checked> '
+            f'{t(lang, "design_gallery")}</label> '
+            f'<label><input type="radio" name="designmode" value="upload"> {t(lang, "design_upload")}</label></div>'
+            f'<div id="designGalleryPick"><select id="designSelect">{_des_opts}</select>'
+            f'<div class="design-preview"><img id="designPreview" src="/img/designs/lighter-design-1.jpg" '
+            f'alt="Design 1"></div><div class="design-thumbs">{_thumbs}</div></div>'
+            f'<div id="designUploadPick" style="display:none">'
+            f'<input type="file" id="designFile" accept="image/*">'
+            f'<input type="hidden" id="designUploadId" value="">'
+            f'<span id="designUploadMsg" class="small muted"></span></div></div>')
+    elif p["id"] in ("mini-bust-small", "mini-bust-large"):
+        option_field = (
+            f'<div class="field"><label for="saintSelect">{t(lang, "saint_title")}</label>'
+            f'<select id="saintSelect"><option value="Saint Fr\u00e8re Andr\u00e9">Saint Fr\u00e8re Andr\u00e9</option>'
+            f'<option value="Carlo Acutis">Carlo Acutis</option></select></div>')
+    design_js = ""
+    if p["id"] == "custom-lighter":
+        design_js = """<script>
+(function(){
+  var sel = document.getElementById('designSelect'), prev = document.getElementById('designPreview');
+  function pick(i){ if(sel) sel.value = 'Design ' + i;
+    if(prev){ prev.src = '/img/designs/lighter-design-' + i + '.jpg'; prev.alt = 'Design ' + i; }
+    document.querySelectorAll('.design-thumbs img').forEach(function(t){
+      t.classList.toggle('on', t.getAttribute('data-d') == String(i)); }); }
+  if(sel) sel.addEventListener('change', function(){ pick(sel.value.replace('Design ', '')); });
+  document.querySelectorAll('.design-thumbs img').forEach(function(t){
+    t.addEventListener('click', function(){ pick(t.getAttribute('data-d')); }); });
+  document.querySelectorAll('input[name="designmode"]').forEach(function(r){
+    r.addEventListener('change', function(){
+      var gal = r.value === 'gallery';
+      document.getElementById('designGalleryPick').style.display = gal ? '' : 'none';
+      document.getElementById('designUploadPick').style.display = gal ? 'none' : ''; }); });
+  var fi = document.getElementById('designFile'), msg = document.getElementById('designUploadMsg');
+  if(fi) fi.addEventListener('change', async function(){
+    if(!fi.files.length) return;
+    msg.textContent = '…'; msg.style.color = '';
+    var fd = new FormData(); fd.append('file', fi.files[0]);
+    try {
+      var r = await fetch('/api/design-upload', {method: 'POST', body: fd});
+      var j = await r.json();
+      if(j.file){ document.getElementById('designUploadId').value = j.file;
+        msg.textContent = '✓'; msg.style.color = 'green'; }
+      else { msg.textContent = (j.error || 'upload failed'); msg.style.color = 'red'; }
+    } catch(e){ msg.textContent = 'upload failed'; msg.style.color = 'red'; }
+  });
+})();
+</script>"""
     preorder_note = ""
     if p["preorder"]:
         preorder_note = (f'<div class="preorder-note">{t(lang, "preorder_note").format(date=h(p["preorder_ship_date"] or ("bientôt" if lang == "fr" else "soon")))}</div>')
@@ -1207,6 +1326,18 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   var payload = {{ product_id: {json.dumps(p["id"])}, qty: parseInt(document.getElementById('qty').value) || 1, lang: {json.dumps(lang)} }};
   var eng = document.getElementById('engraving');
   if (eng) payload.engraving_text = eng.value;
+  var dmode = document.querySelector('input[name="designmode"]:checked');
+  if (dmode) {{
+    if (dmode.value === 'gallery') {{
+      var ds = document.getElementById('designSelect');
+      if (ds) payload.design = ds.value;
+    }} else {{
+      var du = document.getElementById('designUploadId');
+      if (du && du.value) payload.design = 'Custom upload ' + du.value;
+    }}
+  }}
+  var ss = document.getElementById('saintSelect');
+  if (ss) payload.saint = ss.value;
   var cp = document.getElementById('coupon');
   if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
   try {{
@@ -1300,6 +1431,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <input type="text" id="coupon" maxlength="32" placeholder="{h(t(lang, "coupon_ph"))}" style="text-transform:uppercase">
 <div id="couponMsg" class="small" style="margin-top:6px"></div></div>
 {engraving_field}
+{option_field}
 {buy_html}{custom}
 <div id="buyMsg" style="margin-top:12px"></div>
 </div>
@@ -1308,7 +1440,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {story_html}
 {reviews_section(pid, lang)}
 </div>
-{gal_js}{buy_js}{notify_js}"""
+{gal_js}{buy_js}{design_js}{notify_js}"""
     html = shell(name, desc[:160], body, active="shop",
                  og_image=abs_url(photos[0]["photo"] if photos else p["photo"]),
                  og_url=f"{SITE_URL}/product/{pid}", lang=lang)
@@ -1432,6 +1564,17 @@ def api_checkout():
     pid = (data.get("product_id") or "").strip()
     qty = max(1, min(10, int(data.get("qty") or 1)))
     engraving = (data.get("engraving_text") or "").strip()[:200]
+    design = (data.get("design") or "").strip()[:60]
+    saint = (data.get("saint") or "").strip()[:40]
+    _parts = []
+    if design:
+        _parts.append(design)
+    if saint:
+        _parts.append("Saint: " + saint)
+    if engraving:
+        _parts.append("Text: " + engraving)
+    if _parts:
+        engraving = "; ".join(_parts)[:200]
     p = get_product(pid)
     if not p or not p["purchasable"] or p["in_works"]:
         return jsonify({"error": t(lang, "err_unknown_product")}), 404
@@ -1793,6 +1936,22 @@ def lamp_upload():
     except Exception:
         return jsonify({"error": "could not read that image"}), 400
     return jsonify({"file": name, "url": "/lamp_uploads/" + name})
+
+
+@app.route("/api/design-upload", methods=["POST"])
+def design_upload():
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    name = "design_" + uuid.uuid4().hex[:10] + ".jpg"
+    path = os.path.join(DESIGN_UPLOAD_DIR, name)
+    try:
+        img = load_upright(f.stream)
+        img.thumbnail((1200, 1200), Image.LANCZOS)
+        img.save(path, "JPEG", quality=88)
+    except Exception:
+        return jsonify({"error": "could not read that image"}), 400
+    return jsonify({"file": name, "url": "/design_uploads/" + name})
 
 
 @app.route("/api/gallery")
