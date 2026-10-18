@@ -644,6 +644,21 @@ def seed():
     conn.execute(
         "UPDATE products SET photo='/img/products/briscola-case-1.webp' "
         "WHERE id='card-case' AND (photo IS NULL OR photo='')")
+    # Gallery for mug: 7 engraved-Contigo design mockups (mug-3..mug-9) plus the
+    # pro-background hand-held photo (mug-10), 2026-10-18 (idempotent).
+    _mug_photos = [f"/img/products/mug-{_i}.jpg" for _i in range(3, 11)]
+    for _s, _ph in enumerate(_mug_photos):
+        _phpid = "php_mug_" + _ph.split("/")[-1].replace(".", "_")
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "mug", _ph, _s + 2, 0, now_iso()))
+    # Pro-background hand-held shot becomes the mug card photo (only if Antonio
+    # hasn't already changed it from the original workshop photo).
+    conn.execute(
+        "UPDATE products SET photo='/img/products/mug-10.jpg' "
+        "WHERE id='mug' AND photo='/img/products/mug.jpg'")
     # Pricing 2026-10-18: custom memorial lamps are $39.99 for the first of a
     # design, $29.99 for each additional copy, 4-pack $99.99. Charm pricing
     # (.99) across the shop. Only touches rows still on the old pricing,
