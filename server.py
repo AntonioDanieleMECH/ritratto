@@ -390,7 +390,7 @@ SEED_PRODUCTS = [
      "story_fr": "Une lampe qui garde une présence vivante. Quatre faces lumineuses portent vos photos ou nos illustrations de saints, imprimées en lithophanes qui s'animent dans une lumière chaude. Chaque lampe est fabriquée sur commande à l'atelier.",
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
     {"id": "bust-collector", "name": "Saint Frere Andre Bust, Collector's Edition", "price_cents": 224999,
-     "photo": "/img/products/bust.jpg",
+     "photo": "/img/products/bust-real-front.jpg",
      "description": "One of one. 39 cm hand finished bust on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. Free shipping.",
      "name_fr": "Buste de saint Frère André, édition collectionneur",
      "description_fr": "Pièce unique. Buste de 39 cm fini à la main sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d'origine végétale et très peu de déchets. Expédition gratuite.",
@@ -460,9 +460,9 @@ SEED_PHOTOS = [
     ("sheen-lamp", "/img/products/sheen-lamp.jpg", 0, 0),
     ("sheen-lamp", "/img/products/sheen-lamp-2.jpg", 1, 0),
     ("memorial-lamp", "/img/products/memorial-lamp.jpg", 0, 0),
-    ("bust-collector", "/img/products/bust.jpg", 0, 0),
-    ("bust-collector", "/img/work/bust-3q.jpg", 1, 0),
-    ("bust-collector", "/img/work/bust-front.jpg", 2, 0),
+    ("bust-collector", "/img/products/bust-real-front.jpg", 0, 0),
+    ("bust-collector", "/img/products/bust-real-34.jpg", 1, 0),
+    ("bust-collector", "/img/products/bust-real-front2.jpg", 2, 0),
     ("nativity", "/img/products/nativity.jpg", 0, 0),
     ("lighter", "/img/products/lighter.jpg", 0, 0),
     ("lighter", "/img/work/lighter-detail.jpg", 1, 0),
@@ -480,13 +480,6 @@ SEED_PHOTOS_EXTRA = [
     ("lighter", "/img/products/lighter-3.jpg"),
     ("mug", "/img/products/mug-2.jpg"),
     ("giftcard-case", "/img/products/giftcard-case.jpg"),
-    ("bust-collector", "/img/products/bust-signature.webp"),
-    ("bust-collector", "/img/products/bust-threequarter.webp"),
-    ("bust-collector", "/img/products/bust-otherside.webp"),
-    ("bust-collector", "/img/products/bust-elevated.webp"),
-    ("bust-collector", "/img/products/bust-rear.webp"),
-    ("bust-collector", "/img/products/bust-face.webp"),
-    ("bust-collector", "/img/products/bust-workshop.webp"),
 ]
 
 
@@ -580,6 +573,29 @@ def seed():
                 "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
                 "VALUES (?,?,?,?,?,?)",
                 ("ph_" + uuid.uuid4().hex[:10], pid, photo, mx + 1, 0, now_iso()))
+    # 2026-10-18: Antonio replaced the bust gallery with 3 real photos only.
+    # One-time: if any old bust photo is still present, swap the whole gallery
+    # for the 3 real ones and point the product card at the first. The gate
+    # keys on the old paths so later admin uploads are never touched.
+    _bust_old = ("/img/products/bust.jpg", "/img/work/bust-3q.jpg",
+                 "/img/work/bust-front.jpg", "/img/products/bust-signature.webp",
+                 "/img/products/bust-threequarter.webp", "/img/products/bust-otherside.webp",
+                 "/img/products/bust-elevated.webp", "/img/products/bust-rear.webp",
+                 "/img/products/bust-face.webp", "/img/products/bust-workshop.webp")
+    _bust_new = ("/img/products/bust-real-front.jpg", "/img/products/bust-real-34.jpg",
+                 "/img/products/bust-real-front2.jpg")
+    if conn.execute(
+            "SELECT 1 FROM product_photos WHERE product_id='bust-collector' AND photo IN (%s)"
+            % ",".join("?" * len(_bust_old)), _bust_old).fetchone():
+        conn.execute("DELETE FROM product_photos WHERE product_id='bust-collector'")
+        for _i, _ph in enumerate(_bust_new):
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                ("ph_" + uuid.uuid4().hex[:10], "bust-collector", _ph, _i, 0, now_iso()))
+        conn.execute(
+            "UPDATE products SET photo='/img/products/bust-real-front.jpg' "
+            "WHERE id='bust-collector'")
     # The gift-card case finally has a real photo: use it as the product photo too.
     conn.execute(
         "UPDATE products SET photo='/img/products/giftcard-case.jpg' "
