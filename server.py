@@ -671,6 +671,34 @@ def seed():
              "Mini statues at $24.99 and $39.99.",
              "Mini-bustes d\u00e9taill\u00e9s de saint Fr\u00e8re Andr\u00e9 et Carlo Acutis, pr\u00e9sent\u00e9s sur le pi\u00e9destal. "
              "Mini-statues \u00e0 24,99 $ et 39,99 $."))
+    # 2026-10-18: stone-finish statue WIP project (museum delivery) from Antonio's progress photos.
+    # Idempotent.
+    if not conn.execute("SELECT id FROM wip_projects WHERE id='stone-statues'").fetchone():
+        conn.execute(
+            "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            ("stone-statues", "Stone statues \u2014 Fr\u00e8re Andr\u00e9 & Carlo Acutis",
+             "Statues de pierre \u2014 Fr\u00e8re Andr\u00e9 et Carlo Acutis",
+             "In finishing", "En finition",
+             "/img/work/statue-frere-andre-grande-studio.jpg", 2, now_iso()))
+        for _uid, _txt, _txt_fr in (
+            ("ss1",
+             "Big Fr\u00e8re Andr\u00e9 bust printed on the Bambu H2D, supports removed, sanded smooth \u2014 "
+             "no visible layer lines.",
+             "Grand buste du Fr\u00e8re Andr\u00e9 imprim\u00e9 sur la Bambu H2D, supports retir\u00e9s, pon\u00e7age lisse \u2014 "
+             "aucune ligne de couche visible."),
+            ("ss2",
+             "Primer on, then gloss white paint and a non-yellowing clear coat for the real stone look.",
+             "Appr\u00eat appliqu\u00e9, puis peinture blanc brillant et vernis transparent anti-jaunissement "
+             "pour un vrai aspect pierre."),
+            ("ss3",
+             "Fitted on a solid wood base with the engraved name plate. The Oratory nativity scenes are "
+             "now on the boutique shelf at $23.99.",
+             "Mont\u00e9 sur un socle en bois massif avec plaque grav\u00e9e. Les cr\u00e8ches de l'Oratoire sont "
+             "maintenant en boutique \u00e0 23,99 $.")):
+            conn.execute(
+                "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
+                (_uid, "stone-statues", now_iso(), _txt, _txt_fr))
     # 2026-10-18: single lighter listing at $24.99 (Etsy parity). The older
     # "lighter" product is retired; "custom-lighter" becomes the one listing,
     # keeping its real Aku photo in the gallery and the Stogies mockup as card.
