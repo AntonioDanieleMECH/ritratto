@@ -1,43 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Order Confirmation | ADN Creations</title>
-<meta name="description" content="Your order confirmation from ADN Creations.">
+<title>Confirmation de commande | ADN Creations</title>
+<meta name="description" content="Confirmation de votre commande ADN Creations.">
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<meta property="og:title" content="Confirmation de commande | ADN Creations">
+<meta property="og:description" content="Confirmation de votre commande ADN Creations.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ritratto.onrender.com/thank-you.html">
+<meta property="og:image" content="https://ritratto.onrender.com/img/work/bust-front.jpg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
-<nav class="nav-links" id="navLinks"><a href="/work.html" class="">Work</a><a href="/shop.html" class="">Shop</a><a href="/engraving.html" class="">Engraving</a><a href="/progress.html" class="">Progress</a><a href="/about.html" class="">About</a><a href="/contact.html" class="">Contact</a><a href="/shop.html" class="nav-cta">Shop now</a></nav>
-<button class="hamburger" id="navToggle" aria-label="Menu">&#9776;</button>
+<nav class="nav-links" id="navLinks"><a href="/work.html" data-i18n="nav.work">Réalisations</a><a href="/shop.html" data-i18n="nav.shop">Boutique</a><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a><a href="/progress.html" data-i18n="nav.progress">En cours</a><a href="/suggest.html" data-i18n="nav.suggest">Idées</a><a href="/about.html" data-i18n="nav.about">À propos</a><a href="/contact.html" data-i18n="nav.contact">Contact</a><a href="/shop.html" class="nav-cta" data-i18n="nav.cta">Magasiner</a></nav>
+<div class="lang-toggle" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" class="on">FR</button><button type="button" data-lang="en">EN</button></div>
+<button class="hamburger" id="navToggle" aria-label="Menu" data-i18n-attr="aria-label:menu">&#9776;</button>
 </div></header>
 <main><div class="wrap">
-<section class="section text-center">
-<div id="orderBox"><p class="muted">Loading your order...</p></div>
+<section class="section-sm" style="text-align:center">
+<div id="orderBox"><p class="muted" data-i18n="thanks.loading">Chargement de votre commande...</p></div>
 </section>
 </div></main>
 <footer class="site-footer"><div class="wrap footer-inner">
 <div class="footer-grid">
 <div>
 <div class="footer-brand">ADN <span>Creations</span></div>
-<p class="small" style="color:#B9AE97">Engineering design company. Hand crafted additive manufacturing in LaSalle, Montreal, from plant-based materials.</p>
-<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener">Follow our builds on Making Stuff</a>
+<p class="small" style="color:#B9AE97" data-i18n="footer.tag">Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.</p>
+<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener" data-i18n="follow.ms">Suivez nos créations sur Making Stuff</a>
 </div>
-<div><h4>Explore</h4><ul class="footer-links">
-<li><a href="/work.html">Work</a></li><li><a href="/shop.html">Shop</a></li>
-<li><a href="/engraving.html">Engraving</a></li><li><a href="/progress.html">Progress</a></li>
-<li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+<div><h4 data-i18n="footer.explore">Explorer</h4><ul class="footer-links">
+<li><a href="/work.html" data-i18n="nav.work">Réalisations</a></li><li><a href="/shop.html" data-i18n="nav.shop">Boutique</a></li>
+<li><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a></li><li><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a></li>
+<li><a href="/progress.html" data-i18n="nav.progress">En cours</a></li><li><a href="/suggest.html" data-i18n="nav.suggest">Idées</a></li>
+<li><a href="/about.html" data-i18n="nav.about">À propos</a></li><li><a href="/contact.html" data-i18n="nav.contact">Contact</a></li>
 </ul></div>
-<div><h4>Contact</h4><ul class="footer-links">
+<div><h4 data-i18n="footer.contact">Contact</h4><ul class="footer-links">
 <li><a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a></li>
-<li>LaSalle, Montreal, QC</li><li>NEQ 2281797763</li>
+<li data-i18n="footer.office">Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)</li>
+<li>NEQ 2281797763</li>
 </ul></div>
 </div>
-<div class="footer-bottom"><span>&copy; 2026 ADN Creations. All rights reserved.</span><span>Designed and built in Montreal.</span></div>
-</div></footer>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. <span data-i18n="footer.rights">Tous droits réservés.</span></span><span data-i18n="footer.made">Conçu et fabriqué à Montréal.</span></div>
+</div></footer><script src="/i18n.js"></script>
 <script>document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});</script>
 <script>
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
@@ -46,24 +57,24 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){retur
   var box=document.getElementById("orderBox");
   function fail(msg){box.innerHTML='<div class="notice notice-err" style="text-align:left">'+esc(msg)+'</div>';}
   if(!/^ord_[0-9a-f]{12}$/.test(id)){
-    fail("We could not find that order. Please check your confirmation link.");
+    fail(window.adnT("thanks.notfound"));
     return;
   }
   fetch("/api/order/"+id).then(function(r){
     if(!r.ok)throw new Error("not found");
     return r.json();
   }).then(function(o){
-    var html='<p><span class="badge badge-stock">Order confirmed</span></p>';
-    html+='<h1>Thank you.</h1>';
+    var html='<p><span class="badge badge-stock">'+esc(window.adnT("thanks.confirmed"))+'</span></p>';
+    html+='<h1>'+esc(window.adnT("thanks.h1"))+'</h1>';
     html+='<p class="lede">'+esc(o.product_name)+'</p>';
     html+='<p class="price">'+esc(o.price)+'</p>';
     if(o.preorder){
-      html+='<div class="preorder-note" style="text-align:left;max-width:520px;margin:0 auto 16px">This is a preorder. Expected to ship: '+esc(o.preorder_ship_date||"soon")+'.</div>';
+      html+='<div class="preorder-note" style="text-align:left;max-width:520px;margin:0 auto 16px">'+esc(window.adnFmt(window.adnT("thanks.preorder"),{date:o.preorder_ship_date||"soon"}))+'</div>';
     }
-    html+='<p class="small muted">Questions about your order? Email <a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a>.</p>';
+    html+='<p class="small muted">'+esc(window.adnT("thanks.q"))+' <a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a>.</p>';
     box.innerHTML=html;
   }).catch(function(){
-    fail("We could not find that order. If you just checked out, wait a moment and refresh.");
+    fail(window.adnT("thanks.notfound2"));
   });
 })();
 </script>

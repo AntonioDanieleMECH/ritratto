@@ -1,55 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shop | ADN Creations</title>
-<meta name="description" content="The ADN Creations collection: religious pieces, electronics, and gag gifts. Every piece is designed and hand crafted in LaSalle, Montreal.">
+<title>Boutique | ADN Creations</title>
+<meta name="description" content="La collection ADN Creations : pièces religieuses, électroniques et humour. Conçues et faites à la main à Montréal.">
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
-<meta property="og:title" content="Shop | ADN Creations">
-<meta property="og:description" content="The ADN Creations collection: religious pieces, electronics, and gag gifts. Designed and hand crafted in LaSalle, Montreal.">
+<meta property="og:title" content="Boutique | ADN Creations">
+<meta property="og:description" content="La collection ADN Creations : pièces religieuses, électroniques et humour. Conçues et faites à la main à Montréal.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://adncreations.ca/shop.html">
+<meta property="og:url" content="https://ritratto.onrender.com/shop.html">
+<meta property="og:image" content="https://ritratto.onrender.com/img/work/bust-front.jpg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
-<nav class="nav-links" id="navLinks"><a href="/work.html" class="">Work</a><a href="/shop.html" class="active">Shop</a><a href="/engraving.html" class="">Engraving</a><a href="/progress.html" class="">Progress</a><a href="/about.html" class="">About</a><a href="/contact.html" class="">Contact</a><a href="/shop.html" class="nav-cta">Shop now</a></nav>
-<button class="hamburger" id="navToggle" aria-label="Menu">&#9776;</button>
+<nav class="nav-links" id="navLinks"><a href="/work.html" data-i18n="nav.work">Réalisations</a><a href="/shop.html" class="active" data-i18n="nav.shop">Boutique</a><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a><a href="/progress.html" data-i18n="nav.progress">En cours</a><a href="/suggest.html" data-i18n="nav.suggest">Idées</a><a href="/about.html" data-i18n="nav.about">À propos</a><a href="/contact.html" data-i18n="nav.contact">Contact</a><a href="/shop.html" class="nav-cta" data-i18n="nav.cta">Magasiner</a></nav>
+<div class="lang-toggle" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" class="on">FR</button><button type="button" data-lang="en">EN</button></div>
+<button class="hamburger" id="navToggle" aria-label="Menu" data-i18n-attr="aria-label:menu">&#9776;</button>
 </div></header>
 <main class="wrap">
 <section class="section">
-<p class="kicker">Shop</p>
-<h1>The collection</h1>
-<p class="lede">Every piece is designed and hand crafted in LaSalle, Montreal. Flat-rate shipping across Canada and the US.</p>
+<p class="kicker" data-i18n="shop.kicker">Boutique</p>
+<h1 data-i18n="shop.h1">La collection</h1>
+<p class="lede" data-i18n="shop.lede">Chaque pièce est conçue et faite à la main à Montréal. Expédition à taux fixe partout au Canada et aux États-Unis.</p>
 <div class="dept-tabs" id="deptTabs">
-<button class="dept-tab active" data-dept="">All</button><button class="dept-tab" data-dept="religious">Religious</button><button class="dept-tab" data-dept="electronic">Electronic</button><button class="dept-tab" data-dept="gag">Gag</button>
+<button class="dept-tab active" data-dept="" data-i18n="shop.tab_all">Tout</button><button class="dept-tab" data-dept="religious" data-i18n="shop.tab_rel">Religieux</button><button class="dept-tab" data-dept="electronic" data-i18n="shop.tab_ele">Électronique</button><button class="dept-tab" data-dept="gag" data-i18n="shop.tab_gag">Humour</button>
 </div>
 <div id="productGrid" class="grid grid-3"></div>
+</section>
+<section class="section-sm" id="soonSection" style="display:none">
+<h2 data-i18n="shop.soon_h">Bientôt disponible</h2>
+<div id="soonGrid" class="grid grid-3"></div>
+</section>
+<section class="section-sm">
+<h2 data-i18n="shop.build_h">En chantier à l'atelier</h2>
+<p class="lede" data-i18n="shop.build_p">Des projets en cours qui deviendront des produits. Suivez leur progression.</p>
+<div class="grid grid-3" id="buildStrip"></div>
+<p style="margin-top:16px"><a class="btn btn-outline" href="/progress.html" data-i18n="shop.build_btn">Suivre le chantier</a></p>
 </section>
 </main>
 <footer class="site-footer"><div class="wrap footer-inner">
 <div class="footer-grid">
 <div>
 <div class="footer-brand">ADN <span>Creations</span></div>
-<p class="small" style="color:#B9AE97">Engineering design company. Hand crafted additive manufacturing in LaSalle, Montreal, from plant-based materials.</p>
-<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener">Follow our builds on Making Stuff</a>
+<p class="small" style="color:#B9AE97" data-i18n="footer.tag">Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.</p>
+<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener" data-i18n="follow.ms">Suivez nos créations sur Making Stuff</a>
 </div>
-<div><h4>Explore</h4><ul class="footer-links">
-<li><a href="/work.html">Work</a></li><li><a href="/shop.html">Shop</a></li>
-<li><a href="/engraving.html">Engraving</a></li><li><a href="/progress.html">Progress</a></li>
-<li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+<div><h4 data-i18n="footer.explore">Explorer</h4><ul class="footer-links">
+<li><a href="/work.html" data-i18n="nav.work">Réalisations</a></li><li><a href="/shop.html" data-i18n="nav.shop">Boutique</a></li>
+<li><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a></li><li><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a></li>
+<li><a href="/progress.html" data-i18n="nav.progress">En cours</a></li><li><a href="/suggest.html" data-i18n="nav.suggest">Idées</a></li>
+<li><a href="/about.html" data-i18n="nav.about">À propos</a></li><li><a href="/contact.html" data-i18n="nav.contact">Contact</a></li>
 </ul></div>
-<div><h4>Contact</h4><ul class="footer-links">
+<div><h4 data-i18n="footer.contact">Contact</h4><ul class="footer-links">
 <li><a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a></li>
-<li>LaSalle, Montreal, QC</li><li>NEQ 2281797763</li>
+<li data-i18n="footer.office">Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)</li>
+<li>NEQ 2281797763</li>
 </ul></div>
 </div>
-<div class="footer-bottom"><span>&copy; 2026 ADN Creations. All rights reserved.</span><span>Designed and built in Montreal.</span></div>
-</div></footer>
-<script>document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});</script>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. <span data-i18n="footer.rights">Tous droits réservés.</span></span><span data-i18n="footer.made">Conçu et fabriqué à Montréal.</span></div>
+</div></footer><script src="/i18n.js"></script>
+<script src="/teaser.js"></script>
 <script src="/shop.js"></script>
+<script>
+document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});
+window.adnLangChanged=function(){if(window.adnRenderTeaser)window.adnRenderTeaser();if(window.adnRenderShop)window.adnRenderShop();};
+</script>
 </body>
 </html>

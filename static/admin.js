@@ -236,19 +236,26 @@
   function fillProductForm(p) {
     $("pf-id").value = p.id || "";
     $("pf-name").value = p.name || "";
+    $("pf-name-fr").value = p.name_fr || "";
     $("pf-price").value = p.price_cents != null ? (p.price_cents / 100).toFixed(2) : "";
+    $("pf-addprice").value = p.additional_price_cents != null ? (p.additional_price_cents / 100).toFixed(2) : "";
     $("pf-stock").value = p.stock == null ? "" : p.stock;
     $("pf-photo").value = p.photo || "";
     $("pf-photo-file").value = "";
     setCheckedDepts(parseDepts(p));
     $("pf-preorder").checked = !!p.preorder;
     $("pf-engravable").checked = !!p.engravable;
+    $("pf-inworks").checked = !!p.in_works;
     $("pf-purchasable").checked = !!p.purchasable;
     $("pf-active").checked = p.active == null ? true : !!p.active;
     $("pf-shipdate").value = p.preorder_ship_date || "";
     $("pf-customlink").value = p.custom_link || "";
     $("pf-desc").value = p.description || "";
+    $("pf-desc-fr").value = p.description_fr || "";
+    $("pf-story").value = p.story || "";
+    $("pf-story-fr").value = p.story_fr || "";
     toggleShipdate();
+    loadPhotoManager(p.id);
     $("productForm").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -257,8 +264,68 @@
     $("pf-id").value = "";
     $("pf-photo").value = "";
     $("pf-photo-file").value = "";
+    $("pf-photos").innerHTML = "";
     setCheckedDepts([]);
     toggleShipdate();
+  }
+
+  /* ---------------- product photo gallery ---------------- */
+
+  async function loadPhotoManager(pid) {
+    var box = $("pf-photos");
+    if (!pid) { box.innerHTML = '<p class="small muted">Save the product first, then add photos.</p>'; return; }
+    try {
+      var data = await call("/api/admin/photos?product_id=" + encodeURIComponent(pid));
+      var photos = data.photos || [];
+      if (!photos.length) {
+        box.innerHTML = '<p class="small muted">No gallery photos yet. The main photo above is used.</p>';
+        return;
+      }
+      box.innerHTML = photos.map(function (ph, i) {
+        var isVid = (ph.kind || "photo") === "video";
+        var thumb = isVid
+          ? '<video src="' + esc(ph.photo) + '" muted preload="metadata" playsinline style="width:56px;height:56px;object-fit:cover;border-radius:8px"></video>'
+          : '<img src="' + esc(ph.photo) + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px">';
+        var label = isVid ? "Video" : (ph.is_scale ? "Scale shot (shown last)" : "Photo " + (i + 1));
+        return '<div class="photo-row" style="display:flex;gap:8px;align-items:center;margin:6px 0">' +
+          thumb +
+          '<span class="small muted" style="flex:1">' + label + "</span>" +
+          '<button class="btn btn-sm btn-outline" data-phact="up" data-phid="' + esc(ph.id) + '" type="button">Up</button>' +
+          '<button class="btn btn-sm btn-outline" data-phact="down" data-phid="' + esc(ph.id) + '" type="button">Down</button>' +
+          ((!isVid && !ph.is_scale) ? '<button class="btn btn-sm btn-outline" data-phact="scale" data-phid="' + esc(ph.id) + '" type="button">Scale shot</button>' : "") +
+          '<button class="btn btn-sm btn-outline" data-phact="del" data-phid="' + esc(ph.id) + '" type="button">Delete</button>' +
+          "</div>";
+      }).join("");
+    } catch (err) {
+      box.innerHTML = '<p class="small muted">Could not load photos.</p>';
+    }
+  }
+
+  async function uploadGalleryPhoto() {
+    var pid = $("pf-id").value.trim();
+    if (!pid) { showErr($("productForm"), "Save the product first, then add photos."); return; }
+    var fi = $("pf-photo-upload");
+    var files = fi.files;
+    if (!files.length) return;
+    clearNotice($("productForm"));
+    var btn = $("pf-photo-add");
+    btn.disabled = true;
+    try {
+      for (var k = 0; k < files.length; k++) {
+        btn.textContent = "Uploading " + (k + 1) + " of " + files.length + "...";
+        var fd = new FormData();
+        fd.append("file", files[k]);
+        var up = await call("/api/admin/upload", { method: "POST", body: fd });
+        await jpost("/api/admin/photos", { product_id: pid, photo: up.url, kind: up.kind || "photo" });
+      }
+      fi.value = "";
+      showOk($("productForm"), files.length === 1 ? "Upload complete." : files.length + " uploads complete.");
+      await loadPhotoManager(pid);
+    } catch (err) {
+      showErr($("productForm"), "Upload failed: " + err.message);
+    }
+    btn.textContent = "Upload";
+    btn.disabled = false;
   }
 
   function toggleShipdate() {
@@ -288,17 +355,23 @@
       var payload = {
         id: editId || "",
         name: $("pf-name").value.trim(),
+        name_fr: $("pf-name-fr").value.trim(),
         price: parseFloat($("pf-price").value) || 0,
+        additional_price: $("pf-addprice").value.trim(),
         stock: stockRaw === "" ? "" : parseInt(stockRaw, 10),
         photo: photo,
         depts: checkedDepts(),
         preorder: $("pf-preorder").checked,
         preorder_ship_date: $("pf-shipdate").value.trim(),
         engravable: $("pf-engravable").checked,
+        in_works: $("pf-inworks").checked,
         purchasable: $("pf-purchasable").checked,
         active: $("pf-active").checked,
         custom_link: $("pf-customlink").value.trim(),
         description: $("pf-desc").value.trim(),
+        description_fr: $("pf-desc-fr").value.trim(),
+        story: $("pf-story").value.trim(),
+        story_fr: $("pf-story-fr").value.trim(),
         sort: existing ? (existing.sort || 0) : 0
       };
       await jpost("/api/admin/products", payload);
@@ -345,7 +418,9 @@
     try {
       await jpost("/api/admin/announcements", {
         title: $("af-title").value.trim(),
-        body: $("af-body").value.trim()
+        title_fr: $("af-title-fr").value.trim(),
+        body: $("af-body").value.trim(),
+        body_fr: $("af-body-fr").value.trim()
       });
       $("annForm").reset();
       showOk($("annForm"), "Announcement published.");
@@ -397,7 +472,9 @@
     try {
       await jpost("/api/admin/wip", {
         project: $("wf-project").value.trim(),
-        status: $("wf-status").value.trim()
+        project_fr: $("wf-project-fr").value.trim(),
+        status: $("wf-status").value.trim(),
+        status_fr: $("wf-status-fr").value.trim()
       });
       $("wipForm").reset();
       showOk($("wipForm"), "Project added.");
@@ -415,9 +492,11 @@
       if (!pid) throw new Error("add a project first");
       await jpost("/api/admin/wip-update", {
         project_id: pid,
-        text: $("wu-text").value.trim()
+        text: $("wu-text").value.trim(),
+        text_fr: $("wu-text-fr").value.trim()
       });
       $("wu-text").value = "";
+      $("wu-text-fr").value = "";
       showOk($("wipUpdateForm"), "Update added.");
       await loadWip();
     } catch (err) {
@@ -450,10 +529,11 @@
           "<td>" + (o.paid ? "Yes" : "No") + "</td></tr>";
       });
       lamps.forEach(function (o) {
+        var packLabel = o.pack === "pack4" ? "4-pack" : (o.pack === "set4" ? "4 copies" : "single");
         rows += "<tr>" +
           "<td>" + esc(fmtDate(o.created)) + "</td>" +
           "<td><strong>Custom memorial lamp</strong><br><span class=\"small muted\">" +
-          esc(o.pack === "set4" ? "4 copies" : "single") + "</span></td>" +
+          esc(packLabel) + "</span></td>" +
           "<td>1</td>" +
           "<td>" + esc(money(o.amount)) + "</td>" +
           "<td>-</td><td>-</td>" +
@@ -499,6 +579,85 @@
     }
   }
 
+  /* ---------------- portrait ideas + notify-me ---------------- */
+
+  async function loadPortraitIdeas() {
+    var list = $("porList");
+    clearNotice(list);
+    try {
+      var data = await call("/api/admin/portrait-ideas");
+      var ideas = data.ideas || [];
+      if (!ideas.length) {
+        list.innerHTML = '<p class="muted">No portrait ideas yet.</p>';
+        return;
+      }
+      var rows = ideas.map(function (r) {
+        return "<tr>" +
+          "<td>" + esc(fmtDate(r.created)) + "</td>" +
+          "<td><strong>" + esc(r.name) + "</strong></td>" +
+          '<td><a href="mailto:' + esc(r.email) + '">' + esc(r.email) + "</a></td>" +
+          "<td>" + esc(r.idea) + "</td></tr>";
+      }).join("");
+      list.innerHTML = tableWrap(
+        '<table class="admin-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th>' +
+        "<th>Idea</th></tr></thead><tbody>" + rows + "</tbody></table>");
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load portrait ideas: " + err.message);
+    }
+  }
+
+  async function loadSuggestions() {
+    var list = $("sgList");
+    clearNotice(list);
+    try {
+      var data = await call("/api/admin/suggestions");
+      var items = data.suggestions || [];
+      if (!items.length) {
+        list.innerHTML = '<p class="muted">No suggestions yet.</p>';
+        return;
+      }
+      var rows = items.map(function (r) {
+        return "<tr>" +
+          "<td>" + esc(fmtDate(r.created)) + "</td>" +
+          "<td><strong>" + esc(r.title) + "</strong><br><span class=\"small muted\">" + esc(r.category) + "</span></td>" +
+          "<td><strong>" + esc(r.name) + '</strong><br><a href="mailto:' + esc(r.email) + '">' + esc(r.email) + "</a></td>" +
+          "<td>" + esc(r.description) + "</td></tr>";
+      }).join("");
+      list.innerHTML = tableWrap(
+        '<table class="admin-table"><thead><tr><th>Date</th><th>Idea</th><th>From</th>' +
+        "<th>Description</th></tr></thead><tbody>" + rows + "</tbody></table>");
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load suggestions: " + err.message);
+    }
+  }
+
+  async function loadNotifyMe() {
+    var list = $("ntfList");
+    clearNotice(list);
+    try {
+      var data = await call("/api/admin/notify-me");
+      var items = data.list || [];
+      if (!items.length) {
+        list.innerHTML = '<p class="muted">Nobody waiting yet.</p>';
+        return;
+      }
+      var rows = items.map(function (r) {
+        return "<tr>" +
+          "<td>" + esc(fmtDate(r.created)) + "</td>" +
+          "<td>" + esc(r.product_name || r.product_id) + "</td>" +
+          '<td><a href="mailto:' + esc(r.email) + '">' + esc(r.email) + "</a></td></tr>";
+      }).join("");
+      list.innerHTML = tableWrap(
+        '<table class="admin-table"><thead><tr><th>Date</th><th>Product</th><th>Email</th>' +
+        "</tr></thead><tbody>" + rows + "</tbody></table>");
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load the notify list: " + err.message);
+    }
+  }
+
   /* ---------------- events ---------------- */
 
   document.addEventListener("click", async function (e) {
@@ -532,6 +691,21 @@
           await loadWip();
         } catch (err) { showErr($("wipList"), "Could not delete the project: " + err.message); }
       }
+    } else if (t.getAttribute("data-phact")) {
+      var phid = t.getAttribute("data-phid");
+      var act = t.getAttribute("data-phact");
+      try {
+        if (act === "del") {
+          if (!confirm("Delete this photo?")) return;
+          await call("/api/admin/photos/" + encodeURIComponent(phid), { method: "DELETE" });
+        } else if (act === "scale") {
+          await jpost("/api/admin/photos/" + encodeURIComponent(phid), { action: "scale" });
+        } else if (act === "up" || act === "down") {
+          await jpost("/api/admin/photos/" + encodeURIComponent(phid),
+            { action: "move", direction: act === "up" ? -1 : 1 });
+        }
+        await loadPhotoManager($("pf-id").value.trim());
+      } catch (err) { showErr($("productForm"), "Photo update failed: " + err.message); }
     }
   });
 
@@ -541,6 +715,7 @@
     toggleShipdate();
     $("productForm").addEventListener("submit", saveProduct);
     $("pf-cancel").addEventListener("click", function () { clearProductForm(); clearNotice($("productForm")); });
+    $("pf-photo-add").addEventListener("click", uploadGalleryPhoto);
     $("annForm").addEventListener("submit", saveAnnouncement);
     $("wipForm").addEventListener("submit", saveWipProject);
     $("wipUpdateForm").addEventListener("submit", saveWipUpdate);
@@ -549,6 +724,9 @@
     loadWip();
     loadOrders();
     loadEngraving();
+    loadPortraitIdeas();
+    loadSuggestions();
+    loadNotifyMe();
   }
 
   if (document.readyState === "loading") {

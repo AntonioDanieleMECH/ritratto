@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suggérez un projet | ADN Creations</title>
+<meta name="description" content="Proposez une idée de produit, un projet sur mesure ou une collaboration à l'atelier ADN Creations.">
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<meta property="og:title" content="Suggérez un projet | ADN Creations">
+<meta property="og:description" content="Proposez une idée de produit, un projet sur mesure ou une collaboration à l'atelier ADN Creations.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ritratto.onrender.com/suggest.html">
+<meta property="og:image" content="https://ritratto.onrender.com/img/work/bust-front.jpg">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+<a class="brand" href="/">ADN <span>Creations</span></a>
+<nav class="nav-links" id="navLinks"><a href="/work.html" data-i18n="nav.work">Réalisations</a><a href="/shop.html" data-i18n="nav.shop">Boutique</a><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a><a href="/progress.html" data-i18n="nav.progress">En cours</a><a href="/suggest.html" class="active" data-i18n="nav.suggest">Idées</a><a href="/about.html" data-i18n="nav.about">À propos</a><a href="/contact.html" data-i18n="nav.contact">Contact</a><a href="/shop.html" class="nav-cta" data-i18n="nav.cta">Magasiner</a></nav>
+<div class="lang-toggle" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" class="on">FR</button><button type="button" data-lang="en">EN</button></div>
+<button class="hamburger" id="navToggle" aria-label="Menu" data-i18n-attr="aria-label:menu">&#9776;</button>
+</div></header>
+<main><div class="wrap">
+<section class="section-sm">
+<p class="kicker" data-i18n="sg.kicker">Vos idées</p>
+<h1 data-i18n="sg.h1">Suggérez un projet.</h1>
+<p class="lede" data-i18n="sg.lede">Vous avez une idée de produit, un projet sur mesure ou une collaboration en tête ? Dites-le-nous. Nous lisons chaque suggestion.</p>
+</section>
+<section class="section-sm">
+<div class="admin-card" style="max-width:640px">
+<h2 data-i18n="sg.form_h">Proposer une idée</h2>
+<form id="sgForm">
+<div class="field"><label for="sgName" data-i18n="sg.name">Nom</label><input type="text" id="sgName" name="name" autocomplete="name" required maxlength="120"></div>
+<div class="field"><label for="sgEmail" data-i18n="sg.email">Courriel</label><input type="email" id="sgEmail" name="email" autocomplete="email" required maxlength="160"></div>
+<div class="field"><label for="sgTitle" data-i18n="sg.title_l">Titre de l'idée</label><input type="text" id="sgTitle" name="title" required maxlength="160" data-i18n-attr="placeholder:sg.title_ph" placeholder="p. ex. une lampe veilleuse pour bébé..."></div>
+<div class="field"><label for="sgDesc" data-i18n="sg.desc_l">Description</label><textarea id="sgDesc" name="description" required maxlength="2000" data-i18n-attr="placeholder:sg.desc_ph" placeholder="Décrivez votre idée en quelques phrases."></textarea></div>
+<div class="field"><label for="sgCat" data-i18n="sg.cat_l">Catégorie</label><select id="sgCat" name="category">
+<option value="product" data-i18n="sg.cat_product">Idée de produit</option>
+<option value="custom" data-i18n="sg.cat_custom">Travail sur mesure</option>
+<option value="collab" data-i18n="sg.cat_collab">Collaboration</option>
+<option value="other" data-i18n="sg.cat_other">Autre</option>
+</select></div>
+<button class="btn btn-brass" type="submit" data-i18n="sg.send">Envoyer ma suggestion</button>
+<div id="sgMsg" style="margin-top:14px"></div>
+</form>
+</div>
+</section>
+</div></main>
+<footer class="site-footer"><div class="wrap footer-inner">
+<div class="footer-grid">
+<div>
+<div class="footer-brand">ADN <span>Creations</span></div>
+<p class="small" style="color:#B9AE97" data-i18n="footer.tag">Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.</p>
+<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener" data-i18n="follow.ms">Suivez nos créations sur Making Stuff</a>
+</div>
+<div><h4 data-i18n="footer.explore">Explorer</h4><ul class="footer-links">
+<li><a href="/work.html" data-i18n="nav.work">Réalisations</a></li><li><a href="/shop.html" data-i18n="nav.shop">Boutique</a></li>
+<li><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a></li><li><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a></li>
+<li><a href="/progress.html" data-i18n="nav.progress">En cours</a></li><li><a href="/suggest.html" data-i18n="nav.suggest">Idées</a></li>
+<li><a href="/about.html" data-i18n="nav.about">À propos</a></li><li><a href="/contact.html" data-i18n="nav.contact">Contact</a></li>
+</ul></div>
+<div><h4 data-i18n="footer.contact">Contact</h4><ul class="footer-links">
+<li><a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a></li>
+<li data-i18n="footer.office">Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)</li>
+<li>NEQ 2281797763</li>
+</ul></div>
+</div>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. <span data-i18n="footer.rights">Tous droits réservés.</span></span><span data-i18n="footer.made">Conçu et fabriqué à Montréal.</span></div>
+</div></footer><script src="/i18n.js"></script>
+<script>document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});</script>
+<script>
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+document.getElementById("sgForm").addEventListener("submit",async function(e){
+  e.preventDefault();
+  var msg=document.getElementById("sgMsg");
+  var btn=this.querySelector('button[type="submit"]');
+  btn.disabled=true;
+  var payload={
+    name:document.getElementById("sgName").value,
+    email:document.getElementById("sgEmail").value,
+    title:document.getElementById("sgTitle").value,
+    description:document.getElementById("sgDesc").value,
+    category:document.getElementById("sgCat").value,
+    lang:(window.adnGetLang?window.adnGetLang():"fr")
+  };
+  try{
+    var r=await fetch("/api/suggest-project",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    var j=await r.json().catch(function(){return {};});
+    if(r.ok){
+      msg.innerHTML='<div class="notice notice-ok">'+esc(window.adnT("sg.ok"))+'</div>';
+      document.getElementById("sgForm").reset();
+    }else{
+      msg.innerHTML='<div class="notice notice-err">'+esc(j.error||window.adnT("sg.err2"))+'</div>';
+    }
+  }catch(err){
+    msg.innerHTML='<div class="notice notice-err">'+esc(window.adnT("sg.err3"))+'</div>';
+  }
+  btn.disabled=false;
+});
+</script>
+</body>
+</html>

@@ -1,256 +1,210 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Design your memorial lamp | ADN Creations</title>
-<meta name="description" content="Design your own 4-sided memorial lamp. Pick a saint illustration or upload your own photo for each side. Hand crafted in LaSalle, Montreal.">
+<title>Outil de création de lampe | ADN Creations</title>
+<meta name="description" content="Créez votre lampe commémorative à quatre faces : illustrations de saints ou vos propres photos. Faite à la main à Montréal.">
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
-<meta property="og:title" content="Design your memorial lamp | ADN Creations">
-<meta property="og:description" content="Choose a saint illustration or upload your own photo for each of the four sides. Hand crafted in LaSalle, Montreal.">
+<meta property="og:title" content="Outil de création de lampe | ADN Creations">
+<meta property="og:description" content="Créez votre lampe commémorative à quatre faces : illustrations de saints ou vos propres photos. Faite à la main à Montréal.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://adncreations.ca/custom-lamp.html">
+<meta property="og:url" content="https://ritratto.onrender.com/custom-lamp.html">
+<meta property="og:image" content="https://ritratto.onrender.com/img/products/memorial-lamp.jpg">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
-<nav class="nav-links" id="navLinks"><a href="/work.html" class="">Work</a><a href="/shop.html" class="">Shop</a><a href="/engraving.html" class="">Engraving</a><a href="/progress.html" class="">Progress</a><a href="/about.html" class="">About</a><a href="/contact.html" class="">Contact</a><a href="/shop.html" class="nav-cta">Shop now</a></nav>
-<button class="hamburger" id="navToggle" aria-label="Menu">&#9776;</button>
+<nav class="nav-links" id="navLinks"><a href="/work.html" data-i18n="nav.work">Réalisations</a><a href="/shop.html" data-i18n="nav.shop">Boutique</a><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a><a href="/progress.html" data-i18n="nav.progress">En cours</a><a href="/suggest.html" data-i18n="nav.suggest">Idées</a><a href="/about.html" data-i18n="nav.about">À propos</a><a href="/contact.html" data-i18n="nav.contact">Contact</a><a href="/shop.html" class="nav-cta" data-i18n="nav.cta">Magasiner</a></nav>
+<div class="lang-toggle" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" class="on">FR</button><button type="button" data-lang="en">EN</button></div>
+<button class="hamburger" id="navToggle" aria-label="Menu" data-i18n-attr="aria-label:menu">&#9776;</button>
 </div></header>
-<main class="wrap">
-<section class="section">
-<p class="kicker">Custom</p>
-<h1>Design your memorial lamp</h1>
-<p class="lede">Pick one of the four sides below, then choose a saint illustration or upload your own photo for each side. Every lamp is designed and hand crafted in LaSalle, Montreal from plant-based materials, with a warm flickering glow.</p>
-
+<main><div class="wrap">
+<section class="section-sm">
+<p class="kicker" data-i18n="lamp.kicker">Personnalisé</p>
+<h1 data-i18n="lamp.h1">Créez votre lampe commémorative</h1>
+<p class="lede" data-i18n="lamp.lede">Choisissez l'une des quatre faces ci-dessous, puis une illustration de saint ou téléversez votre propre photo pour chaque face. Chaque lampe est conçue et faite à la main à Montréal avec des matériaux d'origine végétale, avec une chaude lumière vacillante.</p>
+</section>
 <div id="lampNotice" style="display:none"></div>
-<div id="cancelNote" class="notice" style="display:none">Your checkout was cancelled. Your design is still below.</div>
-
-<h2 style="margin-top:8px">Step 1: choose your four sides</h2>
-<p class="small muted" id="sideProgress">0 of 4 sides chosen.</p>
+<div id="cancelNote" class="notice" style="display:none" data-i18n="lamp.cancel">Votre paiement a été annulé. Votre création est toujours ci-dessous.</div>
+<section class="section-sm">
+<h2 data-i18n="lamp.s1">Étape 1 : choisissez vos quatre faces</h2>
+<p class="small muted" id="sideProgress" data-i18n="lamp.progress">0 faces sur 4 choisies.</p>
 <div class="grid grid-2" id="sideSlots"></div>
-
 <div class="admin-card" id="picker" style="display:none;margin-top:26px">
-<h2 id="pickerTitle">Choose a side</h2>
-<p class="small muted">Tap an illustration, or upload your own photo for this side.</p>
+<h2 id="pickerTitle">Choisir la face 1</h2>
+<p class="muted" data-i18n="lamp.picker_p">Touchez une illustration, ou téléversez votre propre photo pour cette face.</p>
 <div class="grid grid-3" id="galleryGrid"></div>
-<div class="field" style="margin-top:20px">
-<label for="sideUpload">Or upload your own photo</label>
+<div class="field" style="margin-top:18px"><label for="sideUpload" data-i18n="lamp.upload_l">Ou téléversez votre propre photo</label>
 <input type="file" id="sideUpload" accept="image/*">
-<p class="small muted" style="margin-top:8px">Your photo is kept only to make your lamp.</p>
-</div>
-<button class="btn btn-outline btn-block" id="pickerCancel" type="button">Back to my sides</button>
+<p class="small muted" data-i18n="lamp.upload_p">Votre photo n'est conservée que pour fabriquer votre lampe.</p></div>
+<button class="btn btn-outline btn-block" id="pickerCancel" type="button" data-i18n="lamp.back">Retour à mes faces</button>
 <div id="pickerNotice" style="display:none;margin-top:12px"></div>
 </div>
-
-<h2 style="margin-top:40px">Step 2: choose your pack</h2>
-<div style="display:flex;gap:12px;flex-wrap:wrap" id="packRow">
-<button class="btn btn-primary" id="packSingle" type="button">Single $20</button>
-<button class="btn btn-outline" id="packSet4" type="button">4 copies $60</button>
-</div>
-<p class="small muted" style="margin-top:10px">4 copies means 4 lamps of the same design.</p>
-
-<h2 style="margin-top:32px">Step 3: checkout</h2>
-<button class="btn btn-brass btn-block" id="checkoutBtn" type="button">Continue to checkout</button>
-<p class="small muted" style="margin-top:10px">Secure checkout with Stripe. Flat-rate shipping for Canada and the US is calculated at checkout.</p>
 </section>
-</main>
+<section class="section-sm">
+<h2 data-i18n="lamp.s2">Étape 2 : choisissez votre paquet</h2>
+<div style="display:flex;gap:12px;flex-wrap:wrap" id="packRow">
+<button class="btn btn-primary" id="packSingle" type="button" data-i18n="lamp.single">Une seule 39,99 $</button>
+<button class="btn btn-outline" id="packSet4" type="button" data-i18n="lamp.pack4">Paquet de 4 99,99 $</button>
+</div>
+<p class="small muted" style="margin-top:10px" data-i18n="lamp.pack_note">Le paquet de 4 comprend 4 lampes du même modèle.</p>
+<p class="small muted" data-i18n="lamp.extra_note">Des exemplaires supplémentaires du même modèle sont à 29,99 $ chacun.</p>
+</section>
+<section class="section-sm">
+<h2 data-i18n="lamp.s3">Étape 3 : paiement</h2>
+<button class="btn btn-brass btn-block" id="checkoutBtn" type="button" data-i18n="lamp.checkout">Passer à la caisse</button>
+<p class="small muted" style="margin-top:10px" data-i18n="lamp.secure">Paiement sécurisé avec Stripe. Les frais d'expédition à taux fixe pour le Canada et les États-Unis sont calculés à la caisse.</p>
+</section>
+</div></main>
 <footer class="site-footer"><div class="wrap footer-inner">
 <div class="footer-grid">
 <div>
 <div class="footer-brand">ADN <span>Creations</span></div>
-<p class="small" style="color:#B9AE97">Engineering design company. Hand crafted additive manufacturing in LaSalle, Montreal, from plant-based materials.</p>
-<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener">Follow our builds on Making Stuff</a>
+<p class="small" style="color:#B9AE97" data-i18n="footer.tag">Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.</p>
+<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener" data-i18n="follow.ms">Suivez nos créations sur Making Stuff</a>
 </div>
-<div><h4>Explore</h4><ul class="footer-links">
-<li><a href="/work.html">Work</a></li><li><a href="/shop.html">Shop</a></li>
-<li><a href="/engraving.html">Engraving</a></li><li><a href="/progress.html">Progress</a></li>
-<li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+<div><h4 data-i18n="footer.explore">Explorer</h4><ul class="footer-links">
+<li><a href="/work.html" data-i18n="nav.work">Réalisations</a></li><li><a href="/shop.html" data-i18n="nav.shop">Boutique</a></li>
+<li><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a></li><li><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a></li>
+<li><a href="/progress.html" data-i18n="nav.progress">En cours</a></li><li><a href="/suggest.html" data-i18n="nav.suggest">Idées</a></li>
+<li><a href="/about.html" data-i18n="nav.about">À propos</a></li><li><a href="/contact.html" data-i18n="nav.contact">Contact</a></li>
 </ul></div>
-<div><h4>Contact</h4><ul class="footer-links">
+<div><h4 data-i18n="footer.contact">Contact</h4><ul class="footer-links">
 <li><a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a></li>
-<li>LaSalle, Montreal, QC</li><li>NEQ 2281797763</li>
+<li data-i18n="footer.office">Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)</li>
+<li>NEQ 2281797763</li>
 </ul></div>
 </div>
-<div class="footer-bottom"><span>&copy; 2026 ADN Creations. All rights reserved.</span><span>Designed and built in Montreal.</span></div>
-</div></footer>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. <span data-i18n="footer.rights">Tous droits réservés.</span></span><span data-i18n="footer.made">Conçu et fabriqué à Montréal.</span></div>
+</div></footer><script src="/i18n.js"></script>
 <script>document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});</script>
 <script>
-(function () {
+(function(){
   "use strict";
-  var state = {
-    sides: [null, null, null, null],
-    pack: "single",
-    prices: { single_cents: 2000, set4_cents: 6000 },
-    gallery: [],
-    picking: null
-  };
+  var T=function(k){return window.adnT(k);};
+  var state={sides:[null,null,null,null],picking:null,pack:"single",gallery:[]};
+  var slotsEl=document.getElementById("sideSlots"),progressEl=document.getElementById("sideProgress"),
+      pickerEl=document.getElementById("picker"),pickerTitle=document.getElementById("pickerTitle"),
+      galleryEl=document.getElementById("galleryGrid"),uploadEl=document.getElementById("sideUpload"),
+      noticeEl=document.getElementById("lampNotice"),pickerNoticeEl=document.getElementById("pickerNotice"),
+      packSingle=document.getElementById("packSingle"),packSet4=document.getElementById("packSet4");
 
-  var slotsEl = document.getElementById("sideSlots");
-  var pickerEl = document.getElementById("picker");
-  var pickerTitle = document.getElementById("pickerTitle");
-  var galleryEl = document.getElementById("galleryGrid");
-  var uploadEl = document.getElementById("sideUpload");
-  var noticeEl = document.getElementById("lampNotice");
-  var pickerNoticeEl = document.getElementById("pickerNotice");
-  var progressEl = document.getElementById("sideProgress");
-  var packSingle = document.getElementById("packSingle");
-  var packSet4 = document.getElementById("packSet4");
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+  function lang(){return window.adnGetLang?window.adnGetLang():"fr";}
+  function show(el,msg,isErr){if(!msg){el.style.display="none";el.innerHTML="";return;}el.style.display="block";el.className="notice"+(isErr?" notice-err":"");el.textContent=msg;}
 
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  }
-
-  function show(el, msg, isErr) {
-    if (!msg) { el.style.display = "none"; el.innerHTML = ""; return; }
-    el.style.display = "block";
-    el.className = "notice" + (isErr ? " notice-err" : "");
-    el.textContent = msg;
-  }
-
-  function moneyLabel(cents) {
-    return cents % 100 === 0 ? "$" + (cents / 100) : "$" + (cents / 100).toFixed(2);
-  }
-
-  function renderSlots() {
-    var html = "";
-    for (var i = 0; i < 4; i++) {
-      var s = state.sides[i];
-      var thumb = s
-        ? '<img src="' + esc(s.thumb) + '" alt="Side ' + (i + 1) + ' preview" loading="lazy">'
-        : '<div class="photo-placeholder">Not chosen yet</div>';
-      var label = s ? esc(s.name) : "Nothing chosen yet";
-      html += '<div class="card"><div class="card-media">' + thumb + '</div>' +
-        '<div class="card-body"><h3>Side ' + (i + 1) + '</h3>' +
-        '<p class="small muted">' + label + "</p>" +
-        '<button class="btn btn-outline btn-block" type="button" data-pick="' + i + '">' +
-        (s ? "Change" : "Choose") + " side " + (i + 1) + "</button></div></div>";
+  function renderSlots(){
+    var html="";
+    for(var i=0;i<4;i++){
+      var s=state.sides[i];
+      var thumb=s?'<img src="'+esc(s.thumb)+'" alt="'+esc(T("lamp.side").replace("{n}",i+1))+'" loading="lazy">':'<div class="photo-placeholder">'+esc(T("lamp.notchosen"))+'</div>';
+      var label=s?esc(s.name):esc(T("lamp.nothing"));
+      var btn=s?T("lamp.change").replace("{n}",i+1):T("lamp.choose").replace("{n}",i+1);
+      html+='<div class="card"><div class="card-media">'+thumb+'</div>'+
+        '<div class="card-body"><h3>'+esc(T("lamp.side").replace("{n}",i+1))+'</h3>'+
+        '<p class="small muted">'+label+"</p>"+
+        '<button class="btn btn-outline btn-block" type="button" data-pick="'+i+'">'+esc(btn)+"</button></div></div>";
     }
-    slotsEl.innerHTML = html;
-    var done = state.sides.filter(function (s) { return s; }).length;
-    progressEl.textContent = done + " of 4 sides chosen.";
+    slotsEl.innerHTML=html;
+    var done=state.sides.filter(function(x){return x;}).length;
+    progressEl.textContent=T("lamp.progress").replace("{n}",done);
   }
 
-  function renderGallery() {
-    galleryEl.innerHTML = state.gallery.map(function (g) {
-      return '<button class="card" type="button" data-gid="' + esc(g.id) + '" style="padding:0;text-align:left;cursor:pointer">' +
-        '<div class="card-media"><img src="' + esc(g.image) + '" alt="' + esc(g.name) + '" loading="lazy"></div>' +
-        '<div class="card-body"><h3 style="font-size:1rem">' + esc(g.name) + "</h3></div></button>";
+  function gname(g){return lang()==="fr"?(g.name_fr||g.name):g.name;}
+  function renderGallery(){
+    galleryEl.innerHTML=state.gallery.map(function(g){
+      return '<button class="card" type="button" data-gid="'+esc(g.id)+'" style="padding:0;text-align:left;cursor:pointer">'+
+        '<div class="card-media"><img src="'+esc(g.image)+'" alt="'+esc(gname(g))+'" loading="lazy"></div>'+
+        '<div class="card-body"><h3 style="font-size:1rem">'+esc(gname(g))+"</h3></div></button>";
     }).join("");
   }
 
-  function openPicker(i) {
-    state.picking = i;
-    pickerTitle.textContent = "Choose side " + (i + 1);
-    uploadEl.value = "";
-    show(pickerNoticeEl, null);
-    pickerEl.style.display = "block";
-    pickerEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  function openPicker(i){
+    state.picking=i;
+    pickerTitle.textContent=T("lamp.picker_t").replace("{n}",i+1);
+    uploadEl.value="";
+    show(pickerNoticeEl,null);
+    pickerEl.style.display="block";
+    pickerEl.scrollIntoView({behavior:"smooth",block:"start"});
   }
-
-  function closePicker() {
-    state.picking = null;
-    pickerEl.style.display = "none";
-  }
-
-  slotsEl.addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-pick]");
-    if (btn) openPicker(parseInt(btn.getAttribute("data-pick"), 10));
+  function closePicker(){state.picking=null;pickerEl.style.display="none";}
+  slotsEl.addEventListener("click",function(e){
+    var btn=e.target.closest("[data-pick]");
+    if(btn)openPicker(parseInt(btn.getAttribute("data-pick"),10));
   });
-
-  galleryEl.addEventListener("click", function (e) {
-    var card = e.target.closest("[data-gid]");
-    if (!card || state.picking == null) return;
-    var gid = card.getAttribute("data-gid");
-    var g = state.gallery.find(function (x) { return x.id === gid; });
-    if (!g) return;
-    state.sides[state.picking] = { kind: "gallery", id: g.id, name: g.name, thumb: g.image };
-    closePicker();
-    renderSlots();
-    show(noticeEl, null);
+  galleryEl.addEventListener("click",function(e){
+    var card=e.target.closest("[data-gid]");
+    if(!card||state.picking==null)return;
+    var g=state.gallery.filter(function(x){return x.id===card.getAttribute("data-gid");})[0];
+    if(!g)return;
+    state.sides[state.picking]={kind:"gallery",id:g.id,name:gname(g),thumb:g.image};
+    closePicker();renderSlots();show(noticeEl,null);
   });
-
-  document.getElementById("pickerCancel").addEventListener("click", closePicker);
-
-  uploadEl.addEventListener("change", async function () {
-    var f = uploadEl.files[0];
-    if (!f || state.picking == null) return;
-    show(pickerNoticeEl, "Uploading your photo...");
-    try {
-      var fd = new FormData();
-      fd.append("file", f);
-      var r = await fetch("/api/lamp-upload", { method: "POST", body: fd });
-      var data = await r.json().catch(function () { return {}; });
-      if (!r.ok) throw new Error(data.error || "upload failed");
-      state.sides[state.picking] = { kind: "upload", file: data.file, name: "Your photo", thumb: data.url };
-      closePicker();
-      renderSlots();
-      show(noticeEl, null);
-    } catch (err) {
-      show(pickerNoticeEl, "Sorry, that photo could not be uploaded. Please try a different image.", true);
+  document.getElementById("pickerCancel").addEventListener("click",closePicker);
+  uploadEl.addEventListener("change",async function(){
+    var f=uploadEl.files[0];
+    if(!f||state.picking==null)return;
+    show(pickerNoticeEl,T("lamp.uploading"));
+    try{
+      var fd=new FormData();fd.append("file",f);
+      var r=await fetch("/api/lamp-upload",{method:"POST",body:fd});
+      var data=await r.json().catch(function(){return{};});
+      if(!r.ok)throw new Error(data.error||"upload failed");
+      state.sides[state.picking]={kind:"upload",file:data.file,name:T("lamp.yourphoto"),thumb:data.url};
+      closePicker();renderSlots();show(noticeEl,null);
+    }catch(err){
+      show(pickerNoticeEl,T("lamp.upload_err"),true);
     }
   });
 
-  function setPack(p) {
-    state.pack = p;
-    packSingle.className = "btn " + (p === "single" ? "btn-primary" : "btn-outline");
-    packSet4.className = "btn " + (p === "set4" ? "btn-primary" : "btn-outline");
+  function setPack(p){
+    state.pack=p;
+    packSingle.className="btn "+(p==="single"?"btn-primary":"btn-outline");
+    packSet4.className="btn "+(p==="pack4"?"btn-primary":"btn-outline");
   }
-  packSingle.addEventListener("click", function () { setPack("single"); });
-  packSet4.addEventListener("click", function () { setPack("set4"); });
+  packSingle.addEventListener("click",function(){setPack("single");});
+  packSet4.addEventListener("click",function(){setPack("pack4");});
 
-  document.getElementById("checkoutBtn").addEventListener("click", async function () {
-    var missing = [];
-    for (var i = 0; i < 4; i++) if (!state.sides[i]) missing.push(i + 1);
-    if (missing.length) {
-      show(noticeEl, "Please choose an illustration or photo for side " + missing.join(", side ") + " before checking out.", true);
+  document.getElementById("checkoutBtn").addEventListener("click",async function(){
+    var missing=[];
+    for(var i=0;i<4;i++)if(!state.sides[i])missing.push(i+1);
+    if(missing.length){
+      show(noticeEl,T("lamp.need_sides").replace("{list}",missing.join(", ")),true);
       return;
     }
-    var btn = this;
-    btn.disabled = true;
-    show(noticeEl, "Preparing your checkout...");
-    try {
-      var sides = state.sides.map(function (s) {
-        return s.kind === "gallery" ? { kind: "gallery", id: s.id } : { kind: "upload", file: s.file };
+    var btn=this;btn.disabled=true;
+    show(noticeEl,T("lamp.preparing"));
+    try{
+      var sides=state.sides.map(function(s){
+        return s.kind==="gallery"?{kind:"gallery",id:s.id}:{kind:"upload",file:s.file};
       });
-      var r = await fetch("/api/lamp-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack: state.pack, sides: sides })
-      });
-      var data = await r.json().catch(function () { return {}; });
-      if (!r.ok) throw new Error(data.error || "checkout failed");
-      window.location.href = data.url;
-    } catch (err) {
-      show(noticeEl, "Sorry, checkout could not start: " + err.message + ". Please try again.", true);
-      btn.disabled = false;
+      var r=await fetch("/api/lamp-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({pack:state.pack,sides:sides,lang:lang()})});
+      var data=await r.json().catch(function(){return{};});
+      if(!r.ok)throw new Error(data.error||"checkout failed");
+      window.location.href=data.url;
+    }catch(err){
+      show(noticeEl,T("lamp.start_err"),true);
+      btn.disabled=false;
     }
   });
 
-  async function init() {
-    if (new URLSearchParams(window.location.search).get("cancelled")) {
-      document.getElementById("cancelNote").style.display = "block";
-    }
-    renderSlots();
-    try {
-      var r = await fetch("/api/gallery");
-      var data = await r.json();
-      state.gallery = data.gallery || [];
-      state.prices.single_cents = data.single_cents || 2000;
-      state.prices.set4_cents = data.set4_cents || 6000;
-      renderGallery();
-      packSingle.textContent = "Single " + moneyLabel(state.prices.single_cents);
-      packSet4.textContent = "4 copies " + moneyLabel(state.prices.set4_cents);
-    } catch (e) {
-      show(noticeEl, "Sorry, the illustration gallery could not be loaded. Please refresh the page.", true);
-    }
-    setPack("single");
+  fetch("/api/gallery").then(function(r){return r.json();}).then(function(j){
+    state.gallery=j.gallery||[];
+    renderGallery();
+  }).catch(function(){
+    galleryEl.innerHTML='<p class="muted">'+esc(T("lamp.gallery_err"))+'</p>';
+  });
+  if(new URLSearchParams(window.location.search).get("cancelled")){
+    var cn=document.getElementById("cancelNote");cn.style.display="block";
   }
-  init();
+  renderSlots();
+  window.adnLangChanged=function(){renderSlots();renderGallery();};
 })();
 </script>
 </body>

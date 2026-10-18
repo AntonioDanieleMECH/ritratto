@@ -2,20 +2,29 @@
 """
 ADN Creations: engineering design company site + store.
 
-Pages (static in /static): index, work, shop, engraving, progress,
-about, contact, thank-you, custom-lamp (4-sided lamp designer).
+Bilingual (FR default, EN toggle) to comply with Quebec's Charter of the
+French Language: every public page and string is available in French, at
+least as complete as the English version. Static pages carry French copy
+inline with data-i18n keys; static/i18n.js swaps in English client-side.
+Server-rendered pages read ?lang= / the adn_lang cookie.
+
+Pages (static in /static): index, work, shop, engraving, portraits,
+progress, about, contact, thank-you, custom-lamp (4-sided lamp designer).
 Server-rendered: /product/<id>, /announcement/<id>, /admin/ (token-gated).
 
 Store: products live in SQLite (admin-manageable), Stripe Checkout in CAD.
 Departments are tag-based: religious / electronic / gag.
 Preorders: flagged per product with an expected ship date, recorded on orders.
+Product photo galleries: product_photos table, ordered, scale shot last.
+Custom memorial lamps: $39.99 first of a design, $29.99 each additional copy,
+4-pack bundle $99.99 (designer flow).
 
 Env vars:
   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SITE_URL, SECRET_KEY,
   ADMIN_TOKEN (protects /admin/ and /api/admin/*),
   DEMO_MODE=true (skip real payments),
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM (optional: email
-    notifications for engraving requests; stored in DB regardless),
+    notifications for engraving/portrait requests; stored in DB regardless),
   FB_PAGE_TOKEN (optional: enables one-tap publish to the Making Stuff
     Facebook Page via the Graph API; without it the admin composes a
     ready-to-copy draft instead).
@@ -23,6 +32,8 @@ Env vars:
 import os
 import re
 import json
+import hmac
+import subprocess
 import uuid
 import sqlite3
 import shutil
@@ -30,12 +41,12 @@ import threading
 import time
 import smtplib
 from email.message import EmailMessage
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import escape as h
 
 import requests
 from PIL import Image, ImageOps
-from flask import Flask, request, jsonify, send_file, abort, redirect
+from flask import Flask, request, jsonify, send_file, abort, redirect, send_from_directory, session
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE, "static")
@@ -47,12 +58,17 @@ DB = os.path.join(DATA_DIR, "jobs.db")
 os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
 os.makedirs(PRODUCT_IMG_DIR, exist_ok=True)
+VIDEO_DIR = os.path.join(DATA_DIR, "uploads", "videos")
+os.makedirs(VIDEO_DIR, exist_ok=True)
+VIDEO_MAX_BYTES = 50 * 1024 * 1024  # 50 MB per video
 
 STRIPE_SECRET = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
+ADMIN_USER = os.environ.get("ADMIN_USER", "")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 FB_PAGE_ID = "1274653932393890"
 FB_PAGE_URL = "https://www.facebook.com/61592937237761"
@@ -60,12 +76,134 @@ FB_PAGE_TOKEN = os.environ.get("FB_PAGE_TOKEN", "")
 
 DEPTS = ["religious", "electronic", "gag"]
 DEPT_LABELS = {"religious": "Religious", "electronic": "Electronic", "gag": "Gag"}
+DEPT_LABELS_FR = {"religious": "Religieux", "electronic": "Électronique", "gag": "Humour"}
+
+OFFICE_EN = "Downtown office: 204 rue du Saint-Sacrement, Espace 300, H2Y 1W8 Montréal QC"
+OFFICE_FR = "Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)"
+
+
+def get_lang():
+    """Resolve the display language: ?lang= param, then adn_lang cookie, else French."""
+    q = (request.args.get("lang") or "").strip().lower()
+    if q in ("fr", "en"):
+        return q
+    c = (request.cookies.get("adn_lang") or "").strip().lower()
+    if c in ("fr", "en"):
+        return c
+    return "fr"
+
+
+# Bilingual strings for server-rendered chrome and flows.
+# French is the default and must stay at least as complete as the English.
+STR = {
+    "fr": {
+        "nav_work": "Réalisations", "nav_shop": "Boutique", "nav_engraving": "Gravure",
+        "nav_portraits": "Portraits", "nav_progress": "En cours", "nav_about": "À propos",
+        "nav_contact": "Contact", "nav_suggest": "Idées", "nav_cta": "Magasiner", "menu": "Menu",
+        "follow_ms": "Suivez nos créations sur Making Stuff",
+        "footer_tag": "Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.",
+        "footer_explore": "Explorer", "footer_contact": "Contact",
+        "footer_rights": "Tous droits réservés.",
+        "footer_made": "Conçu et fabriqué à Montréal.",
+        "qty": "Quantité", "buy_now": "Acheter", "preorder_now": "Précommander",
+        "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
+        "secure_checkout": "Paiement sécurisé avec Stripe. Frais d'expédition fixes pour le Canada et les États-Unis, calculés à la caisse.",
+        "engraving_label": "Texte à graver (facultatif)",
+        "engraving_ph": "p. ex. Aku, depuis 2026",
+        "preorder_note": "Ceci est une précommande. Expédition prévue : {date}. Vous serez facturé aujourd'hui.",
+        "design_yours": "Créez le vôtre",
+        "photo_soon": "Photo à venir",
+        "scale_caption": "Présentée en main pour montrer l'échelle.",
+        "tier_note": "Première lampe : {first}. Chaque lampe supplémentaire du même modèle : {extra}.",
+        "preparing": "Préparation du paiement...",
+        "checkout_failed": "Le paiement a échoué. Veuillez réessayer.",
+        "checkout_failed_try": "Le paiement n'a pas pu démarrer. Veuillez réessayer.",
+        "order_confirmed": "Commande confirmée",
+        "err_unknown_product": "Produit inconnu.",
+        "err_stock": "Stock insuffisant.",
+        "err_payment": "Les paiements ne sont pas encore configurés, veuillez réessayer plus tard.",
+        "err_sides": "Choisissez les 4 faces.",
+        "err_request": "Veuillez indiquer votre nom, un courriel valide et votre idée.",
+        "login_title": "Connexion vendeur", "login_h": "Connexion vendeur",
+        "login_user": "Nom d'utilisateur", "login_pass": "Mot de passe",
+        "login_submit": "Se connecter", "login_back": "Retour au site",
+        "login_bad": "Nom d'utilisateur ou mot de passe incorrect.",
+        "login_disabled": "La connexion par mot de passe n'est pas configurée. Utilisez votre lien d'administration.",
+        "logout": "Se déconnecter",
+        "idea_ok": "Idée reçue. Merci, nous vous répondrons bientôt.",
+        "idea_fail": "L'envoi a échoué. Veuillez réessayer.",
+        "only_left": "Plus que {n} en stock",
+        "preorder_badge": "Précommande",
+        "announce_back": "Annonces",
+        "lamp_single_label": "Lampe commémorative personnalisée (une seule)",
+        "lamp_pack4_label": "Lampe commémorative personnalisée (paquet de 4)",
+        "in_works_badge": "En préparation",
+        "follow_build": "Suivre le chantier",
+        "notify_me_label": "Prévenez-moi quand ce sera prêt",
+        "notify_me_ph": "votre@courriel.com",
+        "notify_me_btn": "Me prévenir",
+        "notify_ok": "C'est noté, nous vous écrirons dès que ce sera prêt.",
+        "email_invalid": "Veuillez entrer un courriel valide.",
+        "story_title": "L'histoire de la pièce",
+    },
+    "en": {
+        "nav_work": "Work", "nav_shop": "Shop", "nav_engraving": "Engraving",
+        "nav_portraits": "Portraits", "nav_progress": "Progress", "nav_about": "About",
+        "nav_contact": "Contact", "nav_suggest": "Ideas", "nav_cta": "Shop now", "menu": "Menu",
+        "follow_ms": "Follow our builds on Making Stuff",
+        "footer_tag": "Engineering design company. Hand crafted additive manufacturing in Montreal, from plant-based materials.",
+        "footer_explore": "Explore", "footer_contact": "Contact",
+        "footer_rights": "All rights reserved.",
+        "footer_made": "Designed and built in Montreal.",
+        "qty": "Quantity", "buy_now": "Buy now", "preorder_now": "Preorder now",
+        "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
+        "secure_checkout": "Secure checkout with Stripe. Flat-rate shipping for Canada and the US calculated at checkout.",
+        "engraving_label": "Custom engraving text (optional)",
+        "engraving_ph": "e.g. Aku, Est. 2026",
+        "preorder_note": "This is a preorder. Expected to ship {date}. You will be charged today.",
+        "design_yours": "Design yours",
+        "photo_soon": "Photo coming soon",
+        "scale_caption": "Shown in hand for scale.",
+        "tier_note": "First lamp: {first}. Each additional lamp of the same design: {extra}.",
+        "preparing": "Preparing checkout...",
+        "checkout_failed": "Checkout failed. Please try again.",
+        "checkout_failed_try": "Sorry, checkout could not start. Please try again.",
+        "order_confirmed": "Order confirmed",
+        "err_unknown_product": "unknown product",
+        "err_stock": "not enough stock",
+        "err_payment": "payments are not configured yet, please try again later",
+        "err_sides": "choose all 4 sides",
+        "err_request": "please include your name, a valid email, and your idea",
+        "login_title": "Seller login", "login_h": "Seller login",
+        "login_user": "Username", "login_pass": "Password",
+        "login_submit": "Log in", "login_back": "Back to the site",
+        "login_bad": "Wrong username or password.",
+        "login_disabled": "Password login is not configured. Use your admin link.",
+        "logout": "Log out",
+        "idea_ok": "Idea received. Thank you, we will reply soon.",
+        "idea_fail": "Could not send your idea. Please try again.",
+        "only_left": "Only {n} left",
+        "preorder_badge": "Preorder",
+        "announce_back": "Announcements",
+        "lamp_single_label": "Custom memorial lamp (single)",
+        "lamp_pack4_label": "Custom memorial lamp (4-pack)",
+        "in_works_badge": "In the works",
+        "follow_build": "Follow the build",
+        "notify_me_label": "Notify me when it's ready",
+        "notify_me_ph": "your@email.com",
+        "notify_me_btn": "Notify me",
+        "notify_ok": "Noted, we'll email you as soon as it's ready.",
+        "email_invalid": "Please enter a valid email.",
+        "story_title": "The story of the piece",
+    },
+}
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 _secret = os.environ.get("SECRET_KEY")
 if not _secret and not DEMO_MODE:
     raise RuntimeError("SECRET_KEY env var is required in production")
 app.secret_key = _secret or "dev-secret-change-me"
+app.permanent_session_lifetime = timedelta(days=30)
 
 
 # ---------- db ----------
@@ -80,6 +218,37 @@ def db():
         " preorder_ship_date TEXT DEFAULT '', engravable INTEGER DEFAULT 0, "
         " purchasable INTEGER DEFAULT 1, custom_link TEXT DEFAULT '', "
         " active INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, created TEXT)"
+    )
+    # bilingual content + tiered pricing + photo galleries (added 2026-10-18)
+    for ddl in (
+        "ALTER TABLE products ADD COLUMN name_fr TEXT DEFAULT ''",
+        "ALTER TABLE products ADD COLUMN description_fr TEXT DEFAULT ''",
+        "ALTER TABLE products ADD COLUMN story TEXT DEFAULT ''",
+        "ALTER TABLE products ADD COLUMN story_fr TEXT DEFAULT ''",
+        "ALTER TABLE products ADD COLUMN additional_price_cents INTEGER",
+        "ALTER TABLE products ADD COLUMN in_works INTEGER DEFAULT 0",
+    ):
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS product_photos "
+        "(id TEXT PRIMARY KEY, product_id TEXT, photo TEXT DEFAULT '', "
+        " sort INTEGER DEFAULT 0, is_scale INTEGER DEFAULT 0, created TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS portrait_ideas "
+        "(id TEXT PRIMARY KEY, created TEXT, name TEXT, email TEXT, idea TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS notify_me "
+        "(id TEXT PRIMARY KEY, created TEXT, product_id TEXT, email TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS project_suggestions "
+        "(id TEXT PRIMARY KEY, created TEXT, name TEXT, email TEXT, "
+        " title TEXT, description TEXT, category TEXT DEFAULT 'other')"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS orders "
@@ -116,6 +285,19 @@ def db():
         "CREATE TABLE IF NOT EXISTS visits "
         "(day TEXT, path TEXT, count INTEGER DEFAULT 0, PRIMARY KEY (day, path))"
     )
+    # column migrations run AFTER all tables exist (fresh DBs included)
+    for ddl in (
+        "ALTER TABLE announcements ADD COLUMN title_fr TEXT DEFAULT ''",
+        "ALTER TABLE announcements ADD COLUMN body_fr TEXT DEFAULT ''",
+        "ALTER TABLE wip_projects ADD COLUMN project_fr TEXT DEFAULT ''",
+        "ALTER TABLE wip_projects ADD COLUMN status_fr TEXT DEFAULT ''",
+        "ALTER TABLE wip_updates ADD COLUMN text_fr TEXT DEFAULT ''",
+        "ALTER TABLE product_photos ADD COLUMN kind TEXT DEFAULT 'photo'",
+    ):
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass
     return conn
 
 
@@ -141,48 +323,107 @@ def now_iso():
 SEED_PRODUCTS = [
     {"id": "carlo-lamp", "name": "Carlo Acutis 4-Face Prayer Lamp", "price_cents": 2499,
      "photo": "/img/products/carlo-lamp.jpg",
-     "description": "Four lithophane faces of Carlo Acutis glow from within: portrait, with the Eucharist, his Assisi sanctuary, and the Virgin Mary. Warm LED light, 10 x 7 x 7 cm. Hand crafted in LaSalle, Montreal from plant-based bioplastic.",
+     "description": "Four lithophane faces of Carlo Acutis glow from within: portrait, with the Eucharist, his Assisi sanctuary, and the Virgin Mary. Warm LED light, 10 x 7 x 7 cm. Hand crafted in Montreal from plant-based bioplastic.",
+     "name_fr": "Lampe de prière Carlo Acutis à 4 faces",
+     "description_fr": "Quatre faces lithophanes de Carlo Acutis qui s'illuminent de l'intérieur : son portrait, avec l'Eucharistie, son sanctuaire d'Assise et la Vierge Marie. Lumière DEL chaude, 10 x 7 x 7 cm. Fait à la main à Montréal en bioplastique d'origine végétale.",
+     "story": "Carlo Acutis called the Eucharist his highway to heaven. This lamp gathers four moments of his short life around a warm light: his portrait, the Eucharist he loved, his sanctuary in Assisi, and the Virgin Mary. Each face is a lithophane, printed thin enough that light draws the image out of the plastic itself.",
+     "story_fr": "Carlo Acutis appelait l'Eucharistie son autoroute vers le ciel. Cette lampe réunit quatre moments de sa courte vie autour d'une lumière chaude : son portrait, l'Eucharistie qu'il aimait, son sanctuaire d'Assise et la Vierge Marie. Chaque face est un lithophane, imprimé assez fin pour que la lumière dessine l'image à même le plastique.",
      "depts": ["religious", "electronic"], "stock": None, "sort": 1},
     {"id": "sheen-lamp", "name": "Fulton Sheen 4-Face Prayer Lamp", "price_cents": 1999,
-     "photo": "",
-     "description": "Four lithophane faces of Blessed Fulton Sheen in warm LED light. Hand crafted in LaSalle, Montreal from plant-based bioplastic.",
+     "photo": "/img/products/sheen-lamp.jpg",
+     "description": "Four lithophane faces of Blessed Fulton Sheen in warm LED light. Hand crafted in Montreal from plant-based bioplastic.",
+     "name_fr": "Lampe de prière Fulton Sheen à 4 faces",
+     "description_fr": "Quatre faces lithophanes du bienheureux Fulton Sheen sous une chaude lumière DEL. Fait à la main à Montréal en bioplastique d'origine végétale.",
+     "story": "Blessed Fulton Sheen carried the faith onto television. Four of his faces glow from within this lamp, printed as lithophanes in warm LED light.",
+     "story_fr": "Le bienheureux Fulton Sheen a porté la foi à la télévision. Quatre de ses visages s'illuminent de l'intérieur de cette lampe, imprimés en lithophanes sous une chaude lumière DEL.",
      "depts": ["religious", "electronic"], "stock": None, "sort": 2},
-    {"id": "memorial-lamp", "name": "Custom Memorial Lamp", "price_cents": 2000,
+    {"id": "memorial-lamp", "name": "Custom Memorial Lamp", "price_cents": 3999,
+     "additional_price_cents": 2999,
      "photo": "/img/products/memorial-lamp.jpg",
-     "description": "Your photos or our saint illustrations on four glowing faces. $20 for the first lamp of a design, $15 for each additional copy of the same design. Use the lamp designer to compose your four sides.",
+     "description": "Your photos or our saint illustrations on four glowing faces. $39.99 for the first lamp of a design, $29.99 for each additional copy of the same design, or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
+     "name_fr": "Lampe commémorative personnalisée",
+     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. 39,99 $ pour la première lampe d'un modèle, 29,99 $ pour chaque exemplaire supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. Utilisez l'outil de création pour composer vos quatre faces.",
+     "story": "A lamp that keeps someone present. Four glowing faces carry your photos or our saint illustrations, printed as lithophanes that come alive in warm light. Each one is made to order in the workshop.",
+     "story_fr": "Une lampe qui garde une présence vivante. Quatre faces lumineuses portent vos photos ou nos illustrations de saints, imprimées en lithophanes qui s'animent dans une lumière chaude. Chaque lampe est fabriquée sur commande à l'atelier.",
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
-    {"id": "bust-collector", "name": "Saint Frere Andre Bust, Collector's Edition", "price_cents": 225000,
+    {"id": "bust-collector", "name": "Saint Frere Andre Bust, Collector's Edition", "price_cents": 224999,
      "photo": "/img/products/bust.jpg",
      "description": "One of one. 39 cm hand finished bust on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. Free shipping.",
+     "name_fr": "Buste de saint Frère André, édition collectionneur",
+     "description_fr": "Pièce unique. Buste de 39 cm fini à la main sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d'origine végétale et très peu de déchets. Expédition gratuite.",
+     "story": "A collector's piece for the era of Saint Frère André. The 39 cm bust is printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.",
+     "story_fr": "Une pièce de collection pour l'époque de saint Frère André. Le buste de 39 cm est imprimé en fabrication additive grand format, puis fini à la main, et monté sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.",
      "depts": ["religious"], "stock": 1, "sort": 4},
     {"id": "nativity", "name": "Nativity Scene Lamp", "price_cents": 3999,
      "photo": "/img/products/nativity.jpg",
-     "description": "The Nativity rendered as a glowing lithophane lamp. Warm LED light. Hand crafted in LaSalle, Montreal from plant-based bioplastic.",
+     "description": "The Nativity rendered as a glowing lithophane lamp. Warm LED light. Hand crafted in Montreal from plant-based bioplastic.",
+     "name_fr": "Lampe scène de la Nativité",
+     "description_fr": "La Nativité en lampe lithophane lumineuse. Lumière DEL chaude. Fait à la main à Montréal en bioplastique d'origine végétale.",
+     "story": "The Nativity as a light in the dark. The Holy Family rendered as a glowing lithophane, a steady favourite at the Oratory boutique every Christmas season.",
+     "story_fr": "La Nativité comme une lumière dans la nuit. La Sainte Famille en lithophane lumineux, un succès constant à la boutique de l'Oratoire à chaque temps des fêtes.",
      "depts": ["religious", "electronic"], "stock": None, "sort": 5},
-    {"id": "lighter", "name": "Engraved Lighter", "price_cents": 2400,
+    {"id": "lighter", "name": "Engraved Lighter", "price_cents": 2399,
      "photo": "/img/products/lighter.jpg",
      "description": "Zippo-style lighter with your text or artwork laser engraved. Add your engraving text at checkout and we will lay it out for you.",
+     "name_fr": "Briquet gravé",
+     "description_fr": "Briquet style Zippo avec votre texte ou votre dessin gravé au laser. Ajoutez votre texte de gravure à la caisse et nous nous occupons de la mise en page.",
+     "story": "A Zippo-style lighter becomes a personal object. Your text or artwork, laser engraved with a fiber laser for a mark that will not fade.",
+     "story_fr": "Un briquet style Zippo devient un objet personnel. Votre texte ou votre dessin, gravé au laser à fibre pour une marque qui ne s'effacera pas.",
      "depts": ["gag"], "stock": None, "engravable": 1, "sort": 6},
-    {"id": "mug", "name": "Engraved Contigo Travel Mug", "price_cents": 3400,
+    {"id": "mug", "name": "Engraved Contigo Travel Mug", "price_cents": 3399,
      "photo": "/img/products/mug.jpg",
      "description": "Contigo travel mug with your text laser engraved. Add your engraving text at checkout.",
+     "name_fr": "Tasse de voyage Contigo gravée",
+     "description_fr": "Tasse de voyage Contigo avec votre texte gravé au laser. Ajoutez votre texte de gravure à la caisse.",
+     "story": "Your everyday mug, made yours. Text laser engraved on a Contigo travel mug that keeps drinks hot for hours.",
+     "story_fr": "Votre tasse de tous les jours, personnalisée. Texte gravé au laser sur une tasse de voyage Contigo qui garde les boissons chaudes pendant des heures.",
      "depts": [], "stock": None, "engravable": 1, "sort": 7},
-    {"id": "card-case", "name": "Italian Playing-Card Case", "price_cents": 2500,
+    {"id": "card-case", "name": "Italian Playing-Card Case", "price_cents": 2499,
      "photo": "",
      "description": "Fitted case for Italian playing cards, Scopa and Briscola sizes. Hand crafted from plant-based bioplastic.",
+     "name_fr": "Étui pour cartes à jouer italiennes",
+     "description_fr": "Étui ajusté pour jeux de cartes italiennes, formats Scopa et Briscola. Fait à la main en bioplastique d'origine végétale.",
+     "story": "Italian card games deserve better than a torn box. A fitted case for Scopa and Briscola decks, printed to precise tolerances so the cards slide in just right.",
+     "story_fr": "Les jeux de cartes italiens méritent mieux qu'une boîte déchirée. Un étui ajusté pour les jeux Scopa et Briscola, imprimé avec des tolérances précises pour que les cartes s'y glissent parfaitement.",
      "depts": [], "stock": None, "sort": 8},
-    {"id": "giftcard-case", "name": "Gift-Card Case", "price_cents": 1500,
+    {"id": "giftcard-case", "name": "Gift-Card Case", "price_cents": 1499,
      "photo": "",
      "description": "A keepsake case that turns a gift card into a real gift. Hand crafted from plant-based bioplastic.",
+     "name_fr": "Étui pour carte-cadeau",
+     "description_fr": "Un écrin qui transforme une carte-cadeau en vrai cadeau. Fait à la main en bioplastique d'origine végétale.",
+     "story": "A gift card in an envelope is an afterthought. In a keepsake case, it becomes a real gift.",
+     "story_fr": "Une carte-cadeau dans une enveloppe, c'est un pis-aller. Dans un écrin souvenir, elle devient un vrai cadeau.",
      "depts": [], "stock": None, "sort": 9},
-    {"id": "battery-door", "name": "Threaded Battery Door", "price_cents": 1200,
+    {"id": "battery-door", "name": "Threaded Battery Door", "price_cents": 1199,
      "photo": "",
      "description": "Precision threaded battery door, printed to fit. Hand crafted from plant-based bioplastic.",
+     "name_fr": "Couvercle de pile fileté",
+     "description_fr": "Couvercle de pile fileté de précision, imprimé sur mesure. Fait à la main en bioplastique d'origine végétale.",
+     "story": "A small part, engineered properly. A precision threaded battery door, printed to fit the first time.",
+     "story_fr": "Une petite pièce, bien conçue. Un couvercle de pile fileté de précision, imprimé pour s'ajuster du premier coup.",
      "depts": [], "stock": None, "sort": 10},
     {"id": "gag-soon", "name": "Gag Department", "price_cents": 0,
      "photo": "",
      "description": "Novelty and funny items are on the way. Check back soon.",
+     "name_fr": "Rayon humour",
+     "description_fr": "Des articles de fantaisie et humoristiques sont en route. Revenez bientôt.",
      "depts": ["gag"], "purchasable": 0, "sort": 11},
+]
+
+# Extra gallery photos per product (seeded once): (product_id, photo, sort, is_scale)
+SEED_PHOTOS = [
+    ("carlo-lamp", "/img/products/carlo-lamp.jpg", 0, 0),
+    ("carlo-lamp", "/img/work/carlo-lamp-lit.jpg", 1, 0),
+    ("sheen-lamp", "/img/products/sheen-lamp.jpg", 0, 0),
+    ("sheen-lamp", "/img/products/sheen-lamp-2.jpg", 1, 0),
+    ("memorial-lamp", "/img/products/memorial-lamp.jpg", 0, 0),
+    ("bust-collector", "/img/products/bust.jpg", 0, 0),
+    ("bust-collector", "/img/work/bust-3q.jpg", 1, 0),
+    ("bust-collector", "/img/work/bust-front.jpg", 2, 0),
+    ("nativity", "/img/products/nativity.jpg", 0, 0),
+    ("lighter", "/img/products/lighter.jpg", 0, 0),
+    ("lighter", "/img/work/lighter-detail.jpg", 1, 0),
+    ("mug", "/img/products/mug.jpg", 0, 0),
 ]
 
 
@@ -192,44 +433,116 @@ def seed():
     if n == 0:
         for p in SEED_PRODUCTS:
             conn.execute(
-                "INSERT INTO products (id, name, price_cents, photo, description, depts, "
+                "INSERT INTO products (id, name, name_fr, price_cents, additional_price_cents, "
+                "photo, description, description_fr, story, story_fr, depts, "
                 "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
-                "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (p["id"], p["name"], p["price_cents"], p.get("photo", ""),
-                 p.get("description", ""), json.dumps(p.get("depts", [])),
+                "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (p["id"], p["name"], p.get("name_fr", ""), p["price_cents"],
+                 p.get("additional_price_cents"),
+                 p.get("photo", ""), p.get("description", ""), p.get("description_fr", ""),
+                 p.get("story", ""), p.get("story_fr", ""),
+                 json.dumps(p.get("depts", [])),
                  p.get("stock"), 0, "", p.get("engravable", 0),
                  p.get("purchasable", 1), p.get("custom_link", ""), 1,
                  p.get("sort", 0), now_iso()))
+    # Pricing 2026-10-18: custom memorial lamps are $39.99 for the first of a
+    # design, $29.99 for each additional copy, 4-pack $99.99. Charm pricing
+    # (.99) across the shop. Only touches rows still on the old pricing,
+    # never Antonio's later edits.
+    conn.execute(
+        "UPDATE products SET price_cents=3999, additional_price_cents=2999, "
+        "description=?, description_fr=? "
+        "WHERE id='memorial-lamp' AND price_cents IN (2000, 2500, 4000)",
+        ("Your photos or our saint illustrations on four glowing faces. "
+         "$39.99 for the first lamp of a design, $29.99 for each additional copy of the same design, "
+         "or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
+         "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
+         "39,99 $ pour la première lampe d'un modèle, 29,99 $ pour chaque exemplaire "
+         "supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. "
+         "Utilisez l'outil de création pour composer vos quatre faces."))
+    for _pid, _old, _new in (("lighter", 2400, 2399), ("mug", 3400, 3399),
+                             ("card-case", 2500, 2499), ("giftcard-case", 1500, 1499),
+                             ("battery-door", 1200, 1199), ("bust-collector", 225000, 224999)):
+        conn.execute("UPDATE products SET price_cents=? WHERE id=? AND price_cents=?",
+                     (_new, _pid, _old))
+    # French content for rows seeded before the bilingual update
+    fr_updates = {
+        "carlo-lamp": ("Lampe de pri\u00e8re Carlo Acutis \u00e0 4 faces",
+            "Quatre faces lithophanes de Carlo Acutis qui s'illuminent de l'int\u00e9rieur : son portrait, avec l'Eucharistie, son sanctuaire d'Assise et la Vierge Marie. Lumi\u00e8re DEL chaude, 10 x 7 x 7 cm. Fait \u00e0 la main \u00e0 Montr\u00e9al en bioplastique d'origine v\u00e9g\u00e9tale."),
+        "sheen-lamp": ("Lampe de pri\u00e8re Fulton Sheen \u00e0 4 faces",
+            "Quatre faces lithophanes du bienheureux Fulton Sheen sous une chaude lumi\u00e8re DEL. Fait \u00e0 la main \u00e0 Montr\u00e9al en bioplastique d'origine v\u00e9g\u00e9tale."),
+        "bust-collector": ("Buste de saint Fr\u00e8re Andr\u00e9, \u00e9dition collectionneur",
+            "Pi\u00e8ce unique. Buste de 39 cm fini \u00e0 la main sur un socle en bois teint\u00e9 fonc\u00e9 avec une plaque de laiton au nom du Fr. Andr\u00e9. Lourd, tr\u00e8s d\u00e9taill\u00e9, fabriqu\u00e9 par fabrication additive avec des mat\u00e9riaux d'origine v\u00e9g\u00e9tale et tr\u00e8s peu de d\u00e9chets. Exp\u00e9dition gratuite."),
+        "nativity": ("Lampe sc\u00e8ne de la Nativit\u00e9",
+            "La Nativit\u00e9 en lampe lithophane lumineuse. Lumi\u00e8re DEL chaude. Fait \u00e0 la main \u00e0 Montr\u00e9al en bioplastique d'origine v\u00e9g\u00e9tale."),
+        "lighter": ("Briquet grav\u00e9",
+            "Briquet style Zippo avec votre texte ou votre dessin grav\u00e9 au laser. Ajoutez votre texte de gravure \u00e0 la caisse et nous nous occupons de la mise en page."),
+        "mug": ("Tasse de voyage Contigo grav\u00e9e",
+            "Tasse de voyage Contigo avec votre texte grav\u00e9 au laser. Ajoutez votre texte de gravure \u00e0 la caisse."),
+        "card-case": ("\u00c9tui pour cartes \u00e0 jouer italiennes",
+            "\u00c9tui ajust\u00e9 pour jeux de cartes italiennes, formats Scopa et Briscola. Fait \u00e0 la main en bioplastique d'origine v\u00e9g\u00e9tale."),
+        "giftcard-case": ("\u00c9tui pour carte-cadeau",
+            "Un \u00e9crin qui transforme une carte-cadeau en vrai cadeau. Fait \u00e0 la main en bioplastique d'origine v\u00e9g\u00e9tale."),
+        "battery-door": ("Couvercle de pile filet\u00e9",
+            "Couvercle de pile filet\u00e9 de pr\u00e9cision, imprim\u00e9 sur mesure. Fait \u00e0 la main en bioplastique d'origine v\u00e9g\u00e9tale."),
+        "gag-soon": ("Rayon humour",
+            "Des articles de fantaisie et humoristiques sont en route. Revenez bient\u00f4t."),
+    }
+    for pid, (nfr, dfr) in fr_updates.items():
+        conn.execute(
+            "UPDATE products SET name_fr=?, description_fr=? "
+            "WHERE id=? AND (name_fr IS NULL OR name_fr='')", (nfr, dfr, pid))
+    # Fulton Sheen photos now exist (added 2026-10-18)
+    conn.execute(
+        "UPDATE products SET photo='/img/products/sheen-lamp.jpg' "
+        "WHERE id='sheen-lamp' AND (photo IS NULL OR photo='')")
+    # Seed product photo galleries (once)
+    if conn.execute("SELECT COUNT(*) FROM product_photos").fetchone()[0] == 0:
+        for pid, photo, sort, is_scale in SEED_PHOTOS:
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                ("ph_" + uuid.uuid4().hex[:10], pid, photo, sort, is_scale, now_iso()))
     if conn.execute("SELECT COUNT(*) FROM announcements").fetchone()[0] == 0:
         conn.execute(
-            "INSERT INTO announcements (id, created, title, body) VALUES (?,?,?,?)",
+            "INSERT INTO announcements (id, created, title, title_fr, body, body_fr) VALUES (?,?,?,?,?,?)",
             ("seed1", "2026-10-18T09:00:00",
              "The ADN Creations store is now live",
-             "You can now order directly from this site. Every piece is designed and hand crafted in LaSalle, Montreal."))
+             "La boutique ADN Creations est maintenant en ligne",
+             "You can now order directly from this site. Every piece is designed and hand crafted in Montreal.",
+             "Vous pouvez maintenant commander directement sur ce site. Chaque pi\u00e8ce est con\u00e7ue et faite \u00e0 la main \u00e0 Montr\u00e9al."))
         conn.execute(
-            "INSERT INTO announcements (id, created, title, body) VALUES (?,?,?,?)",
+            "INSERT INTO announcements (id, created, title, title_fr, body, body_fr) VALUES (?,?,?,?,?,?)",
             ("seed2", "2026-10-18T09:00:00",
              "Ordering direct",
-             "Our Etsy shop is temporarily under review, so all ordering happens right here for now. Same products, same maker, direct from the workshop."))
+             "Commander directement",
+             "Our Etsy shop is temporarily under review, so all ordering happens right here for now. Same products, same maker, direct from the workshop.",
+             "Notre boutique Etsy est temporairement en r\u00e9vision, donc toutes les commandes passent par ici pour le moment. M\u00eames produits, m\u00eame fabricant, directement de l'atelier."))
     if conn.execute("SELECT COUNT(*) FROM wip_projects").fetchone()[0] == 0:
         conn.execute(
-            "INSERT INTO wip_projects (id, project, status, photo, sort, created) VALUES (?,?,?,?,?,?)",
-            ("clock", "Mechanical Regulator Clock", "In development", "", 1, now_iso()))
+            "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) VALUES (?,?,?,?,?,?,?,?)",
+            ("clock", "Mechanical Regulator Clock", "Horloge mécanique à régulateur",
+             "In development", "En développement", "", 1, now_iso()))
         conn.execute(
-            "INSERT INTO wip_updates (id, project_id, created, text) VALUES (?,?,?,?)",
+            "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
             ("c1", "clock", "2026-10-16T12:00:00",
-             "Case design v4 complete: arched printed case with raised-numeral two-colour dials, deadbeat escapement, 135:1 going train and 12:1 hour motion work."))
+             "Case design v4 complete: arched printed case with raised-numeral two-colour dials, deadbeat escapement, 135:1 going train and 12:1 hour motion work.",
+             "Boîtier v4 terminé : boîtier imprimé en arche avec cadrans bicolores à chiffres en relief, échappement à chevilles, rouage de 135:1 et minuterie de 12:1."))
         conn.execute(
-            "INSERT INTO wip_updates (id, project_id, created, text) VALUES (?,?,?,?)",
+            "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
             ("c2", "clock", "2026-10-18T09:00:00",
-             "Fit test next: verifying the going train meshes cleanly before the full kit print. Spring torque still to be validated."))
+             "Fit test next: verifying the going train meshes cleanly before the full kit print. Spring torque still to be validated.",
+             "Prochaine étape, le test d'ajustement : vérifier que le rouage s'engrène proprement avant d'imprimer le kit complet. Le couple du ressort reste à valider."))
         conn.execute(
-            "INSERT INTO wip_projects (id, project, status, photo, sort, created) VALUES (?,?,?,?,?,?)",
-            ("bust", "Saint Frere Andre Collector's Edition Bust", "Complete", "/img/work/bust-front.jpg", 2, now_iso()))
+            "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) VALUES (?,?,?,?,?,?,?,?)",
+            ("bust", "Saint Frere Andre Collector's Edition Bust",
+             "Buste de saint Frère André, édition collectionneur",
+             "Complete", "Terminé", "/img/work/bust-front.jpg", 2, now_iso()))
         conn.execute(
-            "INSERT INTO wip_updates (id, project_id, created, text) VALUES (?,?,?,?)",
+            "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
             ("b1", "bust", "2026-10-18T09:00:00",
-             "Finished. 1 of 1. 39 cm on a dark stained wood base with a brass Fr. Andre name plate. Listed in the shop."))
+             "Finished. 1 of 1. 39 cm on a dark stained wood base with a brass Fr. Andre name plate. Listed in the shop.",
+             "Terminé. Pièce unique. 39 cm sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. En vente dans la boutique."))
     conn.commit()
     conn.close()
 
@@ -240,16 +553,29 @@ FONT_LINK = ("<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">"
              "<link href=\"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700"
              "&family=Inter:wght@400;500;600;700&display=swap\" rel=\"stylesheet\">")
 
-NAV_LINKS = [("work", "Work", "/work.html"), ("shop", "Shop", "/shop.html"),
-             ("engraving", "Engraving", "/engraving.html"),
-             ("progress", "Progress", "/progress.html"),
-             ("about", "About", "/about.html"), ("contact", "Contact", "/contact.html")]
+NAV_LINKS = [("work", "nav_work", "/work.html"), ("shop", "nav_shop", "/shop.html"),
+             ("engraving", "nav_engraving", "/engraving.html"),
+             ("portraits", "nav_portraits", "/portraits.html"),
+             ("progress", "nav_progress", "/progress.html"),
+             ("suggest", "nav_suggest", "/suggest.html"),
+             ("about", "nav_about", "/about.html"), ("contact", "nav_contact", "/contact.html")]
 
 
-def shell(title, description, body, active="", og_image="", og_url=""):
+def t(lang, key):
+    return STR.get(lang, STR["fr"]).get(key, STR["en"].get(key, key))
+
+
+def dept_label(d, lang):
+    labels = DEPT_LABELS_FR if lang == "fr" else DEPT_LABELS
+    return labels.get(d, d)
+
+
+def shell(title, description, body, active="", og_image="", og_url="", lang="fr"):
+    s = STR["fr"] if lang != "en" else STR["en"]
     nav = "".join(
-        f'<a href="{u}" class="{"active" if k == active else ""}">{l}</a>'
-        for k, l, u in NAV_LINKS)
+        f'<a href="{u}" class="{"active" if k == active else ""}">{s[k2]}</a>'
+        for k, k2, u in NAV_LINKS)
+    other = "en" if lang == "fr" else "fr"
     og = ""
     if og_image:
         og = (f'<meta property="og:title" content="{h(title)}">'
@@ -258,46 +584,54 @@ def shell(title, description, body, active="", og_image="", og_url=""):
               f'<meta property="og:url" content="{h(og_url)}">'
               f'<meta property="og:image" content="{h(og_image)}">'
               '<meta name="twitter:card" content="summary_large_image">')
-    return f"""<!DOCTYPE html>
-<html lang="en">
+    office = OFFICE_FR if lang == "fr" else OFFICE_EN
+    html = f"""<!DOCTYPE html>
+<html lang="{lang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{h(title)} | ADN Creations</title>
 <meta name="description" content="{h(description)}">
 {FONT_LINK}
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon.png">
 <link rel="stylesheet" href="/style.css">
 {og}
 </head>
 <body>
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
-<nav class="nav-links" id="navLinks">{nav}<a href="/shop.html" class="nav-cta">Shop now</a></nav>
-<button class="hamburger" id="navToggle" aria-label="Menu">&#9776;</button>
+<nav class="nav-links" id="navLinks">{nav}<a href="/shop.html" class="nav-cta">{s["nav_cta"]}</a></nav>
+<div class="lang-toggle" role="group" aria-label="Language / Langue">
+<a href="?lang=fr" class="{"on" if lang == "fr" else ""}">FR</a><a href="?lang=en" class="{"on" if lang == "en" else ""}">EN</a>
+</div>
+<button class="hamburger" id="navToggle" aria-label="{s["menu"]}">&#9776;</button>
 </div></header>
 {body}
 <footer class="site-footer"><div class="wrap footer-inner">
 <div class="footer-grid">
 <div>
 <div class="footer-brand">ADN <span>Creations</span></div>
-<p class="small" style="color:#B9AE97">Engineering design company. Hand crafted additive manufacturing in LaSalle, Montreal, from plant-based materials.</p>
-<a class="social-btn" href="{FB_PAGE_URL}" target="_blank" rel="noopener">Follow our builds on Making Stuff</a>
+<p class="small" style="color:#B9AE97">{s["footer_tag"]}</p>
+<a class="social-btn" href="{FB_PAGE_URL}" target="_blank" rel="noopener">{s["follow_ms"]}</a>
 </div>
-<div><h4>Explore</h4><ul class="footer-links">
-<li><a href="/work.html">Work</a></li><li><a href="/shop.html">Shop</a></li>
-<li><a href="/engraving.html">Engraving</a></li><li><a href="/progress.html">Progress</a></li>
-<li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+<div><h4>{s["footer_explore"]}</h4><ul class="footer-links">
+<li><a href="/work.html">{s["nav_work"]}</a></li><li><a href="/shop.html">{s["nav_shop"]}</a></li>
+<li><a href="/engraving.html">{s["nav_engraving"]}</a></li><li><a href="/portraits.html">{s["nav_portraits"]}</a></li>
+<li><a href="/progress.html">{s["nav_progress"]}</a></li><li><a href="/suggest.html">{s["nav_suggest"]}</a></li><li><a href="/about.html">{s["nav_about"]}</a></li>
+<li><a href="/contact.html">{s["nav_contact"]}</a></li>
 </ul></div>
-<div><h4>Contact</h4><ul class="footer-links">
+<div><h4>{s["footer_contact"]}</h4><ul class="footer-links">
 <li><a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></li>
-<li>LaSalle, Montreal, QC</li><li>NEQ 2281797763</li>
+<li>{office}</li><li>NEQ 2281797763</li>
 </ul></div>
 </div>
-<div class="footer-bottom"><span>&copy; 2026 ADN Creations. All rights reserved.</span><span>Designed and built in Montreal.</span></div>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. {s["footer_rights"]}</span><span>{s["footer_made"]}</span></div>
 </div></footer>
 <script>document.getElementById('navToggle').addEventListener('click',function(){{document.getElementById('navLinks').classList.toggle('open')}});</script>
 </body>
 </html>"""
+    return html
 
 
 def abs_url(path):
@@ -319,12 +653,41 @@ def get_product(pid):
     return row
 
 
-def product_badges(p):
+def product_photos(pid):
+    """Ordered gallery items: photos first (scale shot last), then videos."""
+    conn = db()
+    rows = conn.execute(
+        "SELECT photo, is_scale, kind FROM product_photos WHERE product_id=? "
+        "ORDER BY is_scale ASC, kind ASC, sort ASC", (pid,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def lang_response(html, lang):
+    """Wrap HTML in a response, persisting ?lang= to the adn_lang cookie."""
+    resp = app.make_response(html)
+    if (request.args.get("lang") or "").strip().lower() in ("fr", "en"):
+        resp.set_cookie("adn_lang", lang, max_age=31536000, path="/")
+    return resp
+
+
+def pick(row, lang, field):
+    """Localized DB field with English fallback."""
+    if lang == "fr":
+        v = (row[field + "_fr"] or "").strip()
+        if v:
+            return v
+    return row[field] or ""
+
+
+def product_badges(p, lang="fr"):
     out = []
     if p["preorder"]:
-        out.append('<span class="badge badge-preorder">Preorder</span>')
-    if p["stock"] is not None and p["stock"] <= 3 and p["purchasable"]:
-        out.append(f'<span class="badge badge-stock">Only {p["stock"]} left</span>')
+        out.append(f'<span class="badge badge-preorder">{t(lang, "preorder_badge")}</span>')
+    if p["in_works"]:
+        out.append(f'<span class="badge badge-stock">{t(lang, "in_works_badge")}</span>')
+    if p["stock"] is not None and p["stock"] <= 3 and p["purchasable"] and not p["in_works"]:
+        out.append(f'<span class="badge badge-stock">{t(lang, "only_left").format(n=p["stock"])}</span>')
     return " ".join(out)
 
 
@@ -343,96 +706,197 @@ def index():
 
 @app.route("/product/<pid>")
 def product_page(pid):
+    lang = get_lang()
     p = get_product(pid)
     if not p:
         abort(404)
     track_visit(f"/product/{pid}")
+    name = pick(p, lang, "name")
+    desc = pick(p, lang, "description")
+    story = pick(p, lang, "story")
     depts = json.loads(p["depts"] or "[]")
-    tags = " ".join(f'<span class="dept-tag">{DEPT_LABELS.get(d, d)}</span>' for d in depts)
+    tags = " ".join(f'<span class="dept-tag">{dept_label(d, lang)}</span>' for d in depts)
+
+    # Gallery: ordered photos (scale shot last), then videos.
+    photos = product_photos(pid)
+    if not photos and p["photo"]:
+        photos = [{"photo": p["photo"], "is_scale": 0, "kind": "photo"}]
+    if photos:
+        items = [{"src": ph["photo"], "kind": ph.get("kind") or "photo"} for ph in photos]
+        items_json = json.dumps(items)
+        name_json = json.dumps(name)
+        thumbs = "".join(
+            '<button type="button" class="gal-thumb' + (" on" if i == 0 else "") + '" data-i="' + str(i) + '">'
+            + ('<span class="gal-vidbadge">&#9654;</span>' if it["kind"] == "video" else "")
+            + ('<video src="' + h(it["src"]) + '" muted preload="metadata" playsinline></video>'
+               if it["kind"] == "video"
+               else '<img src="' + h(it["src"]) + '" alt="' + h(name) + '" loading="lazy">')
+            + "</button>"
+            for i, it in enumerate(items))
+        scale_cap = ""
+        if any(ph["is_scale"] for ph in photos):
+            scale_cap = f'<p class="small muted" style="margin-top:6px">{t(lang, "scale_caption")}</p>'
+        first = items[0]
+        if first["kind"] == "video":
+            main_html = ('<video src="' + h(first["src"]) + '" controls playsinline '
+                         'preload="metadata" style="width:100%;display:block"></video>')
+        else:
+            main_html = '<img src="' + h(first["src"]) + '" alt="' + h(name) + '">'
+        gallery = ('<div class="product-gallery"><div id="galMainWrap">' + main_html + "</div>"
+                   '<div class="gal-thumbs">' + thumbs + "</div>" + scale_cap + "</div>")
+        gal_js = (
+            "<script>"
+            "var GAL_ITEMS=" + items_json + ";"
+            "var GAL_NAME=" + name_json + ";"
+            "var galWrap=document.getElementById('galMainWrap');"
+            "function galShow(i){var it=GAL_ITEMS[i];"
+            "if(it.kind==='video'){"
+            "galWrap.innerHTML='<video src=\"'+it.src+'\" controls playsinline preload=\"metadata\" style=\"width:100%;display:block\"></video>';"
+            "}else{"
+            "var im=document.createElement('img');im.src=it.src;im.alt=GAL_NAME;"
+            "galWrap.innerHTML='';galWrap.appendChild(im);"
+            "}"
+            "var ts=document.querySelectorAll('.gal-thumb');"
+            "ts.forEach(function(x){x.classList.remove('on')});"
+            "ts[i].classList.add('on');}"
+            "document.querySelectorAll('.gal-thumb').forEach(function(b){"
+            "b.addEventListener('click',function(){galShow(parseInt(b.getAttribute('data-i'),10));});"
+            "});"
+            "</script>"
+        )
+    else:
+        gallery = f'<div class="product-gallery"><div class="photo-placeholder">{t(lang, "photo_soon")}</div></div>'
+        gal_js = ""
+
     engraving_field = ""
     if p["engravable"]:
-        engraving_field = ('<div class="field"><label for="engraving">Custom engraving text '
-                           '(optional)</label><input type="text" id="engraving" maxlength="120" '
-                           'placeholder="e.g. Aku, Est. 2026"></div>')
+        engraving_field = (f'<div class="field"><label for="engraving">{t(lang, "engraving_label")}</label>'
+                           f'<input type="text" id="engraving" maxlength="120" '
+                           f'placeholder="{h(t(lang, "engraving_ph"))}"></div>')
     preorder_note = ""
     if p["preorder"]:
-        preorder_note = (f'<div class="preorder-note">This is a preorder. Expected to ship '
-                         f'{h(p["preorder_ship_date"] or "soon")}. You will be charged today.</div>')
+        preorder_note = (f'<div class="preorder-note">{t(lang, "preorder_note").format(date=h(p["preorder_ship_date"] or ("bientôt" if lang == "fr" else "soon")))}</div>')
+    tier_note = ""
+    if p["additional_price_cents"]:
+        tier_note = (f'<p class="small muted">{t(lang, "tier_note").format(first=money(p["price_cents"]), extra=money(p["additional_price_cents"]))}</p>')
+
     buy_html = ""
-    if p["purchasable"]:
+    if p["in_works"]:
+        buy_html = (f'<a class="btn btn-outline btn-block" href="/progress.html?lang={lang}" style="margin-top:10px">{t(lang, "follow_build")}</a>'
+                    f'<div class="field" style="margin-top:14px"><label for="notifyEmail">{t(lang, "notify_me_label")}</label>'
+                    f'<div style="display:flex;gap:8px"><input type="email" id="notifyEmail" placeholder="{h(t(lang, "notify_me_ph"))}" style="flex:1">'
+                    f'<button class="btn btn-brass" id="notifyBtn" type="button">{t(lang, "notify_me_btn")}</button></div></div>'
+                    '<div id="notifyMsg" style="margin-top:8px"></div>')
+    elif p["purchasable"]:
         if p["stock"] is not None and p["stock"] <= 0:
-            buy_html = '<div class="notice notice-err">Sold out.</div>'
+            buy_html = f'<div class="notice notice-err">{t(lang, "sold_out")}</div>'
         else:
-            label = "Preorder now" if p["preorder"] else "Buy now"
+            label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money(p["price_cents"])}</button>'
-                        '<p class="small muted" style="margin-top:10px">Secure checkout with Stripe. Flat-rate shipping for Canada and the US calculated at checkout.</p>')
+                        f'<p class="small muted" style="margin-top:10px">{t(lang, "secure_checkout")}</p>')
     else:
-        buy_html = '<div class="notice">Coming soon. Not available for order yet.</div>'
+        buy_html = f'<div class="notice">{t(lang, "coming_soon")}</div>'
     custom = ""
     if p["custom_link"]:
-        custom = f'<a class="btn btn-outline btn-block" href="{h(p["custom_link"])}" style="margin-top:10px">Design yours</a>'
-    body = f"""
-<div class="wrap"><div class="product-detail">
-<div>
-<div class="product-gallery">{product_media(p, "").replace('class="card-media"', 'class=""') if p["photo"] else '<div class="photo-placeholder">Photo coming soon</div>'}</div>
-</div>
-<div>
-<div class="buy-box">
-<p class="kicker">ADN Creations</p>
-<h1 style="font-size:2rem">{h(p["name"])}</h1>
-<div class="dept-tags" style="margin-bottom:12px">{tags} {product_badges(p)}</div>
-<p class="price">{money(p["price_cents"])}</p>
-<p class="muted">{h(p["description"])}</p>
-{preorder_note}
-<div class="field"><label for="qty">Quantity</label>
-<input type="number" id="qty" value="1" min="1" max="10"></div>
-{engraving_field}
-{buy_html}{custom}
-<div id="buyMsg" style="margin-top:12px"></div>
-</div>
-</div>
-</div></div>
-<script>
+        custom = f'<a class="btn btn-outline btn-block" href="{h(p["custom_link"])}" style="margin-top:10px">{t(lang, "design_yours")}</a>'
+
+    story_html = ""
+    if story:
+        story_html = (f'<section class="section-sm"><h2>{t(lang, "story_title")}</h2>'
+                      f'<div style="max-width:680px"><p class="lede">{h(story)}</p></div></section>')
+
+    buy_js = ""
+    if p["purchasable"] and not p["in_works"] and not (p["stock"] is not None and p["stock"] <= 0):
+        buy_js = f"""<script>
 document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventListener('click', async function() {{
-  var btn = this; btn.disabled = true; btn.textContent = 'Preparing checkout...';
-  var payload = {{ product_id: {json.dumps(p["id"])}, qty: parseInt(document.getElementById('qty').value) || 1 }};
+  var btn = this; btn.disabled = true; btn.textContent = {json.dumps(t(lang, "preparing"))};
+  var payload = {{ product_id: {json.dumps(p["id"])}, qty: parseInt(document.getElementById('qty').value) || 1, lang: {json.dumps(lang)} }};
   var eng = document.getElementById('engraving');
   if (eng) payload.engraving_text = eng.value;
   try {{
     var r = await fetch('/api/checkout', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(payload) }});
     var j = await r.json();
     if (j.url) window.location = j.url;
-    else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || 'Checkout failed.') + '</div>'; btn.disabled = false; }}
-  }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">Checkout failed. Please try again.</div>'; btn.disabled = false; }}
+    else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || {json.dumps(t(lang, "checkout_failed"))}) + '</div>'; btn.disabled = false; }}
+  }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '</div>'; btn.disabled = false; }}
 }});
 </script>"""
-    return shell(p["name"], p["description"][:160],
-                 body, active="shop",
-                 og_image=abs_url(p["photo"]), og_url=f"{SITE_URL}/product/{pid}")
+    notify_js = ""
+    if p["in_works"]:
+        notify_js = f"""<script>
+document.getElementById('notifyBtn').addEventListener('click', async function() {{
+  var em = document.getElementById('notifyEmail').value.trim();
+  var msg = document.getElementById('notifyMsg');
+  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(em)) {{
+    msg.innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "email_invalid"))} + '</div>'; return;
+  }}
+  var r = await fetch('/api/notify-me', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{ product_id: {json.dumps(p["id"])}, email: em, lang: {json.dumps(lang)} }}) }});
+  if (r.ok) msg.innerHTML = '<div class="notice notice-ok">' + {json.dumps(t(lang, "notify_ok"))} + '</div>';
+  else msg.innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '</div>';
+}});
+</script>"""
+    body = f"""
+<div class="wrap"><div class="product-detail">
+<div>{gallery}</div>
+<div>
+<div class="buy-box">
+<p class="kicker">ADN Creations</p>
+<h1 style="font-size:2rem">{h(name)}</h1>
+<div class="dept-tags" style="margin-bottom:12px">{tags} {product_badges(p, lang)}</div>
+<p class="price">{money(p["price_cents"])}</p>
+<p class="muted">{h(desc)}</p>
+{tier_note}
+{preorder_note}
+<div class="field"><label for="qty">{t(lang, "qty")}</label>
+<input type="number" id="qty" value="1" min="1" max="10"></div>
+{engraving_field}
+{buy_html}{custom}
+<div id="buyMsg" style="margin-top:12px"></div>
+</div>
+</div>
+</div>
+{story_html}
+</div>
+{gal_js}{buy_js}{notify_js}"""
+    html = shell(name, desc[:160], body, active="shop",
+                 og_image=abs_url(photos[0]["photo"] if photos else p["photo"]),
+                 og_url=f"{SITE_URL}/product/{pid}", lang=lang)
+    return lang_response(html, lang)
 
 
 @app.route("/announcement/<aid>")
 def announcement_page(aid):
+    lang = get_lang()
     conn = db()
     a = conn.execute("SELECT * FROM announcements WHERE id=?", (aid,)).fetchone()
     conn.close()
     if not a:
         abort(404)
     track_visit(f"/announcement/{aid}")
+    title = pick(a, lang, "title")
+    body_text = pick(a, lang, "body")
     try:
-        dt = datetime.fromisoformat(a["created"]).strftime("%B %d, %Y")
-    except ValueError:
+        if lang == "fr":
+            months = ["", "janvier", "février", "mars", "avril", "mai", "juin",
+                      "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+            dt0 = datetime.fromisoformat(a["created"])
+            dt = f"{dt0.day} {months[dt0.month]} {dt0.year}"
+        else:
+            dt = datetime.fromisoformat(a["created"]).strftime("%B %d, %Y")
+    except (ValueError, IndexError):
         dt = a["created"][:10]
     body = f"""
 <div class="wrap section"><div style="max-width:680px">
-<p class="kicker"><a href="/progress.html" style="text-decoration:none">Announcements</a></p>
+<p class="kicker"><a href="/progress.html" style="text-decoration:none">{t(lang, "announce_back")}</a></p>
 <p class="feed-date">{h(dt)}</p>
-<h1>{h(a["title"])}</h1>
-<p class="lede">{h(a["body"])}</p>
+<h1>{h(title)}</h1>
+<p class="lede">{h(body_text)}</p>
 </div></div>"""
-    return shell(a["title"], a["body"][:160], body, active="progress",
+    html = shell(title, body_text[:160], body, active="progress",
                  og_image=abs_url("/img/products/carlo-lamp.jpg"),
-                 og_url=f"{SITE_URL}/announcement/{aid}")
+                 og_url=f"{SITE_URL}/announcement/{aid}", lang=lang)
+    return lang_response(html, lang)
 
 
 # ---------- public APIs ----------
@@ -441,21 +905,26 @@ def api_products():
     dept = (request.args.get("dept") or "").strip()
     conn = db()
     rows = conn.execute("SELECT * FROM products WHERE active=1 ORDER BY sort, name").fetchall()
+    photos_by = {}
+    for ph in conn.execute(
+            "SELECT product_id, photo, is_scale, kind FROM product_photos ORDER BY is_scale ASC, kind ASC, sort ASC").fetchall():
+        photos_by.setdefault(ph["product_id"], []).append(
+            {"photo": ph["photo"], "is_scale": bool(ph["is_scale"]),
+             "kind": ph["kind"] or "photo"})
     conn.close()
     out = []
     for p in rows:
         depts = json.loads(p["depts"] or "[]")
         if dept and dept not in depts:
             continue
-        out.append({"id": p["id"], "name": p["name"], "price_cents": p["price_cents"],
-                    "price": money(p["price_cents"]), "photo": p["photo"],
-                    "description": p["description"], "depts": depts,
-                    "stock": p["stock"], "preorder": bool(p["preorder"]),
-                    "preorder_ship_date": p["preorder_ship_date"],
-                    "engravable": bool(p["engravable"]),
-                    "purchasable": bool(p["purchasable"]),
-                    "custom_link": p["custom_link"]})
-    return jsonify({"products": out, "depts": DEPT_LABELS})
+        d = dict(p)
+        d["price"] = money(p["price_cents"])
+        d["depts"] = depts
+        d["photos"] = photos_by.get(p["id"], [])
+        for k in ("preorder", "engravable", "purchasable", "in_works"):
+            d[k] = bool(d[k])
+        out.append(d)
+    return jsonify({"products": out, "depts": DEPT_LABELS, "depts_fr": DEPT_LABELS_FR})
 
 
 @app.route("/api/announcements")
@@ -485,38 +954,50 @@ def api_wip():
 @app.route("/api/checkout", methods=["POST"])
 def api_checkout():
     data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
     pid = (data.get("product_id") or "").strip()
     qty = max(1, min(10, int(data.get("qty") or 1)))
     engraving = (data.get("engraving_text") or "").strip()[:200]
     p = get_product(pid)
-    if not p or not p["purchasable"]:
-        return jsonify({"error": "unknown product"}), 404
+    if not p or not p["purchasable"] or p["in_works"]:
+        return jsonify({"error": t(lang, "err_unknown_product")}), 404
     if p["stock"] is not None and p["stock"] < qty:
-        return jsonify({"error": "not enough stock"}), 400
-    amount = p["price_cents"] * qty
+        return jsonify({"error": t(lang, "err_stock")}), 400
+    # Tiered pricing: first unit at price_cents, additional units at
+    # additional_price_cents (custom memorial lamps: $39.99 first, $29.99 extra).
+    if p["additional_price_cents"] and qty > 1:
+        amount = p["price_cents"] + (qty - 1) * p["additional_price_cents"]
+    else:
+        amount = p["price_cents"] * qty
+    name = pick(p, lang, "name")
     oid = "ord_" + uuid.uuid4().hex[:12]
     conn = db()
     conn.execute(
         "INSERT INTO orders (id, created, product_id, product_name, amount_cents, qty, "
         "engraving_text, preorder, preorder_ship_date, paid) VALUES (?,?,?,?,?,?,?,?,?,0)",
-        (oid, now_iso(), pid, p["name"], amount, qty, engraving,
+        (oid, now_iso(), pid, name, amount, qty, engraving,
          p["preorder"], p["preorder_ship_date"]))
     conn.commit()
     conn.close()
-    label = p["name"] + (f" x{qty}" if qty > 1 else "")
+    label = name + (f" x{qty}" if qty > 1 else "")
     if p["preorder"]:
-        label = "PREORDER: " + label
+        label = ("PRÉCOMMANDE : " if lang == "fr" else "PREORDER: ") + label
     if engraving:
         label += f" (engraving: {engraving[:60]})"
     if not STRIPE_SECRET:
         if DEMO_MODE:
             mark_order_paid(oid, "")
             return jsonify({"url": f"{SITE_URL}/thank-you.html?order={oid}", "demo": True})
-        return jsonify({"error": "payments are not configured yet, please try again later"}), 503
+        return jsonify({"error": t(lang, "err_payment")}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
+    ship_label = ("Expédition à taux fixe (CA/US)" if lang == "fr"
+                  else "Flat-rate shipping (CA/US)")
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
+        locale="fr" if lang == "fr" else "en",
         line_items=[{"price_data": {
             "currency": "cad", "unit_amount": amount,
             "product_data": {"name": label}}, "quantity": 1}],
@@ -525,7 +1006,7 @@ def api_checkout():
         shipping_options=[{"shipping_rate_data": {
             "type": "fixed_amount",
             "fixed_amount": {"amount": 1000, "currency": "cad"},
-            "display_name": "Flat-rate shipping (CA/US)"}}],
+            "display_name": ship_label}}],
         success_url=f"{SITE_URL}/thank-you.html?order={oid}",
         cancel_url=f"{SITE_URL}/product/{pid}?cancelled=1",
         metadata={"order_id": oid, "kind": "shop"},
@@ -588,12 +1069,15 @@ def send_email(to, subject, body):
 @app.route("/api/engraving-request", methods=["POST"])
 def api_engraving_request():
     data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
     name = (data.get("name") or "").strip()[:120]
     email = (data.get("email") or "").strip()[:160]
     product = (data.get("product") or "").strip()[:120]
     message = (data.get("message") or "").strip()[:2000]
     if not name or not message or "@" not in email:
-        return jsonify({"error": "please include your name, a valid email, and what you want engraved"}), 400
+        return jsonify({"error": t(lang, "err_request")}), 400
     rid = "eng_" + uuid.uuid4().hex[:10]
     conn = db()
     conn.execute(
@@ -607,20 +1091,68 @@ def api_engraving_request():
     return jsonify({"ok": True, "emailed": ok})
 
 
-# ---------- custom 4-sided lamp designer (kept from Ritratto, rebranded) ----------
+@app.route("/api/portrait-idea", methods=["POST"])
+def api_portrait_idea():
+    data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    name = (data.get("name") or "").strip()[:120]
+    email = (data.get("email") or "").strip()[:160]
+    idea = (data.get("idea") or "").strip()[:2000]
+    if not name or not idea or "@" not in email:
+        return jsonify({"error": t(lang, "err_request")}), 400
+    rid = "por_" + uuid.uuid4().hex[:10]
+    conn = db()
+    conn.execute(
+        "INSERT INTO portrait_ideas (id, created, name, email, idea) "
+        "VALUES (?,?,?,?,?)", (rid, now_iso(), name, email, idea))
+    conn.commit()
+    conn.close()
+    ok, _ = send_email(
+        SUPPORT_EMAIL, f"New portrait idea from {name}",
+        f"Name: {name}\nEmail: {email}\n\n{idea}\n")
+    return jsonify({"ok": True, "emailed": ok})
+
+
+@app.route("/api/notify-me", methods=["POST"])
+def api_notify_me():
+    data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    pid = (data.get("product_id") or "").strip()[:40]
+    email = (data.get("email") or "").strip()[:160]
+    if not pid or "@" not in email:
+        return jsonify({"error": t(lang, "email_invalid")}), 400
+    conn = db()
+    exists = conn.execute(
+        "SELECT id FROM notify_me WHERE product_id=? AND email=?", (pid, email)).fetchone()
+    if not exists:
+        conn.execute("INSERT INTO notify_me (id, created, product_id, email) VALUES (?,?,?,?)",
+                     ("ntf_" + uuid.uuid4().hex[:10], now_iso(), pid, email))
+        conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# ---------- custom 4-sided lamp designer ----------
+# Pricing 2026-10-18: $39.99 for one custom lamp, $29.99 for each additional copy
+# of the same design, 4-pack bundle $99.99.
 GALLERY = {
-    "solanus-casey": {"name": "Blessed Solanus Casey", "image": "/lamps/gallery/solanus-casey.jpg"},
-    "frere-andre": {"name": "Frere Andre", "image": "/lamps/gallery/bishop-example.jpg"},
-    "padrepio-face": {"name": "Padre Pio", "image": "/lamps/gallery/padrepio-face.jpg"},
-    "padrepio-mass": {"name": "Padre Pio at Mass", "image": "/lamps/gallery/padrepio-mass.jpg"},
-    "ourlady-child": {"name": "Our Lady with Child", "image": "/lamps/gallery/ourlady-child.jpg"},
-    "carlo-standing": {"name": "Carlo Acutis, Standing", "image": "/lamps/carlo-standing.jpg"},
-    "carlo-monstrance": {"name": "Carlo Acutis with the Eucharist", "image": "/lamps/carlo-monstrance.jpg"},
-    "our-lady": {"name": "Our Lady of the Rosary", "image": "/lamps/our-lady.jpg"},
-    "basilica-padrepio": {"name": "Basilica", "image": "/lamps/basilica-padrepio.jpg"},
+    "solanus-casey": {"name": "Blessed Solanus Casey", "name_fr": "Bienheureux Solanus Casey", "image": "/lamps/gallery/solanus-casey.jpg"},
+    "frere-andre": {"name": "Frere Andre", "name_fr": "Frère André", "image": "/lamps/gallery/bishop-example.jpg"},
+    "padrepio-face": {"name": "Padre Pio", "name_fr": "Padre Pio", "image": "/lamps/gallery/padrepio-face.jpg"},
+    "padrepio-mass": {"name": "Padre Pio at Mass", "name_fr": "Padre Pio à la messe", "image": "/lamps/gallery/padrepio-mass.jpg"},
+    "ourlady-child": {"name": "Our Lady with Child", "name_fr": "Notre-Dame avec l'Enfant", "image": "/lamps/gallery/ourlady-child.jpg"},
+    "carlo-standing": {"name": "Carlo Acutis, Standing", "name_fr": "Carlo Acutis, debout", "image": "/lamps/carlo-standing.jpg"},
+    "carlo-monstrance": {"name": "Carlo Acutis with the Eucharist", "name_fr": "Carlo Acutis avec l'Eucharistie", "image": "/lamps/carlo-monstrance.jpg"},
+    "our-lady": {"name": "Our Lady of the Rosary", "name_fr": "Notre-Dame du Rosaire", "image": "/lamps/our-lady.jpg"},
+    "basilica-padrepio": {"name": "Basilica", "name_fr": "Basilique", "image": "/lamps/basilica-padrepio.jpg"},
 }
-LAMP_SINGLE = 2000   # $20 first of a design
-LAMP_SET4 = 6000     # $60 for 4 copies of the same design
+LAMP_SINGLE = 3999   # $39.99 for one custom lamp
+LAMP_PACK4 = 9999    # $99.99 for a 4-pack of the same design
+LAMP_EXTRA = 2999    # $29.99 for each additional copy
 LAMP_SHIPPING = 1000
 
 
@@ -646,49 +1178,52 @@ def lamp_upload():
 
 @app.route("/api/gallery")
 def api_gallery():
-    return jsonify({"gallery": [{"id": k, **v} for k, v in GALLERY.items()],
-                    "single_cents": LAMP_SINGLE, "set4_cents": LAMP_SET4})
+    return jsonify({"gallery": [{"id": k, "name": v["name"], "name_fr": v["name_fr"], "image": v["image"]} for k, v in GALLERY.items()],
+                    "single_cents": LAMP_SINGLE, "pack4_cents": LAMP_PACK4, "extra_cents": LAMP_EXTRA})
 
 
-def validate_sides(sides):
+def validate_sides(sides, lang="fr"):
     if not isinstance(sides, list) or len(sides) != 4:
-        raise ValueError("choose all 4 sides")
+        raise ValueError(t(lang, "err_sides"))
     clean, names = [], []
     for s in sides:
         kind = (s or {}).get("kind")
         if kind == "gallery":
             gid = s.get("id") or ""
             if gid not in GALLERY:
-                raise ValueError("unknown illustration")
+                raise ValueError(t(lang, "err_unknown_product"))
             clean.append({"kind": "gallery", "id": gid})
-            names.append(GALLERY[gid]["name"])
+            names.append(GALLERY[gid]["name_fr"] if lang == "fr" else GALLERY[gid]["name"])
         elif kind == "upload":
             fname = s.get("file") or ""
             if not re.fullmatch(r"side_[0-9a-f]{10}\.jpg", fname):
-                raise ValueError("unknown upload")
+                raise ValueError(t(lang, "err_unknown_product"))
             if not os.path.isfile(os.path.join(LAMP_UPLOAD_DIR, fname)):
-                raise ValueError("upload not found")
+                raise ValueError(t(lang, "err_unknown_product"))
             clean.append({"kind": "upload", "file": fname})
-            names.append("your photo")
+            names.append("votre photo" if lang == "fr" else "your photo")
         else:
-            raise ValueError("choose all 4 sides")
+            raise ValueError(t(lang, "err_sides"))
     return clean, names
 
 
 @app.route("/api/lamp-checkout", methods=["POST"])
 def lamp_checkout():
     data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
     pack = data.get("pack") or "single"
-    if pack not in ("single", "set4"):
-        return jsonify({"error": "unknown lamp option"}), 400
+    if pack not in ("single", "pack4"):
+        return jsonify({"error": t(lang, "err_unknown_product")}), 400
     try:
-        sides, names = validate_sides(data.get("sides"))
+        sides, names = validate_sides(data.get("sides"), lang)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    amount = LAMP_SET4 if pack == "set4" else LAMP_SINGLE
+    amount = LAMP_PACK4 if pack == "pack4" else LAMP_SINGLE
     side_summary = " / ".join(names)
-    label = (f"Custom memorial lamp ({'4 copies' if pack == 'set4' else 'single'})"
-             f" - {side_summary[:120]}")
+    label = (t(lang, "lamp_pack4_label") if pack == "pack4" else t(lang, "lamp_single_label"))
+    label = f"{label} - {side_summary[:120]}"
     oid = "lamp_" + uuid.uuid4().hex[:10]
     conn = db()
     conn.execute(
@@ -704,11 +1239,14 @@ def lamp_checkout():
             conn.commit()
             conn.close()
             return jsonify({"url": f"{SITE_URL}/thank-you.html?order={oid}", "demo": True})
-        return jsonify({"error": "payments are not configured yet, please try again later"}), 503
+        return jsonify({"error": t(lang, "err_payment")}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
+    ship_label = ("Expédition à taux fixe (CA/US)" if lang == "fr"
+                  else "Flat-rate shipping (CA/US)")
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
+        locale="fr" if lang == "fr" else "en",
         line_items=[{"price_data": {
             "currency": "cad", "unit_amount": amount,
             "product_data": {"name": label}}, "quantity": 1}],
@@ -717,7 +1255,7 @@ def lamp_checkout():
         shipping_options=[{"shipping_rate_data": {
             "type": "fixed_amount",
             "fixed_amount": {"amount": LAMP_SHIPPING, "currency": "cad"},
-            "display_name": "Flat-rate shipping (CA/US)"}}],
+            "display_name": ship_label}}],
         success_url=f"{SITE_URL}/thank-you.html?order={oid}",
         cancel_url=f"{SITE_URL}/custom-lamp.html?cancelled=1",
         metadata={"order_id": oid, "kind": "lamp", "sides": side_summary[:400]},
@@ -755,22 +1293,25 @@ def webhook():
 
 # ---------- admin ----------
 def admin_ok():
+    """Seller session login, or the ?token= backup (constant-time compare)."""
+    if session.get("admin_login"):
+        return True
     if not ADMIN_TOKEN:
         return False
     token = request.args.get("token", "") or request.headers.get("X-Admin-Token", "")
-    return token == ADMIN_TOKEN
+    return hmac.compare_digest(token, ADMIN_TOKEN)
 
 
 @app.route("/admin/")
 def admin_page():
     if not admin_ok():
-        abort(403)
+        return redirect("/admin/login")
     token = request.args.get("token", "")
     body = f"""
 <div class="admin-wrap">
 <p class="kicker">ADN Creations</p>
 <h1>Store admin</h1>
-<p class="muted">Manage products, preorders, announcements, work-in-progress updates, and orders. Changes go live immediately.</p>
+<p class="muted">Manage products, preorders, announcements, work-in-progress updates, and orders. Changes go live immediately. <a href="/admin/logout">Log out</a></p>
 
 <div class="admin-card">
 <h2>Products</h2>
@@ -779,22 +1320,33 @@ def admin_page():
 <form id="productForm">
 <input type="hidden" id="pf-id">
 <div class="field"><label>Name</label><input type="text" id="pf-name" required maxlength="120"></div>
+<div class="field"><label>Name (FR)</label><input type="text" id="pf-name-fr" maxlength="120"></div>
 <div class="two-col" style="gap:16px">
 <div class="field"><label>Price (CAD)</label><input type="number" id="pf-price" step="0.01" min="0" required></div>
-<div class="field"><label>Stock (blank = unlimited)</label><input type="number" id="pf-stock" min="0"></div>
+<div class="field"><label>Additional unit price (CAD, optional, e.g. $29.99 for extra lamps)</label><input type="number" id="pf-addprice" step="0.01" min="0"></div>
 </div>
+<div class="field"><label>Stock (blank = unlimited)</label><input type="number" id="pf-stock" min="0"></div>
 <div class="field"><label>Photo</label><input type="file" id="pf-photo-file" accept="image/*">
 <input type="text" id="pf-photo" placeholder="or paste an image URL, e.g. /img/products/x.jpg" style="margin-top:8px"></div>
 <div class="field"><label>Departments</label><div class="checkbox-row" id="pf-depts"></div></div>
 <div class="checkbox-row">
 <label><input type="checkbox" id="pf-preorder"> Preorder</label>
 <label><input type="checkbox" id="pf-engravable"> Engravable (text field at checkout)</label>
+<label><input type="checkbox" id="pf-inworks"> In the works (story page, follow-the-build, no buy button)</label>
 <label><input type="checkbox" id="pf-purchasable" checked> Available to buy</label>
 <label><input type="checkbox" id="pf-active" checked> Visible in shop</label>
 </div>
 <div class="field" id="pf-shipdate-wrap" style="display:none"><label>Expected ship date (shown to buyer)</label><input type="text" id="pf-shipdate" placeholder="e.g. December 2026" maxlength="60"></div>
 <div class="field"><label>Custom page link (optional, e.g. /custom-lamp.html)</label><input type="text" id="pf-customlink" maxlength="120"></div>
 <div class="field"><label>Description</label><textarea id="pf-desc" maxlength="2000"></textarea></div>
+<div class="field"><label>Description (FR)</label><textarea id="pf-desc-fr" maxlength="2000"></textarea></div>
+<div class="field"><label>Story: why this piece exists, how it is made (shown on the product page)</label><textarea id="pf-story" maxlength="3000"></textarea></div>
+<div class="field"><label>Story (FR)</label><textarea id="pf-story-fr" maxlength="3000"></textarea></div>
+<div class="field"><label>Photos (ordered gallery; tick one as the scale shot shown last)</label>
+<div id="pf-photos"></div>
+<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center"><input type="file" id="pf-photo-upload" accept="image/*,video/mp4,.mov" multiple><button class="btn btn-outline" type="button" id="pf-photo-add">Upload</button></div>
+<p class="small muted">Photos and MP4/MOV videos, several at once. Videos play in the product gallery (50 MB max each). Use Up/Down to reorder; mark one photo as the scale shot shown last.</p>
+</div>
 <button class="btn btn-primary" type="submit">Save product</button>
 <button class="btn btn-outline" type="button" id="pf-cancel" style="margin-left:8px">Clear</button>
 </form>
@@ -806,7 +1358,9 @@ def admin_page():
 <h3 style="margin-top:24px">New announcement</h3>
 <form id="annForm">
 <div class="field"><label>Title</label><input type="text" id="af-title" required maxlength="140"></div>
+<div class="field"><label>Title (FR)</label><input type="text" id="af-title-fr" maxlength="140"></div>
 <div class="field"><label>Body</label><textarea id="af-body" required maxlength="2000"></textarea></div>
+<div class="field"><label>Body (FR)</label><textarea id="af-body-fr" maxlength="2000"></textarea></div>
 <button class="btn btn-primary" type="submit">Publish announcement</button>
 </form>
 </div>
@@ -817,13 +1371,16 @@ def admin_page():
 <h3 style="margin-top:24px">New project</h3>
 <form id="wipForm">
 <div class="field"><label>Project name</label><input type="text" id="wf-project" required maxlength="120"></div>
+<div class="field"><label>Project name (FR)</label><input type="text" id="wf-project-fr" maxlength="120"></div>
 <div class="field"><label>Status (e.g. In development, Complete)</label><input type="text" id="wf-status" maxlength="60"></div>
+<div class="field"><label>Status (FR)</label><input type="text" id="wf-status-fr" maxlength="60"></div>
 <button class="btn btn-primary" type="submit">Add project</button>
 </form>
 <h3 style="margin-top:24px">Add progress update</h3>
 <form id="wipUpdateForm">
 <div class="field"><label>Project</label><select id="wu-project"></select></div>
 <div class="field"><label>Update</label><textarea id="wu-text" required maxlength="1000"></textarea></div>
+<div class="field"><label>Update (FR)</label><textarea id="wu-text-fr" maxlength="1000"></textarea></div>
 <button class="btn btn-primary" type="submit">Add update</button>
 </form>
 </div>
@@ -837,10 +1394,125 @@ def admin_page():
 <h2>Engraving requests</h2>
 <div id="engList"><p class="muted">Loading...</p></div>
 </div>
+
+<div class="admin-card">
+<h2>Portrait ideas</h2>
+<div id="porList"><p class="muted">Loading...</p></div>
+</div>
+
+<div class="admin-card">
+<h2>Project suggestions</h2>
+<div id="sgList"><p class="muted">Loading...</p></div>
+</div>
+
+<div class="admin-card">
+<h2>Notify-me list</h2>
+<div id="ntfList"><p class="muted">Loading...</p></div>
+</div>
 </div>
 <script>var ADMIN_TOKEN = {json.dumps(token)};</script>
 <script src="/admin.js"></script>"""
     return shell("Store admin", "ADN Creations store administration.", body)
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if session.get("admin_login"):
+        return redirect("/admin/")
+    lang = get_lang()
+    s = STR["fr"] if lang != "en" else STR["en"]
+    err = ""
+    code = 200
+    login_enabled = bool(ADMIN_USER and ADMIN_PASSWORD)
+    if request.method == "POST":
+        if not login_enabled:
+            err = s["login_disabled"]
+            code = 503
+        else:
+            u = request.form.get("username", "")
+            pw = request.form.get("password", "")
+            if hmac.compare_digest(u, ADMIN_USER) and hmac.compare_digest(pw, ADMIN_PASSWORD):
+                session["admin_login"] = True
+                session.permanent = True
+                return redirect("/admin/")
+            err = s["login_bad"]
+            code = 401
+    notice = f'<div class="notice notice-err">{h(err)}</div>' if err else ""
+    dis = "" if login_enabled else "disabled"
+    html = f"""<!DOCTYPE html>
+<html lang="{lang}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="login.title">{h(s["login_title"])}</title>
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="admin-wrap" style="max-width:440px">
+<p class="kicker">ADN Creations</p>
+<h1 data-i18n="login.h">{h(s["login_h"])}</h1>
+<div class="admin-card">
+{notice}
+<form method="post" action="/admin/login">
+<div class="field"><label for="lg-user" data-i18n="login.user">{h(s["login_user"])}</label>
+<input type="text" id="lg-user" name="username" autocomplete="username" required {dis}></div>
+<div class="field"><label for="lg-pass" data-i18n="login.pass">{h(s["login_pass"])}</label>
+<input type="password" id="lg-pass" name="password" autocomplete="current-password" required {dis}></div>
+<button class="btn btn-brass btn-block" type="submit" data-i18n="login.submit"{"" if login_enabled else " disabled"}>{h(s["login_submit"])}</button>
+</form>
+<p style="margin-top:16px"><a href="/" data-i18n="login.back">{h(s["login_back"])}</a></p>
+<p style="margin-top:8px"><span class="lang-toggle" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" class="on">FR</button><button type="button" data-lang="en">EN</button></span></p>
+</div>
+</div>
+<script src="/i18n.js"></script>
+</body>
+</html>"""
+    return html, code
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin_login", None)
+    return redirect("/admin/login")
+
+
+@app.route("/api/suggest-project", methods=["POST"])
+def api_suggest_project():
+    data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    name = (data.get("name") or "").strip()[:120]
+    email = (data.get("email") or "").strip()[:160]
+    title = (data.get("title") or "").strip()[:160]
+    description = (data.get("description") or "").strip()[:2000]
+    category = (data.get("category") or "other").strip().lower()
+    if category not in ("product", "custom", "collab", "other"):
+        category = "other"
+    if not name or not title or not description or "@" not in email:
+        return jsonify({"error": t(lang, "err_request")}), 400
+    sid = "sg_" + uuid.uuid4().hex[:10]
+    conn = db()
+    conn.execute(
+        "INSERT INTO project_suggestions (id, created, name, email, title, description, category) "
+        "VALUES (?,?,?,?,?,?,?)", (sid, now_iso(), name, email, title, description, category))
+    conn.commit()
+    conn.close()
+    ok, _ = send_email(
+        SUPPORT_EMAIL, f"New project suggestion from {name}: {title}",
+        f"Name: {name}\nEmail: {email}\nCategory: {category}\nTitle: {title}\n\n{description}\n")
+    return jsonify({"ok": True, "emailed": ok})
+
+
+@app.route("/api/admin/suggestions")
+def admin_suggestions():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    rows = conn.execute("SELECT * FROM project_suggestions ORDER BY created DESC").fetchall()
+    conn.close()
+    return jsonify({"suggestions": [dict(r) for r in rows]})
 
 
 @app.route("/api/admin/products", methods=["GET", "POST"])
@@ -855,30 +1527,108 @@ def admin_products():
     data = request.get_json(force=True)
     pid = (data.get("id") or "").strip() or ("p_" + uuid.uuid4().hex[:10])
     price = int(round(float(data.get("price") or 0) * 100))
+    add_raw = data.get("additional_price")
+    add_price = int(round(float(add_raw) * 100)) if add_raw not in ("", None) else None
     stock_raw = (data.get("stock") or "").strip() if isinstance(data.get("stock"), str) else data.get("stock")
     stock = int(stock_raw) if stock_raw not in ("", None) else None
     depts = [d for d in (data.get("depts") or []) if d in DEPTS]
     conn.execute(
-        "INSERT INTO products (id, name, price_cents, photo, description, depts, stock, "
-        "preorder, preorder_ship_date, engravable, purchasable, custom_link, active, sort, created) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
-        "ON CONFLICT(id) DO UPDATE SET name=excluded.name, price_cents=excluded.price_cents, "
-        "photo=excluded.photo, description=excluded.description, depts=excluded.depts, "
+        "INSERT INTO products (id, name, name_fr, price_cents, additional_price_cents, "
+        "photo, description, description_fr, story, story_fr, depts, stock, "
+        "preorder, preorder_ship_date, engravable, in_works, purchasable, custom_link, active, sort, created) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_fr=excluded.name_fr, "
+        "price_cents=excluded.price_cents, additional_price_cents=excluded.additional_price_cents, "
+        "photo=excluded.photo, description=excluded.description, description_fr=excluded.description_fr, "
+        "story=excluded.story, story_fr=excluded.story_fr, depts=excluded.depts, "
         "stock=excluded.stock, preorder=excluded.preorder, "
         "preorder_ship_date=excluded.preorder_ship_date, engravable=excluded.engravable, "
-        "purchasable=excluded.purchasable, custom_link=excluded.custom_link, "
+        "in_works=excluded.in_works, purchasable=excluded.purchasable, custom_link=excluded.custom_link, "
         "active=excluded.active",
-        (pid, (data.get("name") or "").strip()[:120], price,
-         (data.get("photo") or "").strip()[:300], (data.get("description") or "").strip()[:2000],
+        (pid, (data.get("name") or "").strip()[:120], (data.get("name_fr") or "").strip()[:120],
+         price, add_price,
+         (data.get("photo") or "").strip()[:300],
+         (data.get("description") or "").strip()[:2000],
+         (data.get("description_fr") or "").strip()[:2000],
+         (data.get("story") or "").strip()[:3000],
+         (data.get("story_fr") or "").strip()[:3000],
          json.dumps(depts), stock, 1 if data.get("preorder") else 0,
          (data.get("preorder_ship_date") or "").strip()[:60],
-         1 if data.get("engravable") else 0, 1 if data.get("purchasable", True) else 0,
+         1 if data.get("engravable") else 0, 1 if data.get("in_works") else 0,
+         1 if data.get("purchasable", True) else 0,
          (data.get("custom_link") or "").strip()[:120],
          1 if data.get("active", True) else 0,
          int(data.get("sort") or 0), now_iso()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "id": pid})
+
+
+@app.route("/api/admin/photos", methods=["GET", "POST"])
+def admin_photos():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    if request.method == "GET":
+        pid = request.args.get("product_id", "")
+        rows = conn.execute(
+            "SELECT * FROM product_photos WHERE product_id=? ORDER BY is_scale ASC, sort ASC",
+            (pid,)).fetchall()
+        conn.close()
+        return jsonify({"photos": [dict(r) for r in rows]})
+    data = request.get_json(force=True)
+    pid = (data.get("product_id") or "").strip()
+    photo = (data.get("photo") or "").strip()[:300]
+    kind = (data.get("kind") or "photo").strip().lower()
+    if kind not in ("photo", "video"):
+        kind = "photo"
+    if not pid or not photo:
+        conn.close()
+        return jsonify({"error": "product and photo required"}), 400
+    n = conn.execute("SELECT COUNT(*) FROM product_photos WHERE product_id=?", (pid,)).fetchone()[0]
+    phid = "ph_" + uuid.uuid4().hex[:10]
+    conn.execute(
+        "INSERT INTO product_photos (id, product_id, photo, kind, sort, is_scale, created) "
+        "VALUES (?,?,?,?,?,?,?)", (phid, pid, photo, kind, n, 0, now_iso()))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "id": phid})
+
+
+@app.route("/api/admin/photos/<phid>", methods=["POST", "DELETE"])
+def admin_photo_one(phid):
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    if request.method == "DELETE":
+        conn.execute("DELETE FROM product_photos WHERE id=?", (phid,))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    data = request.get_json(force=True)
+    action = data.get("action")
+    row = conn.execute("SELECT * FROM product_photos WHERE id=?", (phid,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "unknown photo"}), 404
+    if action == "scale":
+        conn.execute("UPDATE product_photos SET is_scale=0 WHERE product_id=?", (row["product_id"],))
+        conn.execute("UPDATE product_photos SET is_scale=1 WHERE id=?", (phid,))
+    elif action == "move":
+        direction = int(data.get("direction") or 0)
+        sibs = conn.execute(
+            "SELECT id, sort FROM product_photos WHERE product_id=? AND is_scale=? ORDER BY sort ASC",
+            (row["product_id"], row["is_scale"])).fetchall()
+        ids = [s["id"] for s in sibs]
+        i = ids.index(phid)
+        j = i + direction
+        if 0 <= j < len(ids):
+            ids[i], ids[j] = ids[j], ids[i]
+            for k, sid in enumerate(ids):
+                conn.execute("UPDATE product_photos SET sort=? WHERE id=?", (k, sid))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/admin/products/<pid>", methods=["DELETE"])
@@ -899,6 +1649,48 @@ def admin_upload():
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "no file"}), 400
+    fname = (f.filename or "").lower()
+    mt = (f.mimetype or "").lower()
+    is_video = mt.startswith("video/") or fname.endswith((".mp4", ".mov"))
+    if is_video:
+        if request.content_length and request.content_length > VIDEO_MAX_BYTES + 1024 * 1024:
+            return jsonify({"error": "video too large (50 MB max)"}), 413
+        if not (fname.endswith((".mp4", ".mov")) or mt in ("video/mp4", "video/quicktime")):
+            return jsonify({"error": "videos must be MP4 or MOV"}), 400
+        vid = "vid_" + uuid.uuid4().hex[:10]
+        tmp = os.path.join(VIDEO_DIR, vid + ".upload")
+        try:
+            total = 0
+            with open(tmp, "wb") as out:
+                while True:
+                    chunk = f.stream.read(256 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > VIDEO_MAX_BYTES:
+                        raise ValueError("too large")
+                    out.write(chunk)
+        except ValueError:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            return jsonify({"error": "video too large (50 MB max)"}), 413
+        final = os.path.join(VIDEO_DIR, vid + ".mp4")
+        if fname.endswith(".mov") or mt == "video/quicktime":
+            # iPhone MOV -> widely playable MP4 (H.264 + AAC).
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", tmp, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                     "-crf", "23", "-preset", "veryfast", "-c:a", "aac",
+                     "-movflags", "+faststart", final],
+                    check=True, capture_output=True, timeout=300)
+                os.remove(tmp)
+            except Exception:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+                return jsonify({"error": "could not process that video"}), 400
+        else:
+            os.rename(tmp, final)
+        return jsonify({"url": "/media/videos/" + vid + ".mp4", "kind": "video"})
     name = "prod_" + uuid.uuid4().hex[:10] + ".jpg"
     try:
         img = ImageOps.exif_transpose(Image.open(f.stream)).convert("RGB")
@@ -907,7 +1699,14 @@ def admin_upload():
         img.save(os.path.join(PRODUCT_IMG_DIR, name), "JPEG", quality=80, optimize=True)
     except Exception:
         return jsonify({"error": "could not read that image"}), 400
-    return jsonify({"url": "/img/products/" + name})
+    return jsonify({"url": "/img/products/" + name, "kind": "photo"})
+
+
+@app.route("/media/videos/<path:fname>")
+def media_video(fname):
+    if "/" in fname or "\\" in fname or not fname.endswith(".mp4"):
+        abort(404)
+    return send_from_directory(VIDEO_DIR, fname, mimetype="video/mp4")
 
 
 @app.route("/api/admin/announcements", methods=["GET", "POST"])
@@ -921,9 +1720,11 @@ def admin_announcements():
         return jsonify({"announcements": [dict(r) for r in rows]})
     data = request.get_json(force=True)
     aid = "a_" + uuid.uuid4().hex[:10]
-    conn.execute("INSERT INTO announcements (id, created, title, body) VALUES (?,?,?,?)",
+    conn.execute("INSERT INTO announcements (id, created, title, title_fr, body, body_fr) VALUES (?,?,?,?,?,?)",
                  (aid, now_iso(), (data.get("title") or "").strip()[:140],
-                  (data.get("body") or "").strip()[:2000]))
+                  (data.get("title_fr") or "").strip()[:140],
+                  (data.get("body") or "").strip()[:2000],
+                  (data.get("body_fr") or "").strip()[:2000]))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "id": aid})
@@ -958,10 +1759,12 @@ def admin_wip():
         return jsonify({"projects": out})
     data = request.get_json(force=True)
     wid = "w_" + uuid.uuid4().hex[:10]
-    conn.execute("INSERT INTO wip_projects (id, project, status, photo, sort, created) "
-                 "VALUES (?,?,?,?,?,?)",
+    conn.execute("INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
+                 "VALUES (?,?,?,?,?,?,?,?)",
                  (wid, (data.get("project") or "").strip()[:120],
-                  (data.get("status") or "").strip()[:60], "", 99, now_iso()))
+                  (data.get("project_fr") or "").strip()[:120],
+                  (data.get("status") or "").strip()[:60],
+                  (data.get("status_fr") or "").strip()[:60], "", 99, now_iso()))
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "id": wid})
@@ -973,9 +1776,10 @@ def admin_wip_update():
         abort(403)
     data = request.get_json(force=True)
     conn = db()
-    conn.execute("INSERT INTO wip_updates (id, project_id, created, text) VALUES (?,?,?,?)",
+    conn.execute("INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
                  ("wu_" + uuid.uuid4().hex[:10], data.get("project_id"),
-                  now_iso(), (data.get("text") or "").strip()[:1000]))
+                  now_iso(), (data.get("text") or "").strip()[:1000],
+                  (data.get("text_fr") or "").strip()[:1000]))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -1013,6 +1817,29 @@ def admin_engraving_requests():
     rows = conn.execute("SELECT * FROM engraving_requests ORDER BY created DESC LIMIT 200").fetchall()
     conn.close()
     return jsonify({"requests": [dict(r) for r in rows]})
+
+
+@app.route("/api/admin/portrait-ideas")
+def admin_portrait_ideas():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    rows = conn.execute("SELECT * FROM portrait_ideas ORDER BY created DESC LIMIT 200").fetchall()
+    conn.close()
+    return jsonify({"ideas": [dict(r) for r in rows]})
+
+
+@app.route("/api/admin/notify-me")
+def admin_notify_me():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    rows = conn.execute(
+        "SELECT n.*, p.name as product_name FROM notify_me n "
+        "LEFT JOIN products p ON p.id=n.product_id "
+        "ORDER BY n.created DESC LIMIT 200").fetchall()
+    conn.close()
+    return jsonify({"list": [dict(r) for r in rows]})
 
 
 def compose_share_text(kind, item):
