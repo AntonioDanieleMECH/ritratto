@@ -432,6 +432,14 @@ SEED_PRODUCTS = [
      "story": "Carlo Acutis called the Eucharist his highway to heaven. This lamp gathers four moments of his short life around a warm light: his portrait, the Eucharist he loved, his sanctuary in Assisi, and the Virgin Mary. Each face is a lithophane, printed thin enough that light draws the image out of the plastic itself.",
      "story_fr": "Carlo Acutis appelait l'Eucharistie son autoroute vers le ciel. Cette lampe réunit quatre moments de sa courte vie autour d'une lumière chaude : son portrait, l'Eucharistie qu'il aimait, son sanctuaire d'Assise et la Vierge Marie. Chaque face est un lithophane, imprimé assez fin pour que la lumière dessine l'image à même le plastique.",
      "depts": ["religious", "electronic"], "stock": None, "sort": 1},
+    {"id": "padre-pio-lamp", "name": "Padre Pio 4-Face Prayer Lamp", "price_cents": 2499,
+     "photo": "/img/products/padre-pio-lamp-1.jpg",
+     "description": "Four lithophane faces of Padre Pio glow from within: his portrait, celebrating Mass, his church, and Our Lady with Child. Warm LED light, 10 x 7 x 7 cm. Hand crafted in Montreal from plant-based bioplastic.",
+     "name_fr": "Lampe de prière Padre Pio à 4 faces",
+     "description_fr": "Quatre faces lithophanes de Padre Pio qui s'illuminent de l'intérieur : son portrait, célébrant la messe, son église et Notre-Dame avec l'Enfant. Lumière DEL chaude, 10 x 7 x 7 cm. Fait à la main à Montréal en bioplastique d'origine végétale.",
+     "story": "Padre Pio bore the stigmata for fifty years and called the Mass his strength. This lamp gathers four moments around a warm light: his portrait, Padre Pio raising the host at Mass, his church, and Our Lady with the Child he loved. Each face is a lithophane, printed thin enough that light draws the image out of the plastic itself.",
+     "story_fr": "Padre Pio a porté les stigmates pendant cinquante ans et appelait la messe sa force. Cette lampe réunit quatre moments autour d'une lumière chaude : son portrait, Padre Pio élevant l'hostie à la messe, son église et Notre-Dame avec l'Enfant qu'il aimait. Chaque face est un lithophane, imprimé assez fin pour que la lumière dessine l'image à même le plastique.",
+     "depts": ["religious", "electronic"], "stock": None, "sort": 2},
     {"id": "sheen-lamp", "name": "Fulton Sheen 4-Face Prayer Lamp", "price_cents": 1999,
      "photo": "/img/products/sheen-lamp.jpg",
      "description": "Four lithophane faces of Blessed Fulton Sheen in warm LED light. Hand crafted in Montreal from plant-based bioplastic.",
@@ -590,14 +598,52 @@ def seed():
              "Le briquet Aku : un grand A serif avec le nom à l'intérieur, gravé au laser à fibre. "
              "Envoyez votre propre dessin ou simplement une idée et il devient un objet unique.",
              json.dumps(["gag"]), None, 0, "", 1, 1, "", 1, 7, now_iso()))
-    # Gallery for custom-lighter: main photo first (idempotent, fills gaps).
-    for _phpid, _ph, _sort in (("php_customlighter1", "/img/products/custom-lighter.jpg", 0),
-                               ("php_customlighter2", "/img/products/custom-lighter-2.jpg", 1)):
+    # New product 2026-10-18: Padre Pio 4-face prayer lamp (only if missing).
+    if not conn.execute("SELECT id FROM products WHERE id='padre-pio-lamp'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("padre-pio-lamp", "Padre Pio 4-Face Prayer Lamp", "Lampe de prière Padre Pio à 4 faces", 2499,
+             "/img/products/padre-pio-lamp-1.jpg",
+             "Four lithophane faces of Padre Pio glow from within: his portrait, celebrating Mass, "
+             "his church, and Our Lady with Child. Warm LED light, 10 x 7 x 7 cm. Hand crafted in "
+             "Montreal from plant-based bioplastic.",
+             "Quatre faces lithophanes de Padre Pio qui s'illuminent de l'intérieur : son portrait, "
+             "célébrant la messe, son église et Notre-Dame avec l'Enfant. Lumière DEL chaude, "
+             "10 x 7 x 7 cm. Fait à la main à Montréal en bioplastique d'origine végétale.",
+             "Padre Pio bore the stigmata for fifty years and called the Mass his strength. This lamp "
+             "gathers four moments around a warm light: his portrait, Padre Pio raising the host at Mass, "
+             "his church, and Our Lady with the Child he loved. Each face is a lithophane, printed thin "
+             "enough that light draws the image out of the plastic itself.",
+             "Padre Pio a porté les stigmates pendant cinquante ans et appelait la messe sa force. "
+             "Cette lampe réunit quatre moments autour d'une lumière chaude : son portrait, Padre Pio "
+             "élevant l'hostie à la messe, son église et Notre-Dame avec l'Enfant qu'il aimait. Chaque face "
+             "est un lithophane, imprimé assez fin pour que la lumière dessine l'image à même le plastique.",
+             json.dumps(["religious", "electronic"]), None, 0, "", 0, 1, "", 1, 2, now_iso()))
+    # Gallery for padre-pio-lamp (idempotent, fills gaps).
+    for _i in range(1, 9):
+        _phpid = f"php_padrepio{_i}"
+        _ph = f"/img/products/padre-pio-lamp-{_i}.jpg"
         if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
             conn.execute(
                 "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
                 "VALUES (?,?,?,?,?,?)",
-                (_phpid, "custom-lighter", _ph, _sort, 0, now_iso()))
+                (_phpid, "padre-pio-lamp", _ph, _i - 1, 0, now_iso()))
+    # Gallery for card-case: Briscola + Scopa real photos 2026-10-18 (idempotent).
+    _card_photos = [f"/img/products/briscola-case-{_i}.webp" for _i in range(1, 7)] + \
+                   [f"/img/products/scopa-case-{_i}.webp" for _i in range(1, 6)]
+    for _s, _ph in enumerate(_card_photos):
+        _phpid = "php_cardcase_" + _ph.split("/")[-1].replace(".", "_")
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "card-case", _ph, _s, 0, now_iso()))
+    conn.execute(
+        "UPDATE products SET photo='/img/products/briscola-case-1.webp' "
+        "WHERE id='card-case' AND (photo IS NULL OR photo='')")
     # Pricing 2026-10-18: custom memorial lamps are $39.99 for the first of a
     # design, $29.99 for each additional copy, 4-pack $99.99. Charm pricing
     # (.99) across the shop. Only touches rows still on the old pricing,
