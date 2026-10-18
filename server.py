@@ -107,7 +107,7 @@ STR = {
     "fr": {
         "nav_work": "Réalisations", "nav_shop": "Boutique", "nav_engraving": "Gravure",
         "nav_portraits": "Portraits", "nav_progress": "En cours", "nav_about": "À propos",
-        "nav_contact": "Contact", "nav_suggest": "Idées", "nav_cta": "Magasiner", "menu": "Menu",
+        "nav_contact": "Contact", "nav_suggest": "Idées", "nav_reviews": "Avis", "nav_cta": "Magasiner", "menu": "Menu",
         "follow_ms": "Suivez nos créations sur Making Stuff",
         "footer_tag": "Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.",
         "footer_explore": "Explorer", "footer_contact": "Contact",
@@ -130,6 +130,9 @@ STR = {
         "review_submit": "Publier mon avis",
         "review_thanks": "Merci! Votre avis sera publié après vérification.",
         "review_err": "Veuillez indiquer votre nom, une note et votre avis.",
+        "reviews_page_sub": "Ce que nos clients disent de nos pièces.",
+        "reviews_all": "Tous les avis",
+        "reviews_see_all": "Voir tous les avis",
         "preparing": "Préparation du paiement...",
         "checkout_failed": "Le paiement a échoué. Veuillez réessayer.",
         "checkout_failed_try": "Le paiement n'a pas pu démarrer. Veuillez réessayer.",
@@ -164,7 +167,7 @@ STR = {
     "en": {
         "nav_work": "Work", "nav_shop": "Shop", "nav_engraving": "Engraving",
         "nav_portraits": "Portraits", "nav_progress": "Progress", "nav_about": "About",
-        "nav_contact": "Contact", "nav_suggest": "Ideas", "nav_cta": "Shop now", "menu": "Menu",
+        "nav_contact": "Contact", "nav_suggest": "Ideas", "nav_reviews": "Reviews", "nav_cta": "Shop now", "menu": "Menu",
         "follow_ms": "Follow our builds on Making Stuff",
         "footer_tag": "Engineering design company. Hand crafted additive manufacturing in Montreal, from plant-based materials.",
         "footer_explore": "Explore", "footer_contact": "Contact",
@@ -187,6 +190,9 @@ STR = {
         "review_submit": "Submit my review",
         "review_thanks": "Thanks! Your review will appear after moderation.",
         "review_err": "Please give your name, a rating and your review.",
+        "reviews_page_sub": "What our customers say about our pieces.",
+        "reviews_all": "All reviews",
+        "reviews_see_all": "See all reviews",
         "preparing": "Preparing checkout...",
         "checkout_failed": "Checkout failed. Please try again.",
         "checkout_failed_try": "Sorry, checkout could not start. Please try again.",
@@ -451,6 +457,14 @@ SEED_PRODUCTS = [
      "story": "A Zippo-style lighter becomes a personal object. Your text or artwork, laser engraved with a fiber laser for a mark that will not fade.",
      "story_fr": "Un briquet style Zippo devient un objet personnel. Votre texte ou votre dessin, gravé au laser à fibre pour une marque qui ne s'effacera pas.",
      "depts": ["gag"], "stock": None, "engravable": 1, "sort": 6},
+    {"id": "custom-lighter", "name": "Custom Engraved Lighter", "price_cents": 2999,
+     "photo": "/img/products/custom-lighter.jpg",
+     "description": "Your logo, monogram, or artwork, laid out by hand and laser engraved on a Zippo-style lighter in its gift case. Describe your design at checkout and I will lay it out for you.",
+     "name_fr": "Briquet gravé sur mesure",
+     "description_fr": "Votre logo, monogramme ou dessin, mis en page à la main et gravé au laser sur un briquet style Zippo dans son coffret cadeau. Décrivez votre motif à la caisse et je m'occupe de la mise en page.",
+     "story": "The Aku lighter: a big serif A with the name set inside, engraved with the fiber laser. Send your own artwork or just an idea and it becomes a one-of-one object.",
+     "story_fr": "Le briquet Aku : un grand A serif avec le nom à l'intérieur, gravé au laser à fibre. Envoyez votre propre dessin ou simplement une idée et il devient un objet unique.",
+     "depts": ["gag"], "stock": None, "engravable": 1, "sort": 7},
     {"id": "mug", "name": "Engraved Contigo Travel Mug", "price_cents": 3399,
      "photo": "/img/products/mug.jpg",
      "description": "Contigo travel mug with your text laser engraved. Add your engraving text at checkout.",
@@ -518,6 +532,7 @@ SEED_PHOTOS_EXTRA = [
     ("lighter", "/img/products/lighter-3.jpg"),
     ("mug", "/img/products/mug-2.jpg"),
     ("giftcard-case", "/img/products/giftcard-case.jpg"),
+    ("custom-lighter", "/img/products/custom-lighter-2.jpg"),
 ]
 
 
@@ -705,6 +720,7 @@ NAV_LINKS = [("work", "nav_work", "/work.html"), ("shop", "nav_shop", "/shop.htm
              ("engraving", "nav_engraving", "/engraving.html"),
              ("portraits", "nav_portraits", "/portraits.html"),
              ("progress", "nav_progress", "/progress.html"),
+             ("reviews", "nav_reviews", "/reviews.html"),
              ("suggest", "nav_suggest", "/suggest.html"),
              ("about", "nav_about", "/about.html"), ("contact", "nav_contact", "/contact.html")]
 
@@ -887,6 +903,7 @@ def reviews_section(pid, lang):
 <section class="section-sm" id="reviews"><h2>""" + t(lang, "reviews_title") + """</h2>
 """ + summary + """
 <div class="review-list">""" + items + """</div>
+<p style="margin-top:12px"><a href="/reviews.html">""" + t(lang, "reviews_see_all") + """</a></p>
 <h3 style="margin-top:24px">""" + t(lang, "review_write") + """</h3>
 <form id="reviewForm">
 <div class="field"><label for="rv-name">""" + t(lang, "review_name") + """</label>
@@ -925,6 +942,37 @@ document.getElementById('reviewForm').addEventListener('submit', async function(
   }
 });
 </script>""")
+
+
+@app.route("/reviews.html")
+def reviews_page():
+    lang = get_lang()
+    track_visit("/reviews.html")
+    conn = db()
+    rows = conn.execute(
+        "SELECT r.product_id, r.name, r.rating, r.text, r.created, "
+        "p.name as product_name, p.name_fr as product_name_fr "
+        "FROM reviews r LEFT JOIN products p ON p.id=r.product_id "
+        "WHERE r.approved=1 ORDER BY r.created DESC LIMIT 100").fetchall()
+    conn.close()
+    if rows:
+        items = "".join(
+            '<div class="review"><div class="review-stars">' + stars_html(r["rating"]) + '</div>'
+            '<p>' + h(r["text"]) + '</p>'
+            '<p class="small muted">\u2014 ' + h(r["name"]) +
+            ' · <a href="/product/' + h(r["product_id"]) + '">' +
+            h(r["product_name_fr"] if lang == "fr" and r["product_name_fr"] else (r["product_name"] or "")) +
+            '</a></p></div>'
+            for r in rows)
+    else:
+        items = '<p class="muted">' + t(lang, "reviews_empty") + '</p>'
+    body = ('<div class="wrap section"><p class="kicker">ADN Creations</p>'
+            '<h1>' + t(lang, "reviews_title") + '</h1>'
+            '<p class="lede">' + t(lang, "reviews_page_sub") + '</p>'
+            '<div class="review-list" style="margin-top:24px">' + items + '</div></div>')
+    return lang_response(shell(t(lang, "reviews_title"), t(lang, "reviews_page_sub"),
+                               body, active="reviews",
+                               og_url=CANONICAL_URL + "/reviews.html", lang=lang), lang)
 
 
 @app.route("/product/<pid>")
@@ -1400,6 +1448,30 @@ def api_notify_me():
         conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+
+@app.route("/api/reviews", methods=["GET"])
+def api_reviews_list():
+    """Public: approved reviews site-wide (or per product), newest first."""
+    pid = (request.args.get("product_id") or "").strip()[:40]
+    try:
+        limit = max(1, min(50, int(request.args.get("limit") or 20)))
+    except (TypeError, ValueError):
+        limit = 20
+    conn = db()
+    if pid:
+        rows = conn.execute(
+            "SELECT r.name, r.rating, r.text, r.created, p.name as product_name "
+            "FROM reviews r LEFT JOIN products p ON p.id=r.product_id "
+            "WHERE r.product_id=? AND r.approved=1 ORDER BY r.created DESC LIMIT ?",
+            (pid, limit)).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT r.product_id, r.name, r.rating, r.text, r.created, p.name as product_name "
+            "FROM reviews r LEFT JOIN products p ON p.id=r.product_id "
+            "WHERE r.approved=1 ORDER BY r.created DESC LIMIT ?", (limit,)).fetchall()
+    conn.close()
+    return jsonify({"reviews": [dict(r) for r in rows]})
 
 
 @app.route("/api/reviews", methods=["POST"])

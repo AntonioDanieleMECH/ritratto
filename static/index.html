@@ -19,7 +19,7 @@
 <body>
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
-<nav class="nav-links" id="navLinks"><a href="/work.html" data-i18n="nav.work">Réalisations</a><a href="/shop.html" data-i18n="nav.shop">Boutique</a><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a><a href="/progress.html" data-i18n="nav.progress">En cours</a><a href="/suggest.html" data-i18n="nav.suggest">Idées</a><a href="/about.html" data-i18n="nav.about">À propos</a><a href="/contact.html" data-i18n="nav.contact">Contact</a><a href="/shop.html" class="nav-cta" data-i18n="nav.cta">Magasiner</a></nav>
+<nav class="nav-links" id="navLinks"><a href="/work.html" data-i18n="nav.work">Réalisations</a><a href="/shop.html" data-i18n="nav.shop">Boutique</a><a href="/engraving.html" data-i18n="nav.engraving">Gravure</a><a href="/portraits.html" data-i18n="nav.portraits">Portraits</a><a href="/progress.html" data-i18n="nav.progress">En cours</a><a href="/suggest.html" data-i18n="nav.suggest">Idées</a><a href="/about.html" data-i18n="nav.about">À propos</a><a href="/reviews.html" data-i18n="nav.reviews">Avis</a><a href="/contact.html" data-i18n="nav.contact">Contact</a><a href="/shop.html" class="nav-cta" data-i18n="nav.cta">Magasiner</a></nav>
 <div class="lang-toggle" role="group" aria-label="Language / Langue"><button type="button" data-lang="fr" class="on">FR</button><button type="button" data-lang="en">EN</button></div>
 <button class="hamburger" id="navToggle" aria-label="Menu" data-i18n-attr="aria-label:menu">&#9776;</button>
 </div></header>
@@ -78,6 +78,12 @@
 <p style="margin-top:16px"><a class="btn btn-outline" href="/progress.html" data-i18n="home.build_btn">Suivre le chantier</a></p>
 </div></section>
 
+<section class="section-sm"><div class="wrap">
+<h2 data-i18n="home.reviews_h">Ce que nos clients disent</h2>
+<div class="review-list" id="homeReviews"><p class="muted" data-i18n="home.reviews_loading">Chargement des avis...</p></div>
+<p style="margin-top:16px"><a class="btn btn-outline" href="/reviews.html" data-i18n="home.reviews_all">Voir tous les avis</a></p>
+</div></section>
+
 <div class="wrap">
 <div class="cta-band">
 <h2 data-i18n="home.cta_h">Suivez nos créations sur Making Stuff</h2>
@@ -113,6 +119,20 @@
 <script>
 document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});
 window.adnLangChanged=function(){if(window.adnRenderTeaser)window.adnRenderTeaser();};
+(function(){
+  var el=document.getElementById('homeReviews');
+  if(!el)return;
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function stars(r){var s="";for(var i=0;i<5;i++)s+=i<r?"\u2605":"\u2606";return s;}
+  fetch('/api/reviews?limit=3').then(function(r){return r.json();}).then(function(j){
+    var rows=j.reviews||[];
+    if(!rows.length){el.style.display="none";return;}
+    el.innerHTML=rows.map(function(r){
+      return '<div class="review"><div class="review-stars">'+stars(r.rating)+'</div><p>'+esc(r.text)+
+        '</p><p class="small muted">\u2014 '+esc(r.name)+'</p></div>';
+    }).join("");
+  }).catch(function(){el.style.display="none";});
+})();
 </script>
 </body>
 </html>
