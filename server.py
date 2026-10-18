@@ -554,6 +554,29 @@ def seed():
                  p.get("stock"), 0, "", p.get("engravable", 0),
                  p.get("purchasable", 1), p.get("custom_link", ""), 1,
                  p.get("sort", 0), now_iso()))
+    # New product 2026-10-18: custom lighter listing (only if missing).
+    if not conn.execute("SELECT id FROM products WHERE id='custom-lighter'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("custom-lighter", "Custom Engraved Lighter", "Briquet gravé sur mesure", 2999,
+             "/img/products/custom-lighter.jpg",
+             "Your logo, monogram, or artwork, laid out by hand and laser engraved on a "
+             "Zippo-style lighter in its gift case. Describe your design at checkout and I "
+             "will lay it out for you.",
+             "Votre logo, monogramme ou dessin, mis en page à la main et gravé au laser sur un "
+             "briquet style Zippo dans son coffret cadeau. Décrivez votre motif à la caisse et "
+             "je m'occupe de la mise en page.",
+             "The Aku lighter: a big serif A with the name set inside, engraved with the fiber laser. "
+             "Send your own artwork or just an idea and it becomes a one-of-one object.",
+             "Le briquet Aku : un grand A serif avec le nom à l'intérieur, gravé au laser à fibre. "
+             "Envoyez votre propre dessin ou simplement une idée et il devient un objet unique.",
+             json.dumps(["gag"]), None, 0, "", 1, 1, "", 1, 7, now_iso()))
+        conn.execute(
+            "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) VALUES (?,?,?,?,?,?)",
+            ("php_customlighter2", "custom-lighter", "/img/products/custom-lighter-2.jpg", 1, 0, now_iso()))
     # Pricing 2026-10-18: custom memorial lamps are $39.99 for the first of a
     # design, $29.99 for each additional copy, 4-pack $99.99. Charm pricing
     # (.99) across the shop. Only touches rows still on the old pricing,
