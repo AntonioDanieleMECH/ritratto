@@ -133,6 +133,8 @@ STR = {
         "reviews_page_sub": "Ce que nos clients disent de nos pièces.",
         "reviews_all": "Tous les avis",
         "reviews_see_all": "Voir tous les avis",
+        "coupon_label": "Code promo (facultatif)", "coupon_ph": "p. ex. KRISTIE15",
+        "coupon_ok": "Code appliqué : -{pct} %", "coupon_bad": "Code invalide.",
         "preparing": "Préparation du paiement...",
         "checkout_failed": "Le paiement a échoué. Veuillez réessayer.",
         "checkout_failed_try": "Le paiement n'a pas pu démarrer. Veuillez réessayer.",
@@ -193,6 +195,8 @@ STR = {
         "reviews_page_sub": "What our customers say about our pieces.",
         "reviews_all": "All reviews",
         "reviews_see_all": "See all reviews",
+        "coupon_label": "Promo code (optional)", "coupon_ph": "e.g. KRISTIE15",
+        "coupon_ok": "Code applied: -{pct}%", "coupon_bad": "Invalid code.",
         "preparing": "Preparing checkout...",
         "checkout_failed": "Checkout failed. Please try again.",
         "checkout_failed_try": "Sorry, checkout could not start. Please try again.",
@@ -336,6 +340,18 @@ def db():
         " rating INTEGER DEFAULT 5, text TEXT DEFAULT '', "
         " approved INTEGER DEFAULT 0, created TEXT)"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS coupons "
+        "(code TEXT PRIMARY KEY, percent_off INTEGER DEFAULT 0, "
+        " active INTEGER DEFAULT 1, note TEXT DEFAULT '', created TEXT)"
+    )
+    for ddl in (
+        "ALTER TABLE orders ADD COLUMN coupon TEXT DEFAULT ''",
+    ):
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass
     # column migrations run AFTER all tables exist (fresh DBs included)
     for ddl in (
         "ALTER TABLE announcements ADD COLUMN title_fr TEXT DEFAULT ''",
@@ -1113,6 +1129,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   var payload = {{ product_id: {json.dumps(p["id"])}, qty: parseInt(document.getElementById('qty').value) || 1, lang: {json.dumps(lang)} }};
   var eng = document.getElementById('engraving');
   if (eng) payload.engraving_text = eng.value;
+  var cp = document.getElementById('coupon');
+  if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
   try {{
     var r = await fetch('/api/checkout', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(payload) }});
     var j = await r.json();
@@ -1122,18 +1140,25 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
 }});
 (function(){{  /* live tier-price total as quantity changes */
   var qtyEl = document.getElementById('qty'), btn = document.getElementById('buyBtn'),
-      priceEl = document.getElementById('priceTotal');
+      priceEl = document.getElementById('priceTotal'), cpEl = document.getElementById('coupon'),
+      cpMsg = document.getElementById('couponMsg');
   if (!qtyEl || !btn) return;
   var priceCents = {p["price_cents"]}, addCents = {p["additional_price_cents"] or 0};
   var baseLabel = {json.dumps(label)};
+  var pctOff = 0;
+  var okTpl = {json.dumps(t(lang, "coupon_ok"))}, badTxt = {json.dumps(t(lang, "coupon_bad"))};
   function money(c){{ return "$" + (c/100).toFixed(2); }}
   function total(q){{
+    var t;
     if (addCents && q > 1) {{
-      var packs = Math.floor(q/4), rest = q % 4, t = packs * 9999;
+      var packs = Math.floor(q/4), rest = q % 4;
+      t = packs * 9999;
       if (rest) t += priceCents + (rest-1) * addCents;
-      return t;
+    }} else {{
+      t = priceCents * q;
     }}
-    return priceCents * q;
+    if (pctOff) t = t - Math.round(t * pctOff / 100);
+    return t;
   }}
   function refresh(){{
     var q = Math.max(1, Math.min(10, parseInt(qtyEl.value, 10) || 1));
@@ -1143,6 +1168,24 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   }}
   qtyEl.addEventListener('input', refresh);
   qtyEl.addEventListener('change', refresh);
+  var cpTimer = null;
+  function checkCoupon(){{
+    var code = cpEl.value.trim().toUpperCase();
+    if (!code) {{ pctOff = 0; cpMsg.textContent = ""; refresh(); return; }}
+    fetch('/api/coupons/validate?code=' + encodeURIComponent(code)).then(function(r){{ return r.json(); }}).then(function(j){{
+      if (j.ok) {{
+        pctOff = j.percent_off;
+        cpMsg.textContent = okTpl.replace("{{pct}}", j.percent_off);
+        cpMsg.style.color = "green";
+      }} else {{
+        pctOff = 0;
+        cpMsg.textContent = badTxt;
+        cpMsg.style.color = "#A33232";
+      }}
+      refresh();
+    }}).catch(function(){{ pctOff = 0; refresh(); }});
+  }}
+  if (cpEl) cpEl.addEventListener('input', function(){{ clearTimeout(cpTimer); cpTimer = setTimeout(checkCoupon, 500); }});
   refresh();
 }})();
 </script>"""
@@ -1175,6 +1218,9 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {preorder_note}
 <div class="field"><label for="qty">{t(lang, "qty")}</label>
 <input type="number" id="qty" value="1" min="1" max="10"></div>
+<div class="field"><label for="coupon">{t(lang, "coupon_label")}</label>
+<input type="text" id="coupon" maxlength="32" placeholder="{h(t(lang, "coupon_ph"))}" style="text-transform:uppercase">
+<div id="couponMsg" class="small" style="margin-top:6px"></div></div>
 {engraving_field}
 {buy_html}{custom}
 <div id="buyMsg" style="margin-top:12px"></div>
@@ -1277,6 +1323,28 @@ def api_wip():
     return jsonify({"projects": out})
 
 
+def get_coupon(code):
+    """Return (percent_off, code) for a valid active coupon, else (0, '')."""
+    code = (code or "").strip().upper()[:32]
+    if not code:
+        return 0, ""
+    conn = db()
+    row = conn.execute(
+        "SELECT percent_off FROM coupons WHERE code=? AND active=1", (code,)).fetchone()
+    conn.close()
+    if not row:
+        return 0, ""
+    return max(0, min(90, int(row["percent_off"] or 0))), code
+
+
+@app.route("/api/coupons/validate", methods=["GET"])
+def api_coupon_validate():
+    pct, code = get_coupon(request.args.get("code"))
+    if not pct:
+        return jsonify({"ok": False})
+    return jsonify({"ok": True, "code": code, "percent_off": pct})
+
+
 @app.route("/api/checkout", methods=["POST"])
 def api_checkout():
     data = request.get_json(force=True)
@@ -1300,17 +1368,23 @@ def api_checkout():
             amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
     else:
         amount = p["price_cents"] * qty
+    # Discount coupon (percent off the total, e.g. creator codes).
+    pct_off, coupon_code = get_coupon(data.get("coupon"))
+    if pct_off:
+        amount = amount - round(amount * pct_off / 100)
     name = pick(p, lang, "name")
     oid = "ord_" + uuid.uuid4().hex[:12]
     conn = db()
     conn.execute(
         "INSERT INTO orders (id, created, product_id, product_name, amount_cents, qty, "
-        "engraving_text, preorder, preorder_ship_date, paid) VALUES (?,?,?,?,?,?,?,?,?,0)",
+        "engraving_text, preorder, preorder_ship_date, paid, coupon) VALUES (?,?,?,?,?,?,?,?,?,0,?)",
         (oid, now_iso(), pid, name, amount, qty, engraving,
-         p["preorder"], p["preorder_ship_date"]))
+         p["preorder"], p["preorder_ship_date"], coupon_code))
     conn.commit()
     conn.close()
     label = name + (f" x{qty}" if qty > 1 else "")
+    if coupon_code:
+        label += f" ({coupon_code} -{pct_off}%)"
     if p["preorder"]:
         label = ("PRÉCOMMANDE : " if lang == "fr" else "PREORDER: ") + label
     if engraving:
@@ -1557,6 +1631,47 @@ def admin_review_delete(rid):
         abort(403)
     conn = db()
     conn.execute("DELETE FROM reviews WHERE id=?", (rid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/coupons", methods=["GET", "POST"])
+def admin_coupons():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    if request.method == "POST":
+        data = request.get_json(force=True)
+        code = (data.get("code") or "").strip().upper()[:32]
+        try:
+            pct = max(1, min(90, int(data.get("percent_off") or 0)))
+        except (TypeError, ValueError):
+            return jsonify({"error": "bad percent"}), 400
+        note = (data.get("note") or "").strip()[:160]
+        if not code or not pct:
+            return jsonify({"error": "code and percent required"}), 400
+        conn.execute(
+            "INSERT OR REPLACE INTO coupons (code, percent_off, active, note, created) "
+            "VALUES (?,?,1,?,?)", (code, pct, note, now_iso()))
+        conn.commit()
+    rows = conn.execute("SELECT * FROM coupons ORDER BY created DESC").fetchall()
+    conn.close()
+    return jsonify({"coupons": [dict(r) for r in rows]})
+
+
+@app.route("/api/admin/coupons/<code>", methods=["POST", "DELETE"])
+def admin_coupon_one(code):
+    if not admin_ok():
+        abort(403)
+    code = (code or "").strip().upper()[:32]
+    conn = db()
+    if request.method == "DELETE":
+        conn.execute("DELETE FROM coupons WHERE code=?", (code,))
+    else:
+        data = request.get_json(force=True, silent=True) or {}
+        active = 1 if data.get("active", True) else 0
+        conn.execute("UPDATE coupons SET active=? WHERE code=?", (active, code))
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
@@ -1855,6 +1970,21 @@ def admin_page():
 <h2>Reviews</h2>
 <p class="small muted">New reviews appear here for approval before they show on the product page.</p>
 <div id="revList"><p class="muted">Loading...</p></div>
+</div>
+
+<div class="admin-card">
+<h2>Discount codes</h2>
+<p class="small muted">Percent-off codes for the shop checkout (e.g. creator codes). The code used is saved on each order for commission tracking.</p>
+<div id="couponList"><p class="muted">Loading...</p></div>
+<h3 style="margin-top:24px">New code</h3>
+<form id="couponForm">
+<div class="two-col" style="gap:16px">
+<div class="field"><label>Code (e.g. KRISTIE15)</label><input type="text" id="cf-code" required maxlength="32" style="text-transform:uppercase"></div>
+<div class="field"><label>Percent off (1-90)</label><input type="number" id="cf-pct" min="1" max="90" required></div>
+</div>
+<div class="field"><label>Note (e.g. creator name)</label><input type="text" id="cf-note" maxlength="160"></div>
+<button class="btn btn-primary" type="submit">Create code</button>
+</form>
 </div>
 </div>
 <script>var ADMIN_TOKEN = {json.dumps(token)};</script>

@@ -903,6 +903,63 @@
     loadSuggestions();
     loadNotifyMe();
     loadReviews();
+    loadCoupons();
+    $("couponForm").addEventListener("submit", saveCoupon);
+  }
+
+  async function loadCoupons() {
+    var list = $("couponList");
+    clearNotice(list);
+    try {
+      var data = await call("/api/admin/coupons");
+      var items = data.coupons || [];
+      if (!items.length) {
+        list.innerHTML = '<p class="muted">No codes yet.</p>';
+        return;
+      }
+      var rows = items.map(function (c) {
+        var toggle = c.active
+          ? '<button class="btn btn-outline" data-coupon-toggle="' + esc(c.code) + '" data-active="0">Deactivate</button>'
+          : '<button class="btn btn-primary" data-coupon-toggle="' + esc(c.code) + '" data-active="1">Activate</button>';
+        return "<tr>" +
+          "<td><strong>" + esc(c.code) + "</strong>" + (c.active ? "" : ' <span class="small muted">(off)</span>') + "</td>" +
+          "<td>" + esc(String(c.percent_off)) + "%</td>" +
+          "<td>" + esc(c.note || "") + "</td>" +
+          "<td>" + toggle +
+          ' <button class="btn btn-outline" data-coupon-delete="' + esc(c.code) + '">Delete</button></td></tr>';
+      }).join("");
+      list.innerHTML = tableWrap(
+        '<table class="admin-table"><thead><tr><th>Code</th><th>Off</th><th>Note</th><th></th>' +
+        "</tr></thead><tbody>" + rows + "</tbody></table>");
+      list.querySelectorAll("[data-coupon-toggle]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          await call("/api/admin/coupons/" + encodeURIComponent(b.getAttribute("data-coupon-toggle")),
+            { method: "POST", body: JSON.stringify({ active: b.getAttribute("data-active") === "1" }) });
+          loadCoupons();
+        });
+      });
+      list.querySelectorAll("[data-coupon-delete]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          if (!confirm("Delete code " + b.getAttribute("data-coupon-delete") + "?")) return;
+          await call("/api/admin/coupons/" + encodeURIComponent(b.getAttribute("data-coupon-delete")), { method: "DELETE" });
+          loadCoupons();
+        });
+      });
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load coupons: " + err.message);
+    }
+  }
+
+  async function saveCoupon(e) {
+    e.preventDefault();
+    var code = $("cf-code").value.trim().toUpperCase();
+    var pct = parseInt($("cf-pct").value, 10);
+    var note = $("cf-note").value.trim();
+    if (!code || !pct) return;
+    await call("/api/admin/coupons", { method: "POST", body: JSON.stringify({ code: code, percent_off: pct, note: note }) });
+    $("cf-code").value = ""; $("cf-pct").value = ""; $("cf-note").value = "";
+    loadCoupons();
   }
 
   if (document.readyState === "loading") {
