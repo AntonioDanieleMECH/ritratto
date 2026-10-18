@@ -644,6 +644,23 @@ def seed():
     conn.execute(
         "UPDATE products SET photo='/img/products/briscola-case-1.webp' "
         "WHERE id='card-case' AND (photo IS NULL OR photo='')")
+    # 2026-10-18: mini saint busts WIP project from Antonio's progress photos
+    # (Sheen & Carlo minis on the pedestal). Idempotent.
+    if not conn.execute("SELECT id FROM wip_projects WHERE id='mini-busts'").fetchone():
+        conn.execute(
+            "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            ("mini-busts", "Mini Saint Busts \u2014 Sheen & Carlo",
+             "Mini-bustes de saints \u2014 Sheen et Carlo",
+             "In development", "En d\u00e9veloppement",
+             "/img/work/mini-bust-1.jpg", 3, now_iso()))
+        conn.execute(
+            "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
+            ("mb1", "mini-busts", now_iso(),
+             "Detailed mini busts of Fulton Sheen and Carlo Acutis, styled on the pedestal. "
+             "Mini statues at $24.99 and $39.99.",
+             "Mini-bustes d\u00e9taill\u00e9s de Fulton Sheen et Carlo Acutis, pr\u00e9sent\u00e9s sur le pi\u00e9destal. "
+             "Mini-statues \u00e0 24,99 $ et 39,99 $."))
     # Gallery for mug: 7 engraved-Contigo design mockups (mug-3..mug-9) plus the
     # pro-background hand-held photo (mug-10), 2026-10-18 (idempotent).
     _mug_photos = [f"/img/products/mug-{_i}.jpg" for _i in range(3, 11)]
