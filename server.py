@@ -918,6 +918,31 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || {json.dumps(t(lang, "checkout_failed"))}) + '</div>'; btn.disabled = false; }}
   }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '</div>'; btn.disabled = false; }}
 }});
+(function(){{  /* live tier-price total as quantity changes */
+  var qtyEl = document.getElementById('qty'), btn = document.getElementById('buyBtn'),
+      priceEl = document.getElementById('priceTotal');
+  if (!qtyEl || !btn) return;
+  var priceCents = {p["price_cents"]}, addCents = {p["additional_price_cents"] or 0};
+  var baseLabel = {json.dumps(label)};
+  function money(c){{ return "$" + (c/100).toFixed(2); }}
+  function total(q){{
+    if (addCents && q > 1) {{
+      var packs = Math.floor(q/4), rest = q % 4, t = packs * 9999;
+      if (rest) t += priceCents + (rest-1) * addCents;
+      return t;
+    }}
+    return priceCents * q;
+  }}
+  function refresh(){{
+    var q = Math.max(1, Math.min(10, parseInt(qtyEl.value, 10) || 1));
+    var t = money(total(q));
+    btn.innerHTML = baseLabel + ' &middot; ' + t;
+    if (priceEl) priceEl.textContent = t;
+  }}
+  qtyEl.addEventListener('input', refresh);
+  qtyEl.addEventListener('change', refresh);
+  refresh();
+}})();
 </script>"""
     notify_js = ""
     if p["in_works"]:
@@ -942,7 +967,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <p class="kicker">ADN Creations</p>
 <h1 style="font-size:2rem">{h(name)}</h1>
 <div class="dept-tags" style="margin-bottom:12px">{tags} {product_badges(p, lang)}</div>
-<p class="price">{money(p["price_cents"])}</p>
+<p class="price" id="priceTotal">{money(p["price_cents"])}</p>
 <p class="muted">{h(desc)}</p>
 {tier_note}
 {preorder_note}
@@ -1063,10 +1088,13 @@ def api_checkout():
         return jsonify({"error": t(lang, "err_unknown_product")}), 404
     if p["stock"] is not None and p["stock"] < qty:
         return jsonify({"error": t(lang, "err_stock")}), 400
-    # Tiered pricing: first unit at price_cents, additional units at
-    # additional_price_cents (custom memorial lamps: $39.99 first, $29.99 extra).
+    # Tiered pricing (memorial lamps: $39.99 first, $29.99 per extra copy,
+    # $99.99 per 4-pack of the same design). 4-packs always win when they fit.
     if p["additional_price_cents"] and qty > 1:
-        amount = p["price_cents"] + (qty - 1) * p["additional_price_cents"]
+        packs, rest = divmod(qty, 4)
+        amount = packs * LAMP_PACK4
+        if rest:
+            amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
     else:
         amount = p["price_cents"] * qty
     name = pick(p, lang, "name")
