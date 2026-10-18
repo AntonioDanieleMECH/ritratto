@@ -757,6 +757,19 @@ def seed():
     conn.execute(
         "UPDATE products SET photo='/img/products/custom-lighter-stogies.jpg' "
         "WHERE id='custom-lighter' AND photo='/img/products/custom-lighter.jpg'")
+    # 2026-10-18: JDM chrome lighter becomes the primary photo (Antonio's pick);
+    # brand names removed from the three mockups (files replaced in place).
+    # Only touches the row if Antonio hasn't changed the photo himself since.
+    if not conn.execute(
+            "SELECT id FROM product_photos WHERE id='php_cl_custom-lighter-jdm_jpg'").fetchone():
+        conn.execute(
+            "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+            "VALUES ('php_cl_custom-lighter-jdm_jpg','custom-lighter',"
+            "'/img/products/custom-lighter-jdm.jpg',1,0,?)",
+            (now_iso(),))
+    conn.execute(
+        "UPDATE products SET photo='/img/products/custom-lighter-jdm.jpg' "
+        "WHERE id='custom-lighter' AND photo='/img/products/custom-lighter-stogies.jpg'")
     # 2026-10-18: mini saint busts, two sizes (Antonio: $24.99 small, $39.99 large).
     for _pid, _name, _name_fr, _cents, _photo in (
             ("mini-bust-small", "Mini Saint Bust \u2014 Small", "Mini-buste de saint \u2014 Petit",
