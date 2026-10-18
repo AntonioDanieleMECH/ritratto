@@ -55,9 +55,13 @@
 
   function cardHTML(p) {
     var name = loc(p, "name");
+    var detailUrl = "/product/" + esc(p.id);
     var tags = (p.depts || [])
       .map(function (d) { return '<span class="dept-tag">' + esc(deptLabel(d)) + "</span>"; })
       .join("");
+    var mediaLink = '<a href="' + detailUrl + '" class="card-media-link" aria-label="' +
+      esc(T("js.view")) + ": " + esc(name) + '">' + mediaHTML(p, name) + "</a>";
+    var titleLink = '<a href="' + detailUrl + '" class="card-title-link">' + esc(name) + "</a>";
 
     var badges = "";
     if (p.in_works) badges += '<span class="badge badge-stock">' + esc(T("js.in_works")) + "</span>";
@@ -78,10 +82,10 @@
     var foot = '<div class="card-foot"><span class="price">' + esc(p.price) +
       '</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">' + links + "</span></div>";
 
-    return '<article class="card">' + mediaHTML(p, name) +
+    return '<article class="card">' + mediaLink +
       '<div class="card-body">' +
       '<div class="dept-tags">' + tags + "</div>" +
-      "<h3>" + esc(name) + "</h3>" +
+      "<h3>" + titleLink + "</h3>" +
       badgeRow +
       "<p>" + esc(trunc(loc(p, "description"), 120)) + "</p>" +
       foot +

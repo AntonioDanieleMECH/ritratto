@@ -193,6 +193,11 @@ p { margin: 0 0 1em; }
 }
 .card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
 .card-media { aspect-ratio: 4 / 3; overflow: hidden; background: var(--line-soft); }
+.card-media-link { display: block; }
+.card-media-link:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.card-title-link { color: inherit; text-decoration: none; }
+.card-title-link:hover { text-decoration: underline; }
+.card-title-link:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .card-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
 .card:hover .card-media img { transform: scale(1.04); }
 .card-body { padding: 22px; display: flex; flex-direction: column; gap: 8px; flex: 1; }

@@ -426,6 +426,26 @@ SEED_PHOTOS = [
     ("mug", "/img/products/mug.jpg", 0, 0),
 ]
 
+# Round-3 gallery photos (2026-10-18): real photos from Antonio's library,
+# EXIF-oriented. (product_id, photo) — appended after existing gallery rows.
+SEED_PHOTOS_EXTRA = [
+    ("carlo-lamp", "/img/products/carlo-lamp-2.jpg"),
+    ("carlo-lamp", "/img/products/carlo-lamp-3.jpg"),
+    ("nativity", "/img/products/nativity-2.jpg"),
+    ("nativity", "/img/products/nativity-3.png"),
+    ("lighter", "/img/products/lighter-2.jpg"),
+    ("lighter", "/img/products/lighter-3.jpg"),
+    ("mug", "/img/products/mug-2.jpg"),
+    ("giftcard-case", "/img/products/giftcard-case.jpg"),
+    ("bust-collector", "/img/products/bust-signature.webp"),
+    ("bust-collector", "/img/products/bust-threequarter.webp"),
+    ("bust-collector", "/img/products/bust-otherside.webp"),
+    ("bust-collector", "/img/products/bust-elevated.webp"),
+    ("bust-collector", "/img/products/bust-rear.webp"),
+    ("bust-collector", "/img/products/bust-face.webp"),
+    ("bust-collector", "/img/products/bust-workshop.webp"),
+]
+
 
 def seed():
     conn = db()
@@ -503,6 +523,24 @@ def seed():
                 "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
                 "VALUES (?,?,?,?,?,?)",
                 ("ph_" + uuid.uuid4().hex[:10], pid, photo, sort, is_scale, now_iso()))
+    # Round-3 gallery photos (2026-10-18): insert any missing (product_id, photo)
+    # pairs, appended after existing rows so Antonio's ordering is untouched.
+    for pid, photo in SEED_PHOTOS_EXTRA:
+        exists = conn.execute(
+            "SELECT 1 FROM product_photos WHERE product_id=? AND photo=?",
+            (pid, photo)).fetchone()
+        if not exists:
+            mx = conn.execute(
+                "SELECT COALESCE(MAX(sort), -1) FROM product_photos WHERE product_id=?",
+                (pid,)).fetchone()[0]
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                ("ph_" + uuid.uuid4().hex[:10], pid, photo, mx + 1, 0, now_iso()))
+    # The gift-card case finally has a real photo: use it as the product photo too.
+    conn.execute(
+        "UPDATE products SET photo='/img/products/giftcard-case.jpg' "
+        "WHERE id='giftcard-case' AND (photo IS NULL OR photo='')")
     if conn.execute("SELECT COUNT(*) FROM announcements").fetchone()[0] == 0:
         conn.execute(
             "INSERT INTO announcements (id, created, title, title_fr, body, body_fr) VALUES (?,?,?,?,?,?)",
