@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From the Workshop | ADN Creations</title>
+<meta name="description" content="Work in progress and announcements from the ADN Creations workshop in LaSalle, Montreal.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<meta property="og:title" content="From the Workshop | ADN Creations">
+<meta property="og:description" content="Work in progress and announcements from the ADN Creations workshop in LaSalle, Montreal.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ritratto.onrender.com/progress.html">
+<meta property="og:image" content="https://ritratto.onrender.com/img/work/bust-front.jpg">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+<a class="brand" href="/">ADN <span>Creations</span></a>
+<nav class="nav-links" id="navLinks"><a href="/work.html" class="">Work</a><a href="/shop.html" class="">Shop</a><a href="/engraving.html" class="">Engraving</a><a href="/progress.html" class="active">Progress</a><a href="/about.html" class="">About</a><a href="/contact.html" class="">Contact</a><a href="/shop.html" class="nav-cta">Shop now</a></nav>
+<button class="hamburger" id="navToggle" aria-label="Menu">&#9776;</button>
+</div></header>
+<main><div class="wrap">
+<section class="section-sm">
+<p class="kicker">Progress</p>
+<h1>From the workshop</h1>
+<p class="lede">What is on the bench right now, and what we have shipped.</p>
+</section>
+<section class="section-sm">
+<h2>Work in progress</h2>
+<div id="wipList"><p class="muted">Loading...</p></div>
+</section>
+<hr class="divider">
+<section class="section-sm">
+<h2>Announcements</h2>
+<div id="annList"><p class="muted">Loading...</p></div>
+</section>
+</div></main>
+<footer class="site-footer"><div class="wrap footer-inner">
+<div class="footer-grid">
+<div>
+<div class="footer-brand">ADN <span>Creations</span></div>
+<p class="small" style="color:#B9AE97">Engineering design company. Hand crafted additive manufacturing in LaSalle, Montreal, from plant-based materials.</p>
+<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener">Follow our builds on Making Stuff</a>
+</div>
+<div><h4>Explore</h4><ul class="footer-links">
+<li><a href="/work.html">Work</a></li><li><a href="/shop.html">Shop</a></li>
+<li><a href="/engraving.html">Engraving</a></li><li><a href="/progress.html">Progress</a></li>
+<li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+</ul></div>
+<div><h4>Contact</h4><ul class="footer-links">
+<li><a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a></li>
+<li>LaSalle, Montreal, QC</li><li>NEQ 2281797763</li>
+</ul></div>
+</div>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. All rights reserved.</span><span>Designed and built in Montreal.</span></div>
+</div></footer>
+<script>document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});</script>
+<script>
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function fmtDate(iso){try{return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});}catch(e){return iso;}}
+fetch("/api/wip").then(function(r){return r.json();}).then(function(j){
+  var el=document.getElementById("wipList");
+  var ps=j.projects||[];
+  if(!ps.length){el.innerHTML='<p class="muted">Nothing here yet.</p>';return;}
+  el.innerHTML=ps.map(function(p){
+    var ups=(p.updates||[]).map(function(u){
+      return '<li><span class="log-date">'+esc(fmtDate(u.created))+'</span>'+esc(u.text)+'</li>';
+    }).join("");
+    return '<article class="feed-item"><span class="badge">'+esc(p.status||"In progress")+'</span>'+
+      '<h3>'+esc(p.project)+'</h3>'+
+      (ups?'<ul class="wip-log">'+ups+'</ul>':'<p class="muted">No updates yet.</p>')+'</article>';
+  }).join("");
+}).catch(function(){document.getElementById("wipList").innerHTML='<p class="muted">Nothing here yet.</p>';});
+fetch("/api/announcements").then(function(r){return r.json();}).then(function(j){
+  var el=document.getElementById("annList");
+  var as=j.announcements||[];
+  if(!as.length){el.innerHTML='<p class="muted">Nothing here yet.</p>';return;}
+  el.innerHTML=as.map(function(a){
+    return '<article class="feed-item"><p class="feed-date">'+esc(fmtDate(a.created))+'</p>'+
+      '<h3><a href="/announcement/'+esc(a.id)+'">'+esc(a.title)+'</a></h3><p>'+esc(a.body)+'</p></article>';
+  }).join("");
+}).catch(function(){document.getElementById("annList").innerHTML='<p class="muted">Nothing here yet.</p>';});
+</script>
+</body>
+</html>

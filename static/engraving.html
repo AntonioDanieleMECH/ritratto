@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Engraving | ADN Creations</title>
+<meta name="description" content="Custom laser engraving on lighters, travel mugs, and wood. Designed and engraved by ADN Creations in LaSalle, Montreal.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<meta property="og:title" content="Custom Engraving | ADN Creations">
+<meta property="og:description" content="Custom laser engraving on lighters, travel mugs, and wood. Designed and engraved by ADN Creations in LaSalle, Montreal.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ritratto.onrender.com/engraving.html">
+<meta property="og:image" content="https://ritratto.onrender.com/img/products/lighter.jpg">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<header class="site-header"><div class="wrap header-inner">
+<a class="brand" href="/">ADN <span>Creations</span></a>
+<nav class="nav-links" id="navLinks"><a href="/work.html" class="">Work</a><a href="/shop.html" class="">Shop</a><a href="/engraving.html" class="active">Engraving</a><a href="/progress.html" class="">Progress</a><a href="/about.html" class="">About</a><a href="/contact.html" class="">Contact</a><a href="/shop.html" class="nav-cta">Shop now</a></nav>
+<button class="hamburger" id="navToggle" aria-label="Menu">&#9776;</button>
+</div></header>
+<main><div class="wrap">
+<section class="section-sm">
+<p class="kicker">Custom engraving</p>
+<h1>Your words, engraved to last.</h1>
+<p class="lede">We engrave your text or artwork on lighters, travel mugs, and wood with xTool fiber and diode lasers.</p>
+</section>
+<div class="grid grid-3">
+<div class="card"><div class="card-media"><img src="/img/products/lighter.jpg" alt="Engraved lighter" loading="lazy"></div></div>
+<div class="card"><div class="card-media"><img src="/img/work/lighter-detail.jpg" alt="Engraving detail on a lighter" loading="lazy"></div></div>
+<div class="card"><div class="card-media"><img src="/img/products/mug.jpg" alt="Engraved travel mug" loading="lazy"></div></div>
+</div>
+<section class="section-sm">
+<h2>How it works</h2>
+<div class="steps">
+<div class="step"><div class="step-num">1</div><h3>Pick a product</h3><p>Engravable lighters and mugs in the shop, or send your own item.</p></div>
+<div class="step"><div class="step-num">2</div><h3>Send your text or design</h3><p>Use the form below to tell us what you want engraved.</p></div>
+<div class="step"><div class="step-num">3</div><h3>We engrave and ship it</h3><p>xTool fiber and diode lasers, then flat-rate shipping.</p></div>
+</div>
+</section>
+<section class="section-sm">
+<h2>Request an engraving</h2>
+<form id="engForm">
+<div class="field"><label for="engName">Name</label><input type="text" id="engName" name="name" autocomplete="name" required></div>
+<div class="field"><label for="engEmail">Email</label><input type="email" id="engEmail" name="email" autocomplete="email" required></div>
+<div class="field"><label for="engProduct">Product</label><select id="engProduct" name="product">
+<option>Engraved Lighter</option>
+<option>Engraved Contigo Travel Mug</option>
+<option>My own item</option>
+<option>Something else</option>
+</select></div>
+<div class="field"><label for="engMessage">What should we engrave?</label><textarea id="engMessage" name="message" required></textarea></div>
+<button class="btn btn-brass" type="submit">Send request</button>
+<div id="engMsg" style="margin-top:14px"></div>
+</form>
+</section>
+</div></main>
+<footer class="site-footer"><div class="wrap footer-inner">
+<div class="footer-grid">
+<div>
+<div class="footer-brand">ADN <span>Creations</span></div>
+<p class="small" style="color:#B9AE97">Engineering design company. Hand crafted additive manufacturing in LaSalle, Montreal, from plant-based materials.</p>
+<a class="social-btn" href="https://www.facebook.com/61592937237761" target="_blank" rel="noopener">Follow our builds on Making Stuff</a>
+</div>
+<div><h4>Explore</h4><ul class="footer-links">
+<li><a href="/work.html">Work</a></li><li><a href="/shop.html">Shop</a></li>
+<li><a href="/engraving.html">Engraving</a></li><li><a href="/progress.html">Progress</a></li>
+<li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+</ul></div>
+<div><h4>Contact</h4><ul class="footer-links">
+<li><a href="mailto:antonio.learningisfun@gmail.com">antonio.learningisfun@gmail.com</a></li>
+<li>LaSalle, Montreal, QC</li><li>NEQ 2281797763</li>
+</ul></div>
+</div>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. All rights reserved.</span><span>Designed and built in Montreal.</span></div>
+</div></footer>
+<script>document.getElementById('navToggle').addEventListener('click',function(){document.getElementById('navLinks').classList.toggle('open')});</script>
+<script>
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+document.getElementById("engForm").addEventListener("submit",async function(e){
+  e.preventDefault();
+  var msg=document.getElementById("engMsg");
+  var btn=this.querySelector('button[type="submit"]');
+  btn.disabled=true;
+  var payload={
+    name:document.getElementById("engName").value,
+    email:document.getElementById("engEmail").value,
+    product:document.getElementById("engProduct").value,
+    message:document.getElementById("engMessage").value
+  };
+  try{
+    var r=await fetch("/api/engraving-request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    var j=await r.json().catch(function(){return {};});
+    if(r.ok){
+      msg.innerHTML='<div class="notice notice-ok">Request received. We reply within a day or two.</div>';
+      document.getElementById("engForm").reset();
+    }else{
+      msg.innerHTML='<div class="notice notice-err">'+esc(j.error||"Something went wrong. Please try again.")+'</div>';
+    }
+  }catch(err){
+    msg.innerHTML='<div class="notice notice-err">Could not send your request. Please try again.</div>';
+  }
+  btn.disabled=false;
+});
+</script>
+</body>
+</html>
