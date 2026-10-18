@@ -504,49 +504,149 @@
     }
   }
 
-  /* ---------------- orders ---------------- */
+  /* ---------------- orders to dispatch ---------------- */
+
+  var orderCache = { orders: [], lamps: [] };
+  var orderShowAll = false;
+
+  function normOrder(o, kind) {
+    var items;
+    if (kind === "lamp") {
+      items = "Custom memorial lamp (" + (o.pack === "pack4" ? "4-pack" : "single") + ")";
+    } else {
+      items = (o.product_name || o.product_id || "-") + " x" + (o.qty == null ? 1 : o.qty);
+      if (o.engraving_text) items += ', engraved "' + o.engraving_text + '"';
+      if (o.preorder) items += " (preorder" + (o.preorder_ship_date ? ": " + o.preorder_ship_date : "") + ")";
+    }
+    return {
+      kind: kind,
+      id: o.id,
+      created: o.created,
+      customer: o.customer_name || o.ship_name || "",
+      email: o.email || "",
+      items: items,
+      amount: kind === "lamp" ? o.amount : o.amount_cents,
+      address: o.ship_address || "",
+      paid: !!o.paid,
+      shipped: !!o.shipped,
+      tracking: o.tracking_number || "",
+      carrier: o.carrier || ""
+    };
+  }
+
+  function orderStatusBadge(o) {
+    if (o.shipped) return '<span class="badge">Dispatched</span>';
+    if (o.paid) return '<span class="badge badge-preorder">To dispatch</span>';
+    return '<span class="badge badge-stock">Unpaid</span>';
+  }
+
+  function orderRow(o) {
+    var dispatchCell;
+    if (o.paid && !o.shipped) {
+      dispatchCell = '<div style="min-width:180px">' +
+        '<input type="text" placeholder="Tracking number" data-trk style="width:100%;margin-bottom:6px">' +
+        '<input type="text" placeholder="Carrier (optional)" data-car style="width:100%;margin-bottom:6px">' +
+        '<button class="btn btn-sm btn-brass" data-dispatch="' + esc(o.id) + '" type="button">Mark dispatched &amp; email customer</button>' +
+        "</div>";
+    } else if (o.shipped) {
+      dispatchCell = '<span class="small">' + esc(o.tracking) +
+        (o.carrier ? "<br>" + esc(o.carrier) : "") + "</span>";
+    } else {
+      dispatchCell = '<span class="small muted">-</span>';
+    }
+    var customer = esc(o.customer || "-") +
+      (o.email ? '<br><a href="mailto:' + esc(o.email) + '">' + esc(o.email) + "</a>" : "");
+    var addr = o.address
+      ? '<span class="small" style="white-space:pre-line">' + esc(o.address) + "</span>"
+      : '<span class="small muted">-</span>';
+    return "<tr>" +
+      "<td>" + esc(fmtDate(o.created)) + '<br><span class="small muted">' + esc(o.id) + "</span></td>" +
+      "<td>" + customer + "</td>" +
+      "<td><strong>" + esc(o.items) + "</strong></td>" +
+      "<td>" + esc(money(o.amount)) + "</td>" +
+      "<td>" + addr + "</td>" +
+      "<td>" + orderStatusBadge(o) + "</td>" +
+      "<td>" + dispatchCell + "</td></tr>";
+  }
+
+  function renderOrders() {
+    var list = $("orderList");
+    var all = orderCache.orders.map(function (o) { return normOrder(o, "shop"); })
+      .concat(orderCache.lamps.map(function (o) { return normOrder(o, "lamp"); }));
+    all.sort(function (a, b) { return a.created < b.created ? 1 : -1; });
+    var shown = orderShowAll ? all : all.filter(function (o) { return o.paid && !o.shipped; });
+    var toDispatch = all.filter(function (o) { return o.paid && !o.shipped; }).length;
+    $("ord-count").textContent = toDispatch === 1
+      ? "1 order to dispatch"
+      : toDispatch + " orders to dispatch";
+    if (!shown.length) {
+      list.innerHTML = orderShowAll
+        ? '<p class="muted">No orders yet.</p>'
+        : '<p class="muted">Nothing to dispatch. Everything paid is shipped.</p>';
+      return;
+    }
+    list.innerHTML = tableWrap(
+      '<table class="admin-table"><thead><tr><th>Date</th><th>Customer</th><th>Items</th>' +
+      "<th>Total</th><th>Ship to</th><th>Status</th><th>Dispatch</th></tr></thead><tbody>" +
+      shown.map(orderRow).join("") + "</tbody></table>");
+  }
 
   async function loadOrders() {
     var list = $("orderList");
     clearNotice(list);
     try {
       var data = await call("/api/admin/orders");
-      var orders = data.orders || [];
-      var lamps = data.lamp_orders || [];
-      if (!orders.length && !lamps.length) {
-        list.innerHTML = '<p class="muted">No orders yet.</p>';
-        return;
-      }
-      var rows = "";
-      orders.forEach(function (o) {
-        rows += "<tr>" +
-          "<td>" + esc(fmtDate(o.created)) + "</td>" +
-          "<td><strong>" + esc(o.product_name || o.product_id || "-") + "</strong></td>" +
-          "<td>" + esc(o.qty == null ? 1 : o.qty) + "</td>" +
-          "<td>" + esc(money(o.amount_cents)) + "</td>" +
-          "<td>" + esc(o.engraving_text || "-") + "</td>" +
-          "<td>" + (o.preorder ? "Yes" + (o.preorder_ship_date ? " (" + esc(o.preorder_ship_date) + ")" : "") : "-") + "</td>" +
-          "<td>" + (o.paid ? "Yes" : "No") + "</td></tr>";
-      });
-      lamps.forEach(function (o) {
-        var packLabel = o.pack === "pack4" ? "4-pack" : (o.pack === "set4" ? "4 copies" : "single");
-        rows += "<tr>" +
-          "<td>" + esc(fmtDate(o.created)) + "</td>" +
-          "<td><strong>Custom memorial lamp</strong><br><span class=\"small muted\">" +
-          esc(packLabel) + "</span></td>" +
-          "<td>1</td>" +
-          "<td>" + esc(money(o.amount)) + "</td>" +
-          "<td>-</td><td>-</td>" +
-          "<td>" + (o.paid ? "Yes" : "No") + "</td></tr>";
-      });
-      list.innerHTML = tableWrap(
-        '<table class="admin-table"><thead><tr><th>Date</th><th>Product</th><th>Qty</th>' +
-        "<th>Amount</th><th>Engraving</th><th>Preorder</th><th>Paid</th></tr></thead><tbody>" +
-        rows + "</tbody></table>");
+      orderCache = { orders: data.orders || [], lamps: data.lamp_orders || [] };
+      renderOrders();
     } catch (err) {
       list.innerHTML = "";
       showErr(list, "Could not load orders: " + err.message);
     }
+  }
+
+  /* ---------------- product views ---------------- */
+
+  var viewCache = [];
+  var viewTotals = { total: 0, last30: 0 };
+  var viewSort = { key: "total", dir: -1 };
+
+  async function loadProductViews() {
+    var list = $("viewList");
+    try {
+      var data = await call("/api/admin/product-views");
+      viewCache = data.views || [];
+      viewTotals = { total: data.grand_total || 0, last30: data.grand_last30 || 0 };
+      renderViews();
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load views: " + err.message);
+    }
+  }
+
+  function renderViews() {
+    var list = $("viewList");
+    if (!list) return;
+    var k = viewSort.key, d = viewSort.dir;
+    var rows = viewCache.slice().sort(function (a, b) {
+      var va = k === "name" ? (a.name || a.product_id || "").toLowerCase() : a[k];
+      var vb = k === "name" ? (b.name || b.product_id || "").toLowerCase() : b[k];
+      return (va > vb ? 1 : va < vb ? -1 : 0) * d;
+    });
+    var arrow = function (key) {
+      return viewSort.key === key ? (viewSort.dir === 1 ? " \u25b2" : " \u25bc") : "";
+    };
+    var body = rows.map(function (v) {
+      return "<tr><td><strong>" + esc(v.name || v.product_id) + "</strong></td>" +
+        "<td>" + v.total + "</td><td>" + v.last30 + "</td></tr>";
+    }).join("");
+    list.innerHTML = tableWrap(
+      '<table class="admin-table"><thead><tr>' +
+      '<th><a href="#" data-vsort="name" style="color:inherit">Product' + arrow("name") + "</a></th>" +
+      '<th><a href="#" data-vsort="total" style="color:inherit">Total views' + arrow("total") + "</a></th>" +
+      '<th><a href="#" data-vsort="last30" style="color:inherit">Last 30 days' + arrow("last30") + "</a></th>" +
+      "</tr></thead><tbody>" + (body || '<tr><td colspan="3" class="muted">No views recorded yet.</td></tr>') + "</tbody>" +
+      "<tfoot><tr><td><strong>Total</strong></td><td><strong>" + viewTotals.total +
+      "</strong></td><td><strong>" + viewTotals.last30 + "</strong></td></tr></tfoot></table>");
   }
 
   /* ---------------- engraving requests ---------------- */
@@ -691,6 +791,30 @@
           await loadWip();
         } catch (err) { showErr($("wipList"), "Could not delete the project: " + err.message); }
       }
+    } else if ((id = t.getAttribute("data-dispatch"))) {
+      var tr = t.closest("tr");
+      var tn = tr.querySelector("input[data-trk]").value.trim();
+      var car = tr.querySelector("input[data-car]").value.trim();
+      if (!tn) { showErr($("orderList"), "Enter the tracking number first."); return; }
+      t.disabled = true;
+      try {
+        var res = await jpost("/api/admin/dispatch",
+          { order_id: id, tracking_number: tn, carrier: car });
+        if (res.emailed) {
+          showOk($("orderList"), "Marked dispatched. Tracking email sent to the customer.");
+        } else {
+          showOk($("orderList"), "Marked dispatched, but the email did NOT go out: " +
+            (res.email_detail || "unknown reason") + ". Send the tracking number manually.");
+        }
+        await loadOrders();
+      } catch (err) { showErr($("orderList"), "Dispatch failed: " + err.message); }
+      t.disabled = false;
+    } else if (t.getAttribute("data-vsort")) {
+      e.preventDefault();
+      var sk = t.getAttribute("data-vsort");
+      if (viewSort.key === sk) { viewSort.dir *= -1; }
+      else { viewSort = { key: sk, dir: sk === "name" ? 1 : -1 }; }
+      renderViews();
     } else if (t.getAttribute("data-phact")) {
       var phid = t.getAttribute("data-phid");
       var act = t.getAttribute("data-phact");
@@ -719,7 +843,12 @@
     $("annForm").addEventListener("submit", saveAnnouncement);
     $("wipForm").addEventListener("submit", saveWipProject);
     $("wipUpdateForm").addEventListener("submit", saveWipUpdate);
+    $("ord-showall").addEventListener("change", function () {
+      orderShowAll = this.checked;
+      renderOrders();
+    });
     loadProducts();
+    loadProductViews();
     loadAnnouncements();
     loadWip();
     loadOrders();

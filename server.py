@@ -33,6 +33,7 @@ import os
 import re
 import json
 import hmac
+import hashlib
 import subprocess
 import uuid
 import sqlite3
@@ -285,6 +286,12 @@ def db():
         "CREATE TABLE IF NOT EXISTS visits "
         "(day TEXT, path TEXT, count INTEGER DEFAULT 0, PRIMARY KEY (day, path))"
     )
+    # Product views: one row per (product, day, visitor) so refreshes don't inflate counts
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS product_views "
+        "(product_id TEXT, day TEXT, ip_hash TEXT, "
+        "PRIMARY KEY (product_id, day, ip_hash))"
+    )
     # column migrations run AFTER all tables exist (fresh DBs included)
     for ddl in (
         "ALTER TABLE announcements ADD COLUMN title_fr TEXT DEFAULT ''",
@@ -293,6 +300,22 @@ def db():
         "ALTER TABLE wip_projects ADD COLUMN status_fr TEXT DEFAULT ''",
         "ALTER TABLE wip_updates ADD COLUMN text_fr TEXT DEFAULT ''",
         "ALTER TABLE product_photos ADD COLUMN kind TEXT DEFAULT 'photo'",
+        # order dispatch (added 2026-10-18)
+        "ALTER TABLE orders ADD COLUMN customer_name TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN ship_name TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN ship_address TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN shipped INTEGER DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN tracking_number TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN carrier TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN shipped_date TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN email TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN customer_name TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN ship_name TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN ship_address TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN shipped INTEGER DEFAULT 0",
+        "ALTER TABLE lamp_orders ADD COLUMN tracking_number TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN carrier TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN shipped_date TEXT DEFAULT ''",
     ):
         try:
             conn.execute(ddl)
@@ -309,6 +332,26 @@ def track_visit(path):
                      (day, path))
         conn.execute("UPDATE visits SET count = count + 1 WHERE day=? AND path=?",
                      (day, path))
+        conn.commit()
+        conn.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def track_product_view(pid):
+    """Count one view per visitor IP per product per day (refreshes don't inflate)."""
+    try:
+        fwd = request.headers.get("X-Forwarded-For", "")
+        ip = (fwd.split(",")[0].strip() if fwd else "") or (request.remote_addr or "")
+        if not ip:
+            return
+        salt = app.secret_key or "adn-creations"
+        ip_hash = hashlib.sha256(f"{salt}|{ip}".encode()).hexdigest()[:24]
+        day = datetime.utcnow().strftime("%Y-%m-%d")
+        conn = db()
+        conn.execute(
+            "INSERT OR IGNORE INTO product_views (product_id, day, ip_hash) VALUES (?,?,?)",
+            (pid, day, ip_hash))
         conn.commit()
         conn.close()
     except Exception:  # noqa: BLE001
@@ -749,6 +792,7 @@ def product_page(pid):
     if not p:
         abort(404)
     track_visit(f"/product/{pid}")
+    track_product_view(pid)
     name = pick(p, lang, "name")
     desc = pick(p, lang, "description")
     story = pick(p, lang, "story")
@@ -1070,9 +1114,22 @@ def api_order(oid):
     return jsonify(d)
 
 
-def mark_order_paid(oid, email=""):
+def _fmt_address(addr):
+    """Format a Stripe address dict as a few plain-text lines."""
+    if not addr:
+        return ""
+    city_state = ", ".join(p for p in [addr.get("city"), addr.get("state")] if p)
+    zip_country = " ".join(p for p in [addr.get("postal_code"), addr.get("country")] if p)
+    parts = [addr.get("line1"), addr.get("line2"), city_state, zip_country]
+    return "\n".join(p for p in parts if p)
+
+
+def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address=""):
     conn = db()
-    conn.execute("UPDATE orders SET paid=1, email=? WHERE id=?", (email, oid))
+    conn.execute(
+        "UPDATE orders SET paid=1, email=?, customer_name=?, ship_name=?, ship_address=? "
+        "WHERE id=?",
+        (email, customer_name, ship_name, ship_address, oid))
     row = conn.execute("SELECT product_id FROM orders WHERE id=?", (oid,)).fetchone()
     if row:
         conn.execute("UPDATE products SET stock = stock - "
@@ -1318,12 +1375,20 @@ def webhook():
     if event["type"] == "checkout.session.completed":
         obj = event["data"]["object"]
         meta = obj.get("metadata", {})
-        email = (obj.get("customer_details") or {}).get("email", "")
+        cd = obj.get("customer_details") or {}
+        email = (cd.get("email") or "").strip()
+        cust_name = (cd.get("name") or "").strip()[:120]
+        ship = obj.get("shipping_details") or {}
+        ship_name = ((ship.get("name") or "").strip() or cust_name)[:120]
+        ship_addr = _fmt_address(ship.get("address") or {})
         if meta.get("kind") == "shop" and meta.get("order_id"):
-            mark_order_paid(meta["order_id"], email)
+            mark_order_paid(meta["order_id"], email, cust_name, ship_name, ship_addr)
         elif meta.get("kind") == "lamp" and meta.get("order_id"):
             conn = db()
-            conn.execute("UPDATE lamp_orders SET paid=1 WHERE id=?", (meta["order_id"],))
+            conn.execute(
+                "UPDATE lamp_orders SET paid=1, email=?, customer_name=?, ship_name=?, "
+                "ship_address=? WHERE id=?",
+                (email, cust_name, ship_name, ship_addr, meta["order_id"]))
             conn.commit()
             conn.close()
     return "ok", 200
@@ -1391,6 +1456,12 @@ def admin_page():
 </div>
 
 <div class="admin-card">
+<h2>Product views</h2>
+<p class="small muted">One view counted per visitor per product per day. Click a column header to sort.</p>
+<div id="viewList"><p class="muted">Loading...</p></div>
+</div>
+
+<div class="admin-card">
 <h2>Announcements</h2>
 <div id="annList"></div>
 <h3 style="margin-top:24px">New announcement</h3>
@@ -1424,7 +1495,8 @@ def admin_page():
 </div>
 
 <div class="admin-card">
-<h2>Orders</h2>
+<h2>Orders to dispatch</h2>
+<p class="small muted"><label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="ord-showall"> Show all orders, including dispatched and unpaid</label><span id="ord-count" style="margin-left:12px"></span></p>
 <div id="orderList"><p class="muted">Loading...</p></div>
 </div>
 
@@ -1845,6 +1917,93 @@ def admin_orders():
     conn.close()
     return jsonify({"orders": [dict(r) for r in rows],
                     "lamp_orders": [dict(r) for r in lamps]})
+
+
+def send_tracking_email(order):
+    """Email the customer their tracking number. Returns (ok, detail)."""
+    to = (order.get("email") or "").strip()
+    if not to or "@" not in to:
+        return False, "no customer email on file"
+    name = order.get("customer_name") or order.get("ship_name") or ""
+    tn = order.get("tracking_number", "")
+    carrier = order.get("carrier", "")
+    carrier_line = f"Carrier: {carrier}\n" if carrier else ""
+    carrier_line_fr = f"Transporteur : {carrier}\n" if carrier else ""
+    body = (
+        f"Hi{name and ' ' + name or ''},\n\n"
+        f"Good news: your ADN Creations order {order['id']} is on its way.\n\n"
+        f"Tracking number: {tn}\n"
+        f"{carrier_line}"
+        "\nThank you for supporting hand crafted work from Montreal.\n\n"
+        "Antonio\nADN Creations\n"
+        "-----\n\n"
+        f"Bonjour{name and ', ' + name or ''},\n\n"
+        f"Bonne nouvelle : votre commande ADN Creations {order['id']} est en route.\n\n"
+        f"Numéro de suivi : {tn}\n"
+        f"{carrier_line_fr}"
+        "\nMerci de soutenir le travail fait à la main à Montréal.\n\n"
+        "Antonio\nADN Creations\n"
+    )
+    return send_email(
+        to, f"Your ADN Creations order {order['id']} has shipped", body)
+
+
+@app.route("/api/admin/dispatch", methods=["POST"])
+def admin_dispatch():
+    """Save a tracking number on a paid order, mark it dispatched, email the customer."""
+    if not admin_ok():
+        abort(403)
+    data = request.get_json(force=True)
+    oid = (data.get("order_id") or "").strip()
+    tracking = (data.get("tracking_number") or "").strip()[:80]
+    carrier = (data.get("carrier") or "").strip()[:60]
+    if not oid or not tracking:
+        return jsonify({"error": "order and tracking number required"}), 400
+    conn = db()
+    o = conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+    table = "orders"
+    if not o:
+        o = conn.execute("SELECT * FROM lamp_orders WHERE id=?", (oid,)).fetchone()
+        table = "lamp_orders"
+    if not o:
+        conn.close()
+        return jsonify({"error": "unknown order"}), 404
+    o = dict(o)
+    if not o.get("paid"):
+        conn.close()
+        return jsonify({"error": "order is not paid yet"}), 400
+    conn.execute(
+        f"UPDATE {table} SET shipped=1, tracking_number=?, carrier=?, shipped_date=? "
+        "WHERE id=?",
+        (tracking, carrier, now_iso(), oid))
+    conn.commit()
+    conn.close()
+    o["tracking_number"] = tracking
+    o["carrier"] = carrier
+    emailed, detail = send_tracking_email(o)
+    return jsonify({"ok": True, "emailed": emailed, "email_detail": detail})
+
+
+@app.route("/api/admin/product-views")
+def admin_product_views():
+    """Per-product view counts: total + last 30 days. Admin stays English."""
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    rows = conn.execute(
+        "SELECT v.product_id, COALESCE(p.name, v.product_id) AS name, "
+        "COUNT(*) AS total, "
+        "SUM(CASE WHEN v.day >= date('now', '-30 days') THEN 1 ELSE 0 END) AS last30 "
+        "FROM product_views v LEFT JOIN products p ON p.id = v.product_id "
+        "GROUP BY v.product_id ORDER BY total DESC").fetchall()
+    conn.close()
+    views = [{"product_id": r["product_id"], "name": r["name"],
+              "total": r["total"], "last30": r["last30"]} for r in rows]
+    return jsonify({
+        "views": views,
+        "grand_total": sum(v["total"] for v in views),
+        "grand_last30": sum(v["last30"] for v in views),
+    })
 
 
 @app.route("/api/admin/engraving-requests")
