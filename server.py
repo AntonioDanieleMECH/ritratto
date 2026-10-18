@@ -574,9 +574,14 @@ def seed():
              "Le briquet Aku : un grand A serif avec le nom à l'intérieur, gravé au laser à fibre. "
              "Envoyez votre propre dessin ou simplement une idée et il devient un objet unique.",
              json.dumps(["gag"]), None, 0, "", 1, 1, "", 1, 7, now_iso()))
-        conn.execute(
-            "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) VALUES (?,?,?,?,?,?)",
-            ("php_customlighter2", "custom-lighter", "/img/products/custom-lighter-2.jpg", 1, 0, now_iso()))
+    # Gallery for custom-lighter: main photo first (idempotent, fills gaps).
+    for _phpid, _ph, _sort in (("php_customlighter1", "/img/products/custom-lighter.jpg", 0),
+                               ("php_customlighter2", "/img/products/custom-lighter-2.jpg", 1)):
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "custom-lighter", _ph, _sort, 0, now_iso()))
     # Pricing 2026-10-18: custom memorial lamps are $39.99 for the first of a
     # design, $29.99 for each additional copy, 4-pack $99.99. Charm pricing
     # (.99) across the shop. Only touches rows still on the old pricing,
