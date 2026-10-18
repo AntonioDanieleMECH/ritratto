@@ -699,6 +699,43 @@ def seed():
             conn.execute(
                 "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
                 (_uid, "stone-statues", now_iso(), _txt, _txt_fr))
+    # 2026-10-18: nativity lamp WIP project (Oratory boutique) from Antonio's photos. Idempotent.
+    if not conn.execute("SELECT id FROM wip_projects WHERE id='nativity-lamps'").fetchone():
+        conn.execute(
+            "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            ("nativity-lamps", "Nativity lamps \u2014 Oratory boutique",
+             "Cr\u00e8ches lumineuses \u2014 boutique de l'Oratoire",
+             "In stores", "En boutique",
+             "/img/work/nativity-lamp-lit.jpg", 1, now_iso()))
+        for _uid, _txt, _txt_fr in (
+            ("nl1",
+             "The Holy Family nativity under the Oratory dome, printed thin so it glows like a "
+             "lithophane with a battery light inside.",
+             "La Sainte Famille sous le d\u00f4me de l'Oratoire, imprim\u00e9e en paroi fine pour diffuser "
+             "la lumi\u00e8re comme un lithophane, avec pile incluse."),
+            ("nl2",
+             "Full box packed and delivered \u2014 now on the boutique shelf at $23.99.",
+             "Bo\u00eete compl\u00e8te emball\u00e9e et livr\u00e9e \u2014 maintenant en boutique \u00e0 23,99 $.")):
+            conn.execute(
+                "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
+                (_uid, "nativity-lamps", now_iso(), _txt, _txt_fr))
+    # 2026-10-18: custom engraved bottles WIP project from Antonio's photo. Idempotent.
+    if not conn.execute("SELECT id FROM wip_projects WHERE id='engraved-bottles'").fetchone():
+        conn.execute(
+            "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            ("engraved-bottles", "Custom engraved bottles",
+             "Bouteilles grav\u00e9es sur mesure",
+             "Now available", "Disponible",
+             "/img/work/engraved-bottle-lydia.jpg", 4, now_iso()))
+        conn.execute(
+            "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
+            ("eb1", "engraved-bottles", now_iso(),
+             "Name and artwork laser-engraved on a matte bottle with the xTool F2 \u2014 "
+             "any name, any design.",
+             "Nom et dessin grav\u00e9s au laser sur une bouteille mate avec la xTool F2 \u2014 "
+             "n'importe quel nom, n'importe quel dessin."))
     # 2026-10-18: single lighter listing at $24.99 (Etsy parity). The older
     # "lighter" product is retired; "custom-lighter" becomes the one listing,
     # keeping its real Aku photo in the gallery and the Stogies mockup as card.
