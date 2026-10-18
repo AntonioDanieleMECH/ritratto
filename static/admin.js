@@ -758,6 +758,52 @@
     }
   }
 
+  async function loadReviews() {
+    var list = $("revList");
+    clearNotice(list);
+    try {
+      var data = await call("/api/admin/reviews");
+      var items = data.reviews || [];
+      if (!items.length) {
+        list.innerHTML = '<p class="muted">No reviews yet.</p>';
+        return;
+      }
+      var rows = items.map(function (r) {
+        var stars = "";
+        for (var i = 0; i < 5; i++) stars += i < r.rating ? "\u2605" : "\u2606";
+        var action = r.approved
+          ? '<span class="small muted">Live</span>'
+          : '<button class="btn btn-primary" data-rev-approve="' + esc(r.id) + '">Approve</button>';
+        return "<tr>" +
+          "<td>" + esc(fmtDate(r.created)) + "</td>" +
+          "<td>" + esc(r.product_name || r.product_id) + "</td>" +
+          "<td>" + stars + "</td>" +
+          "<td><strong>" + esc(r.name) + "</strong><br>" + esc(r.text) + "</td>" +
+          "<td>" + action +
+          ' <button class="btn btn-outline" data-rev-delete="' + esc(r.id) + '">Delete</button></td></tr>';
+      }).join("");
+      list.innerHTML = tableWrap(
+        '<table class="admin-table"><thead><tr><th>Date</th><th>Product</th><th>Stars</th>' +
+        "<th>Review</th><th>Moderation</th></tr></thead><tbody>" + rows + "</tbody></table>");
+      list.querySelectorAll("[data-rev-approve]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          await call("/api/admin/reviews/" + encodeURIComponent(b.getAttribute("data-rev-approve")) + "/approve", { method: "POST" });
+          loadReviews();
+        });
+      });
+      list.querySelectorAll("[data-rev-delete]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          if (!confirm("Delete this review?")) return;
+          await call("/api/admin/reviews/" + encodeURIComponent(b.getAttribute("data-rev-delete")) + "/delete", { method: "POST" });
+          loadReviews();
+        });
+      });
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load reviews: " + err.message);
+    }
+  }
+
   /* ---------------- events ---------------- */
 
   document.addEventListener("click", async function (e) {
@@ -856,6 +902,7 @@
     loadPortraitIdeas();
     loadSuggestions();
     loadNotifyMe();
+    loadReviews();
   }
 
   if (document.readyState === "loading") {

@@ -123,6 +123,13 @@ STR = {
         "photo_soon": "Photo à venir",
         "scale_caption": "Présentée en main pour montrer l'échelle.",
         "tier_note": "Première lampe : {first}. Chaque lampe supplémentaire du même modèle : {extra}.",
+        "reviews_title": "Avis",
+        "reviews_empty": "Aucun avis pour le moment.",
+        "review_write": "Écrire un avis",
+        "review_name": "Votre nom", "review_rating": "Note", "review_text": "Votre avis",
+        "review_submit": "Publier mon avis",
+        "review_thanks": "Merci! Votre avis sera publié après vérification.",
+        "review_err": "Veuillez indiquer votre nom, une note et votre avis.",
         "preparing": "Préparation du paiement...",
         "checkout_failed": "Le paiement a échoué. Veuillez réessayer.",
         "checkout_failed_try": "Le paiement n'a pas pu démarrer. Veuillez réessayer.",
@@ -173,6 +180,13 @@ STR = {
         "photo_soon": "Photo coming soon",
         "scale_caption": "Shown in hand for scale.",
         "tier_note": "First lamp: {first}. Each additional lamp of the same design: {extra}.",
+        "reviews_title": "Reviews",
+        "reviews_empty": "No reviews yet.",
+        "review_write": "Write a review",
+        "review_name": "Your name", "review_rating": "Rating", "review_text": "Your review",
+        "review_submit": "Submit my review",
+        "review_thanks": "Thanks! Your review will appear after moderation.",
+        "review_err": "Please give your name, a rating and your review.",
         "preparing": "Preparing checkout...",
         "checkout_failed": "Checkout failed. Please try again.",
         "checkout_failed_try": "Sorry, checkout could not start. Please try again.",
@@ -309,6 +323,12 @@ def db():
         "CREATE TABLE IF NOT EXISTS product_views "
         "(product_id TEXT, day TEXT, ip_hash TEXT, "
         "PRIMARY KEY (product_id, day, ip_hash))"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS reviews "
+        "(id TEXT PRIMARY KEY, product_id TEXT, name TEXT DEFAULT '', "
+        " rating INTEGER DEFAULT 5, text TEXT DEFAULT '', "
+        " approved INTEGER DEFAULT 0, created TEXT)"
     )
     # column migrations run AFTER all tables exist (fresh DBs included)
     for ddl in (
@@ -838,6 +858,75 @@ def index():
     return app.send_static_file("index.html")
 
 
+def stars_html(rating):
+    """5-star display, e.g. 4 -> ****-style using star glyphs."""
+    rating = max(1, min(5, int(rating or 5)))
+    return "\u2605" * rating + "\u2606" * (5 - rating)
+
+
+def reviews_section(pid, lang):
+    conn = db()
+    rows = conn.execute(
+        "SELECT name, rating, text, created FROM reviews "
+        "WHERE product_id=? AND approved=1 ORDER BY created DESC", (pid,)).fetchall()
+    conn.close()
+    n = len(rows)
+    avg = round(sum(r["rating"] for r in rows) / n, 1) if n else 0
+    if n:
+        items = "".join(
+            '<div class="review"><div class="review-stars">' + stars_html(r["rating"]) +
+            '</div><p>' + h(r["text"]) + '</p>' +
+            '<p class="small muted">\u2014 ' + h(r["name"]) + '</p></div>'
+            for r in rows)
+        summary = ('<p class="review-avg">' + stars_html(round(avg)) +
+                   ' <span class="muted">' + str(avg) + ' / 5 \u00b7 ' + str(n) + '</span></p>')
+    else:
+        items = '<p class="muted">' + t(lang, "reviews_empty") + '</p>'
+        summary = ""
+    return ("""
+<section class="section-sm" id="reviews"><h2>""" + t(lang, "reviews_title") + """</h2>
+""" + summary + """
+<div class="review-list">""" + items + """</div>
+<h3 style="margin-top:24px">""" + t(lang, "review_write") + """</h3>
+<form id="reviewForm">
+<div class="field"><label for="rv-name">""" + t(lang, "review_name") + """</label>
+<input type="text" id="rv-name" maxlength="80" required></div>
+<div class="field"><label for="rv-rating">""" + t(lang, "review_rating") + """</label>
+<select id="rv-rating">
+<option value="5">""" + stars_html(5) + """</option><option value="4">""" + stars_html(4) + """</option>
+<option value="3">""" + stars_html(3) + """</option><option value="2">""" + stars_html(2) + """</option>
+<option value="1">""" + stars_html(1) + """</option></select></div>
+<div class="field"><label for="rv-text">""" + t(lang, "review_text") + """</label>
+<textarea id="rv-text" maxlength="2000" required></textarea></div>
+<button class="btn btn-outline" type="submit">""" + t(lang, "review_submit") + """</button>
+<div id="rv-msg" style="margin-top:10px"></div>
+</form></section>
+<script>
+document.getElementById('reviewForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var msg = document.getElementById('rv-msg');
+  var payload = { product_id: """ + json.dumps(pid) + """,
+    name: document.getElementById('rv-name').value.trim(),
+    rating: parseInt(document.getElementById('rv-rating').value, 10) || 5,
+    text: document.getElementById('rv-text').value.trim(),
+    lang: """ + json.dumps(lang) + """ };
+  if (!payload.name || !payload.text) {
+    msg.innerHTML = '<div class="notice notice-err">' + """ + json.dumps(t(lang, "review_err")) + """ + '</div>';
+    return;
+  }
+  var r = await fetch('/api/reviews', { method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+  if (r.ok) {
+    msg.innerHTML = '<div class="notice notice-ok">' + """ + json.dumps(t(lang, "review_thanks")) + """ + '</div>';
+    document.getElementById('rv-name').value = '';
+    document.getElementById('rv-text').value = '';
+  } else {
+    msg.innerHTML = '<div class="notice notice-err">' + """ + json.dumps(t(lang, "review_err")) + """ + '</div>';
+  }
+});
+</script>""")
+
+
 @app.route("/product/<pid>")
 def product_page(pid):
     lang = get_lang()
@@ -1017,6 +1106,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 </div>
 </div>
 {story_html}
+{reviews_section(pid, lang)}
 </div>
 {gal_js}{buy_js}{notify_js}"""
     html = shell(name, desc[:160], body, active="shop",
@@ -1312,6 +1402,66 @@ def api_notify_me():
     return jsonify({"ok": True})
 
 
+@app.route("/api/reviews", methods=["POST"])
+def api_reviews():
+    data = request.get_json(force=True)
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    pid = (data.get("product_id") or "").strip()[:40]
+    name = (data.get("name") or "").strip()[:80]
+    text = (data.get("text") or "").strip()[:2000]
+    try:
+        rating = max(1, min(5, int(data.get("rating") or 5)))
+    except (TypeError, ValueError):
+        rating = 5
+    if not pid or not name or not text or not get_product(pid):
+        return jsonify({"error": t(lang, "review_err")}), 400
+    conn = db()
+    conn.execute(
+        "INSERT INTO reviews (id, product_id, name, rating, text, approved, created) "
+        "VALUES (?,?,?,?,?,0,?)",
+        ("rv_" + uuid.uuid4().hex[:10], pid, name, rating, text, now_iso()))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/reviews")
+def admin_reviews():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    rows = conn.execute(
+        "SELECT r.*, p.name as product_name FROM reviews r "
+        "LEFT JOIN products p ON p.id=r.product_id "
+        "ORDER BY r.approved ASC, r.created DESC LIMIT 300").fetchall()
+    conn.close()
+    return jsonify({"reviews": [dict(r) for r in rows]})
+
+
+@app.route("/api/admin/reviews/<rid>/approve", methods=["POST"])
+def admin_review_approve(rid):
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    conn.execute("UPDATE reviews SET approved=1 WHERE id=?", (rid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/reviews/<rid>/delete", methods=["POST"])
+def admin_review_delete(rid):
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    conn.execute("DELETE FROM reviews WHERE id=?", (rid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
 # ---------- custom 4-sided lamp designer ----------
 # Pricing 2026-10-18: $39.99 for one custom lamp, $29.99 for each additional copy
 # of the same design, 4-pack bundle $99.99.
@@ -1599,6 +1749,12 @@ def admin_page():
 <div class="admin-card">
 <h2>Notify-me list</h2>
 <div id="ntfList"><p class="muted">Loading...</p></div>
+</div>
+
+<div class="admin-card">
+<h2>Reviews</h2>
+<p class="small muted">New reviews appear here for approval before they show on the product page.</p>
+<div id="revList"><p class="muted">Loading...</p></div>
 </div>
 </div>
 <script>var ADMIN_TOKEN = {json.dumps(token)};</script>

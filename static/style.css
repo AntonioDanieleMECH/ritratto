@@ -375,6 +375,13 @@ p { margin: 0 0 1em; }
 .notice-ok { background: var(--ok-soft); color: var(--ok); border: 1px solid #BFD9C2; }
 .notice-err { background: #FBEAEA; color: #A33232; border: 1px solid #F0C4C4; }
 
+/* ---------- reviews ---------- */
+.review-list { display: grid; gap: 16px; margin-top: 12px; }
+.review { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: #fff; }
+.review-stars { color: var(--brass-deep); font-size: 1.1rem; letter-spacing: 2px; }
+.review p { margin: 8px 0; }
+.review-avg { font-size: 1.05rem; }
+
 /* ---------- misc ---------- */
 .divider { border: 0; border-top: 1px solid var(--line); margin: 48px 0; }
 .cta-band {
