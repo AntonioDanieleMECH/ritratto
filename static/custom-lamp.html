@@ -61,6 +61,12 @@
 </section>
 <section class="section-sm">
 <h2 data-i18n="lamp.s3">Étape 3 : paiement</h2>
+<div class="field" style="margin-bottom:12px"><label for="lampShipCountry" data-i18n="lamp.ship_country">Pays de livraison</label>
+<select id="lampShipCountry">
+<option value="CA" data-i18n="lamp.ship_ca">Canada — 5 $</option>
+<option value="US" data-i18n="lamp.ship_us">États-Unis — 10 $</option>
+<option value="INT" data-i18n="lamp.ship_intl">International — 15 $</option>
+</select></div>
 <button class="btn btn-brass btn-block" id="checkoutBtn" type="button" data-i18n="lamp.checkout">Passer à la caisse</button>
 <p class="small muted" style="margin-top:10px" data-i18n="lamp.secure">Paiement sécurisé avec Stripe. Les frais d'expédition à taux fixe pour le Canada et les États-Unis sont calculés à la caisse.</p>
 </section>
@@ -187,8 +193,9 @@
       var sides=state.sides.map(function(s){
         return s.kind==="gallery"?{kind:"gallery",id:s.id}:{kind:"upload",file:s.file};
       });
+      var scEl=document.getElementById("lampShipCountry");
       var r=await fetch("/api/lamp-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({pack:state.pack,sides:sides,lang:lang()})});
+        body:JSON.stringify({pack:state.pack,sides:sides,lang:lang(),ship_country:scEl?scEl.value:"CA"})});
       var data=await r.json().catch(function(){return{};});
       if(!r.ok)throw new Error(data.error||"checkout failed");
       window.location.href=data.url;

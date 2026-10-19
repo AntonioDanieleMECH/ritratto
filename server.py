@@ -118,7 +118,11 @@ STR = {
         "footer_privacy": "Confidentialité", "footer_terms": "Conditions d'utilisation",
         "qty": "Quantité", "buy_now": "Acheter", "preorder_now": "Précommander",
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
-        "secure_checkout": "Paiement sécurisé avec Stripe. Expédition à taux fixe de 10 $ (Canada et États-Unis).",
+        "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. L'adresse de livraison est demandée au paiement.",
+        "ship_country": "Pays de livraison",
+        "ship_ca": "Canada — 5 $",
+        "ship_us": "États-Unis — 10 $",
+        "ship_intl": "International — 15 $",
         "engraving_label": "Texte à graver (facultatif)",
         "engraving_ph": "p. ex. Aku, depuis 2026",
         "design_title": "Choisissez votre motif",
@@ -185,7 +189,11 @@ STR = {
         "footer_privacy": "Privacy", "footer_terms": "Terms of use",
         "qty": "Quantity", "buy_now": "Buy now", "preorder_now": "Preorder now",
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
-        "secure_checkout": "Secure checkout with Stripe. Flat-rate $10 shipping (Canada and the US).",
+        "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Shipping address collected at checkout.",
+        "ship_country": "Shipping country",
+        "ship_ca": "Canada — $5",
+        "ship_us": "United States — $10",
+        "ship_intl": "International — $15",
         "engraving_label": "Custom engraving text (optional)",
         "engraving_ph": "e.g. Aku, Est. 2026",
         "design_title": "Choose your design",
@@ -380,6 +388,7 @@ def db():
         "ALTER TABLE orders ADD COLUMN tracking_number TEXT DEFAULT ''",
         "ALTER TABLE orders ADD COLUMN carrier TEXT DEFAULT ''",
         "ALTER TABLE orders ADD COLUMN shipped_date TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN phone TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN email TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN customer_name TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN ship_name TEXT DEFAULT ''",
@@ -388,6 +397,7 @@ def db():
         "ALTER TABLE lamp_orders ADD COLUMN tracking_number TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN carrier TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN shipped_date TEXT DEFAULT ''",
+        "ALTER TABLE lamp_orders ADD COLUMN phone TEXT DEFAULT ''",
     ):
         try:
             conn.execute(ddl)
@@ -1481,6 +1491,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   if (ss) payload.saint = ss.value;
   var cp = document.getElementById('coupon');
   if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
+  var sc = document.getElementById('shipCountry');
+  if (sc) payload.ship_country = sc.value;
   try {{
     var r = await fetch('/api/checkout', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(payload) }});
     var j = await r.json();
@@ -1573,6 +1585,12 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <div id="couponMsg" class="small" style="margin-top:6px"></div></div>
 {engraving_field}
 {option_field}
+<div class="field"><label for="shipCountry">{t(lang, "ship_country")}</label>
+<select id="shipCountry">
+<option value="CA">{t(lang, "ship_ca")}</option>
+<option value="US">{t(lang, "ship_us")}</option>
+<option value="INT">{t(lang, "ship_intl")}</option>
+</select></div>
 {buy_html}{custom}
 <div id="buyMsg" style="margin-top:12px"></div>
 </div>
@@ -1788,8 +1806,23 @@ def api_checkout():
         return jsonify({"error": t(lang, "err_payment")}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
-    ship_label = ("Expédition à taux fixe (CA/US)" if lang == "fr"
-                  else "Flat-rate shipping (CA/US)")
+    ship_country = (data.get("ship_country") or "CA").strip().upper()
+    if ship_country not in ("CA", "US", "INT"):
+        ship_country = "CA"
+    # Tiered shipping: $5 Canada, $10 US, $15 worldwide.
+    ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
+    if ship_country == "CA":
+        allowed = ["CA"]
+    elif ship_country == "US":
+        allowed = ["US"]
+    else:
+        allowed = ["US", "CA", "GB", "IE", "FR", "DE", "IT", "ES", "PT", "NL",
+                   "BE", "CH", "AT", "SE", "NO", "DK", "FI", "PL", "CZ", "HU",
+                   "GR", "AU", "NZ", "JP", "KR", "MX", "BR", "AR", "CL", "CO",
+                   "IN", "SG", "MY", "TH", "PH", "ZA", "IL", "AE", "SA", "TR"]
+    ship_label = {"CA": ("Expédition Canada" if lang == "fr" else "Shipping — Canada"),
+                  "US": ("Expédition États-Unis" if lang == "fr" else "Shipping — United States"),
+                  "INT": ("Expédition internationale" if lang == "fr" else "Shipping — International")}[ship_country]
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
         locale="fr" if lang == "fr" else "en",
@@ -1797,14 +1830,15 @@ def api_checkout():
             "currency": "cad", "unit_amount": amount,
             "product_data": {"name": label}}, "quantity": 1}],
         mode="payment",
-        shipping_address_collection={"allowed_countries": ["CA", "US"]},
+        shipping_address_collection={"allowed_countries": allowed},
         shipping_options=[{"shipping_rate_data": {
             "type": "fixed_amount",
-            "fixed_amount": {"amount": 1000, "currency": "cad"},
+            "fixed_amount": {"amount": ship_cents, "currency": "cad"},
             "display_name": ship_label}}],
+        phone_number_collection={"enabled": True},
         success_url=f"{SITE_URL}/thank-you.html?order={oid}",
         cancel_url=f"{SITE_URL}/product/{pid}?cancelled=1",
-        metadata={"order_id": oid, "kind": "shop"},
+        metadata={"order_id": oid, "kind": "shop", "ship_country": ship_country},
     )
     conn = db()
     conn.execute("UPDATE orders SET stripe_session=? WHERE id=?", (sess.id, oid))
@@ -1837,12 +1871,12 @@ def _fmt_address(addr):
     return "\n".join(p for p in parts if p)
 
 
-def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address=""):
+def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address="", phone=""):
     conn = db()
     conn.execute(
-        "UPDATE orders SET paid=1, email=?, customer_name=?, ship_name=?, ship_address=? "
-        "WHERE id=?",
-        (email, customer_name, ship_name, ship_address, oid))
+        "UPDATE orders SET paid=1, email=?, customer_name=?, ship_name=?, ship_address=?, "
+        "phone=? WHERE id=?",
+        (email, customer_name, ship_name, ship_address, phone, oid))
     row = conn.execute("SELECT product_id FROM orders WHERE id=?", (oid,)).fetchone()
     if row:
         conn.execute("UPDATE products SET stock = stock - "
@@ -2191,8 +2225,22 @@ def lamp_checkout():
         return jsonify({"error": t(lang, "err_payment")}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET
-    ship_label = ("Expédition à taux fixe (CA/US)" if lang == "fr"
-                  else "Flat-rate shipping (CA/US)")
+    ship_country = (data.get("ship_country") or "CA").strip().upper()
+    if ship_country not in ("CA", "US", "INT"):
+        ship_country = "CA"
+    ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
+    if ship_country == "CA":
+        allowed = ["CA"]
+    elif ship_country == "US":
+        allowed = ["US"]
+    else:
+        allowed = ["US", "CA", "GB", "IE", "FR", "DE", "IT", "ES", "PT", "NL",
+                   "BE", "CH", "AT", "SE", "NO", "DK", "FI", "PL", "CZ", "HU",
+                   "GR", "AU", "NZ", "JP", "KR", "MX", "BR", "AR", "CL", "CO",
+                   "IN", "SG", "MY", "TH", "PH", "ZA", "IL", "AE", "SA", "TR"]
+    ship_label = {"CA": ("Expédition Canada" if lang == "fr" else "Shipping — Canada"),
+                  "US": ("Expédition États-Unis" if lang == "fr" else "Shipping — United States"),
+                  "INT": ("Expédition internationale" if lang == "fr" else "Shipping — International")}[ship_country]
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
         locale="fr" if lang == "fr" else "en",
@@ -2200,14 +2248,16 @@ def lamp_checkout():
             "currency": "cad", "unit_amount": amount,
             "product_data": {"name": label}}, "quantity": 1}],
         mode="payment",
-        shipping_address_collection={"allowed_countries": ["CA", "US"]},
+        shipping_address_collection={"allowed_countries": allowed},
         shipping_options=[{"shipping_rate_data": {
             "type": "fixed_amount",
-            "fixed_amount": {"amount": LAMP_SHIPPING, "currency": "cad"},
+            "fixed_amount": {"amount": ship_cents, "currency": "cad"},
             "display_name": ship_label}}],
+        phone_number_collection={"enabled": True},
         success_url=f"{SITE_URL}/thank-you.html?order={oid}",
         cancel_url=f"{SITE_URL}/custom-lamp.html?cancelled=1",
-        metadata={"order_id": oid, "kind": "lamp", "sides": side_summary[:400]},
+        metadata={"order_id": oid, "kind": "lamp", "sides": side_summary[:400],
+                  "ship_country": ship_country},
     )
     conn = db()
     conn.execute("UPDATE lamp_orders SET stripe_session=? WHERE id=?", (sess.id, oid))
@@ -2232,17 +2282,18 @@ def webhook():
         cd = obj.get("customer_details") or {}
         email = (cd.get("email") or "").strip()
         cust_name = (cd.get("name") or "").strip()[:120]
+        phone = (cd.get("phone") or "").strip()[:40]
         ship = obj.get("shipping_details") or {}
         ship_name = ((ship.get("name") or "").strip() or cust_name)[:120]
         ship_addr = _fmt_address(ship.get("address") or {})
         if meta.get("kind") == "shop" and meta.get("order_id"):
-            mark_order_paid(meta["order_id"], email, cust_name, ship_name, ship_addr)
+            mark_order_paid(meta["order_id"], email, cust_name, ship_name, ship_addr, phone)
         elif meta.get("kind") == "lamp" and meta.get("order_id"):
             conn = db()
             conn.execute(
                 "UPDATE lamp_orders SET paid=1, email=?, customer_name=?, ship_name=?, "
-                "ship_address=? WHERE id=?",
-                (email, cust_name, ship_name, ship_addr, meta["order_id"]))
+                "ship_address=?, phone=? WHERE id=?",
+                (email, cust_name, ship_name, ship_addr, phone, meta["order_id"]))
             conn.commit()
             conn.close()
     return "ok", 200

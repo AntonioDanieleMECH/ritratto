@@ -524,6 +524,7 @@
       created: o.created,
       customer: o.customer_name || o.ship_name || "",
       email: o.email || "",
+      phone: o.phone || "",
       items: items,
       amount: kind === "lamp" ? o.amount : o.amount_cents,
       address: o.ship_address || "",
@@ -555,7 +556,8 @@
       dispatchCell = '<span class="small muted">-</span>';
     }
     var customer = esc(o.customer || "-") +
-      (o.email ? '<br><a href="mailto:' + esc(o.email) + '">' + esc(o.email) + "</a>" : "");
+      (o.email ? '<br><a href="mailto:' + esc(o.email) + '">' + esc(o.email) + "</a>" : "") +
+      (o.phone ? '<br><a href="tel:' + esc(o.phone.replace(/[^+\d]/g, "")) + '">' + esc(o.phone) + "</a>" : "");
     var addr = o.address
       ? '<span class="small" style="white-space:pre-line">' + esc(o.address) + "</span>"
       : '<span class="small muted">-</span>';
