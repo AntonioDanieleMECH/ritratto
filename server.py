@@ -398,6 +398,8 @@ def db():
         "ALTER TABLE lamp_orders ADD COLUMN carrier TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN shipped_date TEXT DEFAULT ''",
         "ALTER TABLE lamp_orders ADD COLUMN phone TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN notified INTEGER DEFAULT 0",
+        "ALTER TABLE lamp_orders ADD COLUMN notified INTEGER DEFAULT 0",
     ):
         try:
             conn.execute(ddl)
@@ -1918,10 +1920,52 @@ def api_order(oid):
         abort(404)
     conn = db()
     o = conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+    kind = "shop"
+    if not o:
+        o = conn.execute("SELECT * FROM lamp_orders WHERE id=?", (oid,)).fetchone()
+        kind = "lamp"
     conn.close()
     if not o:
         abort(404)
     d = dict(o)
+    # Webhook fallback: if the order is still unpaid, ask Stripe directly whether
+    # the checkout session was paid (covers a missing/broken webhook secret).
+    if not d.get("paid") and d.get("stripe_session") and STRIPE_SECRET:
+        try:
+            import stripe
+            stripe.api_key = STRIPE_SECRET
+            sess = stripe.checkout.Session.retrieve(d["stripe_session"])
+            if isinstance(sess, dict):
+                s = sess
+            else:
+                s = sess.to_dict()
+            if s.get("payment_status") == "paid":
+                cd = s.get("customer_details") or {}
+                email = (cd.get("email") or "").strip()
+                cust_name = (cd.get("name") or "").strip()[:120]
+                phone = (cd.get("phone") or "").strip()[:40]
+                ship = s.get("shipping_details") or {}
+                ship_name = ((ship.get("name") or "").strip() or cust_name)[:120]
+                ship_addr = _fmt_address(ship.get("address") or {})
+                if kind == "shop":
+                    mark_order_paid(oid, email, cust_name, ship_name, ship_addr, phone)
+                else:
+                    conn2 = db()
+                    conn2.execute(
+                        "UPDATE lamp_orders SET paid=1, email=?, customer_name=?, ship_name=?, "
+                        "ship_address=?, phone=? WHERE id=?",
+                        (email, cust_name, ship_name, ship_addr, phone, oid))
+                    conn2.commit()
+                    conn2.close()
+                notify_seller_new_order(kind, oid)
+                conn3 = db()
+                o = conn3.execute(
+                    "SELECT * FROM orders WHERE id=?" if kind == "shop"
+                    else "SELECT * FROM lamp_orders WHERE id=?", (oid,)).fetchone()
+                conn3.close()
+                d = dict(o)
+        except Exception:
+            pass
     d["price"] = money(d["amount_cents"])
     return jsonify(d)
 
@@ -1952,6 +1996,42 @@ def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address=
 
 
 # ---------- engraving requests ----------
+def notify_seller_new_order(kind, oid):
+    """Email Antonio once when an order is paid. Safe to call from both the
+    Stripe webhook and the thank-you-page fallback; the notified flag makes it
+    send at most once per order."""
+    table = "orders" if kind == "shop" else "lamp_orders"
+    conn = db()
+    cur = conn.execute(
+        f"UPDATE {table} SET notified=1 WHERE id=? AND notified=0", (oid,))
+    claimed = cur.rowcount > 0
+    o = conn.execute(f"SELECT * FROM {table} WHERE id=?", (oid,)).fetchone()
+    conn.commit()
+    conn.close()
+    if not claimed or not o:
+        return
+    d = dict(o)
+    if kind == "lamp":
+        items = "Custom memorial lamp (%s)" % (d.get("pack") or "single")
+    else:
+        items = "%s x%s" % (d.get("product_name") or d.get("product_id"), d.get("qty") or 1)
+        if d.get("engraving_text"):
+            items += ' (engraved "%s")' % d["engraving_text"]
+    lines = [
+        "New order %s — %s" % (oid, money(d.get("amount_cents") or 0)),
+        "",
+        "Items: %s" % items,
+        "Customer: %s" % (d.get("customer_name") or d.get("ship_name") or "-"),
+        "Email: %s" % (d.get("email") or "-"),
+        "Phone: %s" % (d.get("phone") or "-"),
+        "Ship to:",
+        d.get("ship_address") or "-",
+    ]
+    send_email(SUPPORT_EMAIL,
+               "New order %s — %s" % (oid, money(d.get("amount_cents") or 0)),
+               "\n".join(lines))
+
+
 def send_email(to, subject, body):
     host = os.environ.get("SMTP_HOST", "")
     if not host:
@@ -2353,6 +2433,7 @@ def webhook():
         ship_addr = _fmt_address(ship.get("address") or {})
         if meta.get("kind") == "shop" and meta.get("order_id"):
             mark_order_paid(meta["order_id"], email, cust_name, ship_name, ship_addr, phone)
+            notify_seller_new_order("shop", meta["order_id"])
         elif meta.get("kind") == "lamp" and meta.get("order_id"):
             conn = db()
             conn.execute(
@@ -2361,6 +2442,7 @@ def webhook():
                 (email, cust_name, ship_name, ship_addr, phone, meta["order_id"]))
             conn.commit()
             conn.close()
+            notify_seller_new_order("lamp", meta["order_id"])
     return "ok", 200
 
 
