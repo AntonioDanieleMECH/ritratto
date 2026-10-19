@@ -477,7 +477,7 @@ SEED_PRODUCTS = [
      "story": "A collector's piece for the era of Saint Frère André. The 39 cm bust is printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.",
      "story_fr": "Une pièce de collection pour l'époque de saint Frère André. Le buste de 39 cm est imprimé en fabrication additive grand format, puis fini à la main, et monté sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.",
      "depts": ["religious"], "stock": 1, "sort": 4},
-    {"id": "nativity", "name": "Nativity Scene Lamp", "price_cents": 3999,
+    {"id": "nativity", "name": "Nativity Scene Lamp", "price_cents": 2999,
      "photo": "/img/products/nativity.jpg",
      "description": "The Nativity rendered as a glowing lithophane lamp. Warm LED light. Hand crafted in Montreal from plant-based bioplastic.",
      "name_fr": "Lampe scène de la Nativité",
@@ -717,11 +717,16 @@ def seed():
              "La Sainte Famille sous le d\u00f4me de l'Oratoire, imprim\u00e9e en paroi fine pour diffuser "
              "la lumi\u00e8re comme un lithophane, avec pile incluse."),
             ("nl2",
-             "Full box packed and delivered \u2014 now on the boutique shelf at $23.99.",
-             "Bo\u00eete compl\u00e8te emball\u00e9e et livr\u00e9e \u2014 maintenant en boutique \u00e0 23,99 $.")):
+             "Full box packed and delivered \u2014 now on the boutique shelf at $29.99.",
+             "Bo\u00eete compl\u00e8te emball\u00e9e et livr\u00e9e \u2014 maintenant en boutique \u00e0 29,99 $.")):
             conn.execute(
                 "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
                 (_uid, "nativity-lamps", now_iso(), _txt, _txt_fr))
+    # 2026-10-19: nativity price correction $23.99 -> $29.99 on live DBs. Idempotent.
+    conn.execute("UPDATE wip_updates SET text=REPLACE(text,'$23.99','$29.99') "
+                 "WHERE project_id='nativity-lamps'")
+    conn.execute("UPDATE wip_updates SET text_fr=REPLACE(text_fr,'23,99 $','29,99 $') "
+                 "WHERE project_id='nativity-lamps'")
     # 2026-10-18: custom engraved bottles WIP project from Antonio's photo. Idempotent.
     if not conn.execute("SELECT id FROM wip_projects WHERE id='engraved-bottles'").fetchone():
         conn.execute(
