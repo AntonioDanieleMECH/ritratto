@@ -723,6 +723,7 @@ def seed():
                 "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
                 (_uid, "nativity-lamps", now_iso(), _txt, _txt_fr))
     # 2026-10-19: nativity price correction $23.99 -> $29.99 on live DBs. Idempotent.
+    conn.execute("UPDATE products SET price_cents=2999 WHERE id='nativity' AND price_cents != 2999")
     conn.execute("UPDATE wip_updates SET text=REPLACE(text,'$23.99','$29.99') "
                  "WHERE project_id='nativity-lamps'")
     conn.execute("UPDATE wip_updates SET text_fr=REPLACE(text_fr,'23,99 $','29,99 $') "
