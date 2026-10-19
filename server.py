@@ -673,14 +673,15 @@ def seed():
              "Mini statues at $24.99 and $39.99.",
              "Mini-bustes d\u00e9taill\u00e9s de saint Fr\u00e8re Andr\u00e9 et Carlo Acutis, pr\u00e9sent\u00e9s sur le pi\u00e9destal. "
              "Mini-statues \u00e0 24,99 $ et 39,99 $."))
-    # 2026-10-18: stone-finish statue WIP project (museum delivery) from Antonio's progress photos.
+    # 2026-10-18: large-format 3D-printed statue WIP project (museum delivery) from Antonio's progress photos.
+    # 2026-10-19: Antonio corrected the naming — not stone, 3D printed and heavy like stone.
     # Idempotent.
     if not conn.execute("SELECT id FROM wip_projects WHERE id='stone-statues'").fetchone():
         conn.execute(
             "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) "
             "VALUES (?,?,?,?,?,?,?,?)",
-            ("stone-statues", "Stone statues \u2014 Fr\u00e8re Andr\u00e9 & Carlo Acutis",
-             "Statues de pierre \u2014 Fr\u00e8re Andr\u00e9 et Carlo Acutis",
+            ("stone-statues", "Large-format 3D-printed statues \u2014 Fr\u00e8re Andr\u00e9 & Carlo Acutis",
+             "Statues 3D grand format \u2014 Fr\u00e8re Andr\u00e9 et Carlo Acutis",
              "In finishing", "En finition",
              "/img/work/statue-frere-andre-grande-studio.jpg", 2, now_iso()))
         for _uid, _txt, _txt_fr in (
@@ -690,17 +691,28 @@ def seed():
              "Grand buste du Fr\u00e8re Andr\u00e9 imprim\u00e9 sur la Bambu H2D, supports retir\u00e9s, pon\u00e7age lisse \u2014 "
              "aucune ligne de couche visible."),
             ("ss2",
-             "Primer on, then gloss white paint and a non-yellowing clear coat for the real stone look.",
-             "Appr\u00eat appliqu\u00e9, puis peinture blanc brillant et vernis transparent anti-jaunissement "
-             "pour un vrai aspect pierre."),
+             "Primer on, then gloss white paint and a non-yellowing clear coat. 3D printed, heavy like stone.",
+             "Appr\u00eat appliqu\u00e9, puis peinture blanc brillant et vernis transparent anti-jaunissement. "
+             "Imprim\u00e9 en 3D, lourd comme la pierre."),
             ("ss3",
              "Fitted on a solid wood base with the engraved name plate. The Oratory nativity scenes are "
-             "now on the boutique shelf at $23.99.",
+             "now on the boutique shelf at $29.99.",
              "Mont\u00e9 sur un socle en bois massif avec plaque grav\u00e9e. Les cr\u00e8ches de l'Oratoire sont "
-             "maintenant en boutique \u00e0 23,99 $.")):
+             "maintenant en boutique \u00e0 29,99 $.")):
             conn.execute(
                 "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
                 (_uid, "stone-statues", now_iso(), _txt, _txt_fr))
+    # 2026-10-19: Antonio corrected the naming on live DBs — not stone, 3D printed
+    # and heavy like stone. Also fixes the leftover $23.99 in ss3. Idempotent.
+    conn.execute("UPDATE wip_projects SET project='Large-format 3D-printed statues \u2014 Fr\u00e8re Andr\u00e9 & Carlo Acutis', "
+                 "project_fr='Statues 3D grand format \u2014 Fr\u00e8re Andr\u00e9 et Carlo Acutis' "
+                 "WHERE id='stone-statues'")
+    conn.execute("UPDATE wip_updates SET text='Primer on, then gloss white paint and a non-yellowing clear coat. "
+                 "3D printed, heavy like stone.' WHERE id='ss2'")
+    conn.execute("UPDATE wip_updates SET text_fr='Appr\u00eat appliqu\u00e9, puis peinture blanc brillant et vernis "
+                 "transparent anti-jaunissement. Imprim\u00e9 en 3D, lourd comme la pierre.' WHERE id='ss2'")
+    conn.execute("UPDATE wip_updates SET text=REPLACE(text,'$23.99','$29.99'), "
+                 "text_fr=REPLACE(text_fr,'23,99 $','29,99 $') WHERE id='ss3'")
     # 2026-10-18: nativity lamp WIP project (Oratory boutique) from Antonio's photos. Idempotent.
     if not conn.execute("SELECT id FROM wip_projects WHERE id='nativity-lamps'").fetchone():
         conn.execute(
@@ -787,9 +799,9 @@ def seed():
     # 2026-10-18: mini saint busts, two sizes (Antonio: $24.99 small, $39.99 large).
     for _pid, _name, _name_fr, _cents, _photo in (
             ("mini-bust-small", "Mini Saint Bust \u2014 Small", "Mini-buste de saint \u2014 Petit",
-             2499, "/img/work/mini-bust-1.jpg"),
+             2499, "/img/products/mini-bust-single-carlo.jpg"),
             ("mini-bust-large", "Mini Saint Bust \u2014 Large", "Mini-buste de saint \u2014 Grand",
-             3999, "/img/products/mini-bust-k1.jpg")):
+             3999, "/img/products/mini-bust-single-carlo.jpg")):
         if not conn.execute("SELECT id FROM products WHERE id=?", (_pid,)).fetchone():
             conn.execute(
                 "INSERT INTO products (id, name, name_fr, price_cents, photo, "
@@ -818,6 +830,22 @@ def seed():
                     "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
                     "VALUES (?,?,?,?,?,?)",
                     (_phpid, _pid, _ph, _s, 0, now_iso()))
+    # 2026-10-19: single-bust lead photos go first in the gallery (the group
+    # shots were misleading). Negative sorts put them ahead of existing rows
+    # on live DBs; fresh DBs get the same order. Idempotent.
+    for _pid in ("mini-bust-small", "mini-bust-large"):
+        for _s, _ph in enumerate(("/img/products/mini-bust-single-carlo.jpg",
+                                  "/img/products/mini-bust-single-andre.jpg")):
+            _phpid = f"php_{_pid}_" + _ph.split("/")[-1].replace(".", "_")
+            if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+                conn.execute(
+                    "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (_phpid, _pid, _ph, _s - 10, 0, now_iso()))
+    conn.execute("UPDATE products SET photo='/img/products/mini-bust-single-carlo.jpg' "
+                 "WHERE id='mini-bust-large' AND photo='/img/products/mini-bust-k1.jpg'")
+    conn.execute("UPDATE products SET photo='/img/products/mini-bust-single-carlo.jpg' "
+                 "WHERE id='mini-bust-small' AND photo='/img/work/mini-bust-1.jpg'")
     # pro-background hand-held photo (mug-10), 2026-10-18 (idempotent).
     _mug_photos = [f"/img/products/mug-{_i}.jpg" for _i in range(3, 11)]
     for _s, _ph in enumerate(_mug_photos):
