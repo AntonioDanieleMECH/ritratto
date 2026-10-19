@@ -1022,6 +1022,36 @@ def seed():
             ("b1", "bust", "2026-10-18T09:00:00",
              "Finished. 1 of 1. 39 cm on a dark stained wood base with a brass Fr. Andre name plate. Listed in the shop.",
              "Terminé. Pièce unique. 39 cm sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. En vente dans la boutique."))
+    # 2026-10-19 (Antonio): "The Universal Gift Card" novelty cash holder at $5,
+    # with his professional Etsy photos. Idempotent.
+    if not conn.execute("SELECT id FROM products WHERE id='universal-gift-card'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("universal-gift-card", "The Universal Gift Card", "La carte-cadeau universelle",
+             500, "/img/products/universal-gift-card-1.jpg",
+             "The joke: cash works almost everywhere, so this 3D-printed holder turns "
+             "cash into a universal gift card. Holds Canadian or US currency, with a "
+             "display window showing the amount. Hand crafted from plant-based bioplastic.",
+             "La blague : l'argent comptant fonctionne presque partout, alors cet "
+             "étui imprimé en 3D transforme l'argent en carte-cadeau universelle. "
+             "Pour billets canadiens ou américains, avec une fenêtre affichant le montant. "
+             "Fait à la main en bioplastique d'origine végétale.",
+             "Stop giving gift cards nobody wants. Cash is the only truly universal "
+             "gift card — this holder just makes it official.",
+             "Arrêtez d'offrir des cartes-cadeaux dont personne ne veut. L'argent comptant "
+             "est la seule vraie carte-cadeau universelle — cet étui le rend officiel.",
+             json.dumps(["gag"]), None, 0, "", 0, 1, "", 1, 11, now_iso()))
+    _ugc_photos = [f"/img/products/universal-gift-card-{_i}.jpg" for _i in range(1, 8)]
+    for _s, _ph in enumerate(_ugc_photos):
+        _phpid = "php_ugc_" + _ph.split("/")[-1].replace(".", "_")
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "universal-gift-card", _ph, _s, 0, now_iso()))
     conn.commit()
     conn.close()
 
