@@ -4,4 +4,4 @@ Disallow: /api/
 Disallow: /admin/
 Disallow: /lamp_uploads/
 
-Sitemap: https://ritratto.onrender.com/sitemap.xml
+Sitemap: https://adncreations.ca/sitemap.xml

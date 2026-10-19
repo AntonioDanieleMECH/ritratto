@@ -20,8 +20,9 @@
     if (!el) return;
     fetch("/api/wip").then(function (r) { return r.json(); }).then(function (j) {
       var ps = (j.projects || []).filter(function (p) { return p.photo; }).slice(0, 3);
-      if (!ps.length) { el.style.display = "none"; return; }
-      el.style.display = "";
+      var sec = el.closest("section");
+      if (!ps.length) { if (sec) sec.style.display = "none"; else el.style.display = "none"; return; }
+      if (sec) sec.style.display = ""; el.style.display = "";
       el.innerHTML = ps.map(function (p) {
         var name = loc(p, "project");
         return '<a class="card" href="/progress.html" style="text-decoration:none;color:inherit">' +

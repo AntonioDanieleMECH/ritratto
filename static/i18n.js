@@ -16,6 +16,7 @@
       "footer.tag": "Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.",
       "footer.explore": "Explorer", "footer.contact": "Contact",
       "footer.rights": "Tous droits réservés.", "footer.made": "Conçu et fabriqué à Montréal.",
+      "footer.privacy": "Confidentialité", "footer.terms": "Conditions d'utilisation",
       "footer.office": "Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)",
 
       "home.kicker": "Entreprise de design en ingénierie, Montréal",
@@ -129,6 +130,8 @@
       "about.s1_n": "11", "about.s1_l": "Années d'impression 3D",
       "about.s2_n": "1", "about.s2_l": "Atelier à Montréal",
       "about.s3_n": "PLA", "about.s3_l": "Matériaux d'origine végétale",
+      "about.photo_alt": "Buste de saint Frère André en finition à l'atelier",
+      "about.photo_cap": "Buste de saint Frère André, 32 cm, en finition à l'atelier de LaSalle.",
       "about.work_btn": "Voir les réalisations", "about.shop_btn": "Voir la boutique",
 
       "contact.kicker": "Contact", "contact.h1": "Parlez à l'atelier.",
@@ -136,6 +139,8 @@
       "contact.office_h": "Bureau du centre-ville",
       "contact.addr1": "204, rue du Saint-Sacrement, bureau 300",
       "contact.addr2": "H2Y 1W8 Montréal (QC)",
+      "contact.response": "Nous répondons en général en 24 heures ouvrables.",
+      "contact.workshop": "Atelier de fabrication : LaSalle, Montréal.",
 
       "thanks.loading": "Chargement de votre commande...",
       "thanks.notfound": "Nous n'avons pas trouvé cette commande. Vérifiez votre lien de confirmation.",
@@ -183,7 +188,8 @@
       "terms.p2": "Chaque pièce est fabriquée sur commande ou finie à la main, alors de petites variations font partie du travail. Si votre commande arrive endommagée ou incorrecte, contactez-nous dans les 14 jours et nous corrigerons la situation.",
       "terms.p3": "Les précommandes sont facturées à la caisse. La date d'expédition prévue indiquée sur la page du produit est notre meilleure estimation; nous vous écrirons par courriel si elle change.",
       "terms.p4": "Les articles gravés sur mesure sont vente finale, sauf s'ils arrivent endommagés ou ne correspondent pas au texte approuvé.",
-      "terms.p5": "L'expédition est à taux fixe partout au Canada et aux États-Unis, calculée à la caisse.",
+      "terms.p7": "Retours : si une pièce standard ne vous convient pas, contactez-nous dans les 14 jours suivant la réception pour un retour ou un échange. L'article doit être inutilisé et dans son emballage d'origine; les frais de retour sont à votre charge, sauf si l'erreur vient de nous.",
+      "terms.p5": "L'expédition est à taux fixe de 10 $ partout au Canada et aux États-Unis.",
       "terms.p6": "Contact :",
 
       "sg.kicker": "Vos idées", "sg.h1": "Suggérez un projet.",
@@ -216,6 +222,7 @@
       "footer.tag": "Engineering design company. Hand crafted additive manufacturing in Montreal, from plant-based materials.",
       "footer.explore": "Explore", "footer.contact": "Contact",
       "footer.rights": "All rights reserved.", "footer.made": "Designed and built in Montreal.",
+      "footer.privacy": "Privacy", "footer.terms": "Terms of use",
       "footer.office": "Downtown office: 204 rue du Saint-Sacrement, Espace 300, H2Y 1W8 Montréal QC",
 
       "home.kicker": "Engineering design company, Montreal",
@@ -329,6 +336,8 @@
       "about.s1_n": "11", "about.s1_l": "Years of 3D printing",
       "about.s2_n": "1", "about.s2_l": "Workshop in Montreal",
       "about.s3_n": "PLA", "about.s3_l": "Plant-based materials",
+      "about.photo_alt": "Saint Frère André bust being finished in the workshop",
+      "about.photo_cap": "Saint Frère André bust, 32 cm, being finished in the LaSalle workshop.",
       "about.work_btn": "See the work", "about.shop_btn": "Shop the collection",
 
       "contact.kicker": "Contact", "contact.h1": "Talk to the workshop.",
@@ -336,6 +345,8 @@
       "contact.office_h": "Downtown office",
       "contact.addr1": "204 rue du Saint-Sacrement, Espace 300",
       "contact.addr2": "H2Y 1W8 Montréal QC",
+      "contact.response": "We usually reply within 24 business hours.",
+      "contact.workshop": "Production workshop: LaSalle, Montreal.",
 
       "thanks.loading": "Loading your order...",
       "thanks.notfound": "We could not find that order. Please check your confirmation link.",
@@ -383,7 +394,8 @@
       "terms.p2": "Each piece is made to order or finished by hand, so small variations are part of the work. If your order arrives damaged or incorrect, contact us within 14 days and we will make it right.",
       "terms.p3": "Preorders are charged at checkout. The expected ship date shown on the product page is our best estimate; we will email you if it changes.",
       "terms.p4": "Custom engraved items are final sale unless they arrive damaged or do not match the approved text.",
-      "terms.p5": "Shipping is flat rate across Canada and the United States, calculated at checkout.",
+      "terms.p7": "Returns: if a standard piece isn't right for you, contact us within 14 days of delivery for a return or exchange. The item must be unused and in its original packaging; return shipping is at your cost unless the mistake is ours.",
+      "terms.p5": "Shipping is a flat $10 across Canada and the United States.",
       "terms.p6": "Contact:",
 
       "sg.kicker": "Your ideas", "sg.h1": "Suggest a project.",

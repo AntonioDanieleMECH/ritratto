@@ -114,6 +114,9 @@ p { margin: 0 0 1em; }
   display: none;
   background: none; border: 1px solid var(--line);
   border-radius: 10px; padding: 9px 12px;
+  font-size: 1.1rem; cursor: pointer; color: var(--ink);
+  min-width: 48px; min-height: 48px;
+}
 
 /* ---------- language toggle ---------- */
 .lang-toggle {
@@ -131,9 +134,6 @@ p { margin: 0 0 1em; }
   min-height: 44px;
 }
 .lang-toggle button.on { background: var(--dark); color: #fff; }
-  font-size: 1.1rem; cursor: pointer; color: var(--ink);
-  min-width: 48px; min-height: 48px;
-}
 
 /* ---------- hero ---------- */
 .hero { padding: 72px 0 56px; }

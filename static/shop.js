@@ -109,7 +109,8 @@
 
   function render() {
     var dept = currentDept();
-    var buyable = cache.filter(function (p) { return !p.in_works; });
+    var buyable = cache.filter(function (p) { return !p.in_works && (p.price_cents || 0) > 0; });
+    var hidden = cache.filter(function (p) { return (p.price_cents || 0) <= 0; });
     var soon = cache.filter(function (p) { return p.in_works; });
     if (!buyable.length) {
       notice(grid, "", T("js.empty"));
@@ -136,6 +137,11 @@
       render();
     } catch (e) {
       notice(grid, "err", T("js.load_err"));
+      var rb = document.createElement("button");
+      rb.className = "btn btn-outline"; rb.style.marginTop = "12px";
+      rb.textContent = lang() === "fr" ? "Réessayer" : "Retry";
+      rb.addEventListener("click", load);
+      grid.appendChild(rb);
     }
   }
 

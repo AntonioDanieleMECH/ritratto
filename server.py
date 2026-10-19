@@ -115,9 +115,10 @@ STR = {
         "footer_explore": "Explorer", "footer_contact": "Contact",
         "footer_rights": "Tous droits réservés.",
         "footer_made": "Conçu et fabriqué à Montréal.",
+        "footer_privacy": "Confidentialité", "footer_terms": "Conditions d'utilisation",
         "qty": "Quantité", "buy_now": "Acheter", "preorder_now": "Précommander",
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
-        "secure_checkout": "Paiement sécurisé avec Stripe. Frais d'expédition fixes pour le Canada et les États-Unis, calculés à la caisse.",
+        "secure_checkout": "Paiement sécurisé avec Stripe. Expédition à taux fixe de 10 $ (Canada et États-Unis).",
         "engraving_label": "Texte à graver (facultatif)",
         "engraving_ph": "p. ex. Aku, depuis 2026",
         "design_title": "Choisissez votre motif",
@@ -181,9 +182,10 @@ STR = {
         "footer_explore": "Explore", "footer_contact": "Contact",
         "footer_rights": "All rights reserved.",
         "footer_made": "Designed and built in Montreal.",
+        "footer_privacy": "Privacy", "footer_terms": "Terms of use",
         "qty": "Quantity", "buy_now": "Buy now", "preorder_now": "Preorder now",
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
-        "secure_checkout": "Secure checkout with Stripe. Flat-rate shipping for Canada and the US calculated at checkout.",
+        "secure_checkout": "Secure checkout with Stripe. Flat-rate $10 shipping (Canada and the US).",
         "engraving_label": "Custom engraving text (optional)",
         "engraving_ph": "e.g. Aku, Est. 2026",
         "design_title": "Choose your design",
@@ -1024,6 +1026,22 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
               '<meta name="twitter:card" content="summary_large_image">')
     canonical = CANONICAL_URL + request.path
     office = OFFICE_FR if lang == "fr" else OFFICE_EN
+    org_json = ('<script type="application/ld+json">' + json.dumps({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "ADN Creations",
+        "url": CANONICAL_URL,
+        "email": SUPPORT_EMAIL,
+        "identifier": "NEQ 2281797763",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "204, rue du Saint-Sacrement, bureau 300",
+            "addressLocality": "Montréal",
+            "addressRegion": "QC",
+            "postalCode": "H2Y 1W8",
+            "addressCountry": "CA",
+        },
+    }) + "</script>")
     html = f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
@@ -1036,12 +1054,15 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="stylesheet" href="/style.css">
 <link rel="canonical" href="{canonical}">
+<link rel="alternate" hreflang="fr" href="{canonical}">
+<link rel="alternate" hreflang="x-default" href="{canonical}">
+{org_json}
 {og}
 </head>
 <body>
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
-<nav class="nav-links" id="navLinks">{nav}<a href="/shop.html" class="nav-cta">{s["nav_cta"]}</a></nav>
+<nav class="nav-links" id="navLinks">{nav}</nav>
 <div class="lang-toggle" role="group" aria-label="Language / Langue">
 <a href="?lang=fr" class="{"on" if lang == "fr" else ""}">FR</a><a href="?lang=en" class="{"on" if lang == "en" else ""}">EN</a>
 </div>
@@ -1059,6 +1080,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 <li><a href="/work.html">{s["nav_work"]}</a></li><li><a href="/shop.html">{s["nav_shop"]}</a></li>
 <li><a href="/engraving.html">{s["nav_engraving"]}</a></li><li><a href="/portraits.html">{s["nav_portraits"]}</a></li>
 <li><a href="/progress.html">{s["nav_progress"]}</a></li><li><a href="/suggest.html">{s["nav_suggest"]}</a></li><li><a href="/about.html">{s["nav_about"]}</a></li>
+<li><a href="/reviews.html">{s["nav_reviews"]}</a></li>
 <li><a href="/contact.html">{s["nav_contact"]}</a></li>
 </ul></div>
 <div><h4>{s["footer_contact"]}</h4><ul class="footer-links">
@@ -1066,7 +1088,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 <li>{office}</li><li>NEQ 2281797763</li>
 </ul></div>
 </div>
-<div class="footer-bottom"><span>&copy; 2026 ADN Creations. {s["footer_rights"]}</span><span>{s["footer_made"]}</span></div>
+<div class="footer-bottom"><span>&copy; 2026 ADN Creations. {s["footer_rights"]}</span><span><a href="/privacy.html">{s["footer_privacy"]}</a> &middot; <a href="/terms.html">{s["footer_terms"]}</a></span><span>{s["footer_made"]}</span></div>
 </div></footer>
 <script>document.getElementById('navToggle').addEventListener('click',function(){{document.getElementById('navLinks').classList.toggle('open')}});</script>
 </body>
@@ -1272,7 +1294,7 @@ def product_page(pid):
             + ('<span class="gal-vidbadge">&#9654;</span>' if it["kind"] == "video" else "")
             + ('<video src="' + h(it["src"]) + '" muted preload="metadata" playsinline></video>'
                if it["kind"] == "video"
-               else '<img src="' + h(it["src"]) + '" alt="' + h(name) + '" loading="lazy">')
+               else '<img src="' + h(it["src"]) + '" alt="' + h(name + (" — photo %d" % (i + 1) if i else "")) + '" loading="lazy">')
             + "</button>"
             for i, it in enumerate(items))
         scale_cap = ""
@@ -1376,6 +1398,7 @@ def product_page(pid):
     tier_note = ""
     if p["additional_price_cents"]:
         tier_note = (f'<p class="small muted">{t(lang, "tier_note").format(first=money(p["price_cents"]), extra=money(p["additional_price_cents"]))}</p>')
+    qty_max = 10 if p["stock"] is None else max(1, min(10, p["stock"]))
 
     buy_html = ""
     if p["in_works"]:
@@ -1454,7 +1477,7 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     return t;
   }}
   function refresh(){{
-    var q = Math.max(1, Math.min(10, parseInt(qtyEl.value, 10) || 1));
+    var q = Math.max(1, Math.min(parseInt(qtyEl.max, 10) || 10, parseInt(qtyEl.value, 10) || 1));
     var t = money(total(q));
     btn.innerHTML = baseLabel + ' &middot; ' + t;
     if (priceEl) priceEl.textContent = t;
@@ -1510,7 +1533,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {tier_note}
 {preorder_note}
 <div class="field"><label for="qty">{t(lang, "qty")}</label>
-<input type="number" id="qty" value="1" min="1" max="10"></div>
+<input type="number" id="qty" value="1" min="1" max="{qty_max}"></div>
 <div class="field"><label for="coupon">{t(lang, "coupon_label")}</label>
 <input type="text" id="coupon" maxlength="32" placeholder="{h(t(lang, "coupon_ph"))}" style="text-transform:uppercase">
 <div id="couponMsg" class="small" style="margin-top:6px"></div></div>
@@ -1525,6 +1548,36 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {reviews_section(pid, lang)}
 </div>
 {gal_js}{buy_js}{design_js}{notify_js}"""
+    # Product structured data (rich results): offers + aggregate rating when reviews exist.
+    rconn = db()
+    rrow = rconn.execute(
+        "SELECT COUNT(*), AVG(rating) FROM reviews WHERE product_id=? AND approved=1",
+        (pid,)).fetchone()
+    rconn.close()
+    _in_stock = bool(p["purchasable"]) and not p["in_works"] and (p["stock"] is None or p["stock"] > 0)
+    _pjson = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": name,
+        "description": desc[:300],
+        "image": abs_url(photos[0]["photo"] if photos else p["photo"]),
+        "brand": {"@type": "Brand", "name": "ADN Creations"},
+        "offers": {
+            "@type": "Offer",
+            "priceCurrency": "CAD",
+            "price": round(p["price_cents"] / 100, 2),
+            "availability": ("https://schema.org/InStock" if _in_stock
+                             else "https://schema.org/OutOfStock"),
+            "url": f"{CANONICAL_URL}/product/{pid}",
+        },
+    }
+    if rrow and rrow[0]:
+        _pjson["aggregateRating"] = {
+            "@type": "AggregateRating",
+            "ratingValue": round(rrow[1] or 5, 1),
+            "reviewCount": rrow[0],
+        }
+    body = '<script type="application/ld+json">' + json.dumps(_pjson) + "</script>" + body
     html = shell(name, desc[:160], body, active="shop",
                  og_image=abs_url(photos[0]["photo"] if photos else p["photo"]),
                  og_url=f"{SITE_URL}/product/{pid}", lang=lang)
