@@ -205,6 +205,31 @@
     }
   });
 
+  /* auto-detect the visitor's country for the shipping tier; manual override kept */
+  (function(){
+    var sc=document.getElementById("lampShipCountry");
+    if(!sc)return;
+    try{
+      var ctl=new AbortController();
+      var to=setTimeout(function(){ctl.abort();},4000);
+      fetch("https://ipapi.co/country/",{signal:ctl.signal}).then(function(r){return r.text();}).then(function(cc){
+        clearTimeout(to);
+        cc=(cc||"").trim().toUpperCase();
+        if(cc==="CA")sc.value="CA";
+        else if(cc==="US")sc.value="US";
+        else if(/^[A-Z]{2}$/.test(cc))sc.value="INT";
+      }).catch(function(){clearTimeout(to);});
+    }catch(e){}
+  })();
+      var data=await r.json().catch(function(){return{};});
+      if(!r.ok)throw new Error(data.error||"checkout failed");
+      window.location.href=data.url;
+    }catch(err){
+      show(noticeEl,T("lamp.start_err"),true);
+      btn.disabled=false;
+    }
+  });
+
   fetch("/api/gallery").then(function(r){return r.json();}).then(function(j){
     state.gallery=j.gallery||[];
     renderGallery();

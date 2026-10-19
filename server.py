@@ -1052,6 +1052,22 @@ def seed():
                 "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
                 "VALUES (?,?,?,?,?,?)",
                 (_phpid, "universal-gift-card", _ph, _s, 0, now_iso()))
+    # 2026-10-19: Antonio's framing — it IS the gift card, cash is the insert.
+    conn.execute(
+        "UPDATE products SET description=?, description_fr=?, story=?, story_fr=? "
+        "WHERE id='universal-gift-card'",
+        ("A 3D-printed gift card where cash is the insert. The joke: cash works almost "
+         "everywhere, making it the only truly universal gift card. Fits Canadian or US "
+         "bills, with a window showing the amount. Hand crafted from plant-based bioplastic.",
+         "Une carte-cadeau imprimée en 3D dont l'argent comptant est le contenu. La blague : "
+         "l'argent fonctionne presque partout, ce qui en fait la seule vraie carte-cadeau "
+         "universelle. Pour billets canadiens ou américains, avec une fenêtre affichant le "
+         "montant. Fait à la main en bioplastique d'origine végétale.",
+         "Stop giving gift cards nobody wants. Cash is the only truly universal gift card — "
+         "this just makes it official. Insert cash, give the card.",
+         "Arrêtez d'offrir des cartes-cadeaux dont personne ne veut. L'argent comptant est la "
+         "seule vraie carte-cadeau universelle — ceci le rend officiel. Insérez l'argent, "
+         "offrez la carte."))
     conn.commit()
     conn.close()
 
@@ -1530,6 +1546,25 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || {json.dumps(t(lang, "checkout_failed"))}) + '</div>'; btn.disabled = false; }}
   }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '</div>'; btn.disabled = false; }}
 }});
+/* auto-detect the visitor's country for the shipping tier; the dropdown
+   stays for manual override (e.g. shipping to a different country) */
+(function() {{
+  var sc = document.getElementById('shipCountry');
+  if (!sc) return;
+  try {{
+    var ctl = new AbortController();
+    var to = setTimeout(function() {{ ctl.abort(); }}, 4000);
+    fetch('https://ipapi.co/country/', {{signal: ctl.signal}}).then(function(r) {{
+      return r.text();
+    }}).then(function(cc) {{
+      clearTimeout(to);
+      cc = (cc || '').trim().toUpperCase();
+      if (cc === 'CA') sc.value = 'CA';
+      else if (cc === 'US') sc.value = 'US';
+      else if (/^[A-Z]{{2}}$/.test(cc)) sc.value = 'INT';
+    }}).catch(function() {{ clearTimeout(to); }});
+  }} catch(e) {{}}
+}})();
 (function(){{  /* live tier-price total as quantity changes */
   var qtyEl = document.getElementById('qty'), btn = document.getElementById('buyBtn'),
       priceEl = document.getElementById('priceTotal'), cpEl = document.getElementById('coupon'),
