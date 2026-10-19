@@ -79,7 +79,7 @@
 <p style="margin-top:16px"><a class="btn btn-outline" href="/progress.html" data-i18n="home.build_btn">Suivre le chantier</a></p>
 </div></section>
 
-<section class="section-sm"><div class="wrap">
+<section class="section-sm" id="homeReviewsSection"><div class="wrap">
 <h2 data-i18n="home.reviews_h">Ce que nos clients disent</h2>
 <div class="review-list" id="homeReviews"><p class="muted" data-i18n="home.reviews_loading">Chargement des avis...</p></div>
 <p style="margin-top:16px"><a class="btn btn-outline" href="/reviews.html" data-i18n="home.reviews_all">Voir tous les avis</a></p>
@@ -122,17 +122,19 @@ document.getElementById('navToggle').addEventListener('click',function(){documen
 window.adnLangChanged=function(){if(window.adnRenderTeaser)window.adnRenderTeaser();};
 (function(){
   var el=document.getElementById('homeReviews');
+  var sec=document.getElementById('homeReviewsSection');
+  function hide(){ if(sec){sec.style.display="none";} else if(el){el.style.display="none";} }
   if(!el)return;
   function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
   function stars(r){var s="";for(var i=0;i<5;i++)s+=i<r?"\u2605":"\u2606";return s;}
   fetch('/api/reviews?limit=3').then(function(r){return r.json();}).then(function(j){
     var rows=j.reviews||[];
-    if(!rows.length){el.style.display="none";return;}
+    if(!rows.length){hide();return;}
     el.innerHTML=rows.map(function(r){
       return '<div class="review"><div class="review-stars">'+stars(r.rating)+'</div><p>'+esc(r.text)+
         '</p><p class="small muted">\u2014 '+esc(r.name)+'</p></div>';
     }).join("");
-  }).catch(function(){el.style.display="none";});
+  }).catch(function(){hide();});
 })();
 </script>
 </body>
