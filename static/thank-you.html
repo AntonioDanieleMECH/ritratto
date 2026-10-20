@@ -72,6 +72,13 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){retur
     var html='<p><span class="badge badge-stock">'+esc(window.adnT("thanks.confirmed"))+'</span></p>';
     html+='<h1>'+esc(window.adnT("thanks.h1"))+'</h1>';
     html+='<p class="lede">'+esc(o.product_name)+'</p>';
+    if(o.items&&o.items.length){
+      html+='<div style="text-align:left;max-width:520px;margin:0 auto 16px"><ul style="margin:0;padding-left:18px">';
+      o.items.forEach(function(i){
+        html+='<li>'+esc(i.product_name)+' x'+i.qty+(i.options?' ('+esc(i.options)+')':'')+' &middot; '+esc(i.price)+'</li>';
+      });
+      html+='</ul></div>';
+    }
     html+='<p class="price">'+esc(o.price)+'</p>';
     if(o.preorder){
       html+='<div class="preorder-note" style="text-align:left;max-width:520px;margin:0 auto 16px">'+esc(window.adnFmt(window.adnT("thanks.preorder"),{date:o.preorder_ship_date||"soon"}))+'</div>';
@@ -83,5 +90,6 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){retur
   });
 })();
 </script>
+<script src="/cart.js"></script>
 </body>
 </html>

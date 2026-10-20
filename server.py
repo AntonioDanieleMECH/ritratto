@@ -117,6 +117,7 @@ STR = {
         "footer_made": "Conçu et fabriqué à Montréal.",
         "footer_privacy": "Confidentialité", "footer_terms": "Conditions d'utilisation",
         "qty": "Quantité", "buy_now": "Acheter", "preorder_now": "Précommander",
+        "add_to_cart": "Ajouter au panier",
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
         "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. Livraison : 1 à 2 semaines. L'adresse de livraison est demandée au paiement.",
         "ship_country": "Pays de livraison",
@@ -189,6 +190,7 @@ STR = {
         "footer_made": "Designed and built in Montreal.",
         "footer_privacy": "Privacy", "footer_terms": "Terms of use",
         "qty": "Quantity", "buy_now": "Buy now", "preorder_now": "Preorder now",
+        "add_to_cart": "Add to cart",
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
         "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Delivery: 1-2 weeks. Shipping address collected at checkout.",
         "ship_country": "Shipping country",
@@ -321,6 +323,12 @@ def db():
         " amount_cents INTEGER, qty INTEGER DEFAULT 1, engraving_text TEXT DEFAULT '', "
         " preorder INTEGER DEFAULT 0, preorder_ship_date TEXT DEFAULT '', "
         " email TEXT DEFAULT '', paid INTEGER DEFAULT 0, stripe_session TEXT DEFAULT '')"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS order_items "
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, product_id TEXT, "
+        " product_name TEXT, qty INTEGER DEFAULT 1, amount_cents INTEGER DEFAULT 0, "
+        " options TEXT DEFAULT '')"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS announcements "
@@ -1324,6 +1332,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 </div>
 <div class="footer-bottom"><span>&copy; 2026 ADN Creations. {s["footer_rights"]}</span><span><a href="/privacy.html">{s["footer_privacy"]}</a> &middot; <a href="/terms.html">{s["footer_terms"]}</a></span><span>{s["footer_made"]}</span></div>
 </div></footer>
+<script src="/cart.js"></script>
 <script>document.getElementById('navToggle').addEventListener('click',function(){{document.getElementById('navLinks').classList.toggle('open')}});</script>
 </body>
 </html>"""
@@ -1655,6 +1664,7 @@ def product_page(pid):
         else:
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money(p["price_cents"])}</button>'
+                        f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
                         f'<p class="small muted" style="margin-top:10px">{t(lang, "secure_checkout")}</p>')
     else:
         buy_html = f'<div class="notice">{t(lang, "coming_soon")}</div>'
@@ -2079,6 +2089,166 @@ def api_checkout():
     return jsonify({"url": sess.url})
 
 
+@app.route("/api/cart-checkout", methods=["POST"])
+def api_cart_checkout():
+    """Multi-item cart checkout. Every line is re-priced server-side with the
+    exact same rules as /api/checkout (mini-bust size variants, tiered
+    memorial-lamp pricing); the client only names products and options."""
+    data = request.get_json(force=True) or {}
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    raw_items = data.get("items") or []
+    if not isinstance(raw_items, list) or not raw_items or len(raw_items) > 20:
+        return jsonify({"error": t(lang, "err_unknown_product")}), 400
+    lines = []
+    total_qty_by_pid = {}
+    for it in raw_items:
+        if not isinstance(it, dict):
+            return jsonify({"error": t(lang, "err_unknown_product")}), 400
+        pid = (it.get("product_id") or "").strip()
+        try:
+            qty = max(1, min(10, int(it.get("qty") or 1)))
+        except (TypeError, ValueError):
+            qty = 1
+        engraving = (it.get("engraving_text") or "").strip()[:200]
+        design = (it.get("design") or "").strip()[:60]
+        saint = (it.get("saint") or "").strip()[:40]
+        size = (it.get("size") or "").strip()[:20]
+        _parts = []
+        if design:
+            _parts.append(design)
+        if saint:
+            _parts.append("Saint: " + saint)
+        if size:
+            _parts.append("Size: " + size)
+        if engraving:
+            _parts.append("Text: " + engraving)
+        options = "; ".join(_parts)[:200]
+        p = get_product(pid)
+        if not p or not p["purchasable"] or p["in_works"]:
+            return jsonify({"error": t(lang, "err_unknown_product")}), 404
+        # Same pricing rules as /api/checkout.
+        if pid == "mini-bust":
+            line_amount = (2999 if size == "Large" else 1999) * qty
+        elif p["additional_price_cents"] and qty > 1:
+            packs, rest = divmod(qty, 4)
+            line_amount = packs * LAMP_PACK4
+            if rest:
+                line_amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
+        else:
+            line_amount = p["price_cents"] * qty
+        total_qty_by_pid[pid] = total_qty_by_pid.get(pid, 0) + qty
+        lines.append({"pid": pid, "qty": qty, "amount": line_amount,
+                      "options": options, "name": pick(p, lang, "name"),
+                      "product": p})
+    for pid, q in total_qty_by_pid.items():
+        p = get_product(pid)
+        if p["stock"] is not None and p["stock"] < q:
+            return jsonify({"error": t(lang, "err_stock")}), 400
+    amount = sum(l["amount"] for l in lines)
+    pct_off, coupon_code = get_coupon(data.get("coupon"))
+    if pct_off:
+        amount = amount - round(amount * pct_off / 100)
+    total_qty = sum(l["qty"] for l in lines)
+    first = lines[0]
+    if len(lines) == 1:
+        summary = first["name"]
+    elif lang == "fr":
+        summary = f"{first['name']} + {len(lines) - 1} autre(s)"
+    else:
+        summary = f"{first['name']} + {len(lines) - 1} more"
+    preorder = 1 if any(l["product"]["preorder"] for l in lines) else 0
+    ship_dates = [l["product"]["preorder_ship_date"] for l in lines
+                  if l["product"]["preorder"] and l["product"]["preorder_ship_date"]]
+    preorder_date = max(ship_dates) if ship_dates else ""
+    oid = "ord_" + uuid.uuid4().hex[:12]
+    conn = db()
+    conn.execute(
+        "INSERT INTO orders (id, created, product_id, product_name, amount_cents, qty, "
+        "engraving_text, preorder, preorder_ship_date, paid, coupon) VALUES (?,?,?,?,?,?,?,?,?,0,?)",
+        (oid, now_iso(), "cart", summary, amount, total_qty, "",
+         preorder, preorder_date, coupon_code))
+    for l in lines:
+        conn.execute(
+            "INSERT INTO order_items (order_id, product_id, product_name, qty, "
+            "amount_cents, options) VALUES (?,?,?,?,?,?)",
+            (oid, l["pid"], l["name"], l["qty"], l["amount"], l["options"]))
+    conn.commit()
+    conn.close()
+    if not STRIPE_SECRET:
+        if DEMO_MODE:
+            mark_order_paid(oid, "")
+            return jsonify({"url": f"{SITE_URL}/thank-you.html?order={oid}", "demo": True})
+        return jsonify({"error": t(lang, "err_payment")}), 503
+    import stripe
+    stripe.api_key = STRIPE_SECRET
+    ship_country = (data.get("ship_country") or "CA").strip().upper()
+    if ship_country not in ("CA", "US", "INT"):
+        ship_country = "CA"
+    # Tiered shipping: $5 Canada, $10 US, $15 worldwide.
+    ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
+    if ship_country == "CA":
+        allowed = ["CA"]
+    elif ship_country == "US":
+        allowed = ["US"]
+    else:
+        allowed = ["US", "CA", "GB", "IE", "FR", "DE", "IT", "ES", "PT", "NL",
+                   "BE", "CH", "AT", "SE", "NO", "DK", "FI", "PL", "CZ", "HU",
+                   "GR", "AU", "NZ", "JP", "KR", "MX", "BR", "AR", "CL", "CO",
+                   "IN", "SG", "MY", "TH", "PH", "ZA", "IL", "AE", "SA", "TR"]
+    ship_label = {"CA": ("Expédition Canada" if lang == "fr" else "Shipping — Canada"),
+                  "US": ("Expédition États-Unis" if lang == "fr" else "Shipping — United States"),
+                  "INT": ("Expédition internationale" if lang == "fr" else "Shipping — International")}[ship_country]
+    if pct_off:
+        label = (f"ADN Creations — {total_qty} article(s) ({coupon_code} -{pct_off}%)"
+                 if lang == "fr" else
+                 f"ADN Creations — {total_qty} item(s) ({coupon_code} -{pct_off}%)")
+        line_items = [{"price_data": {
+            "currency": "cad", "unit_amount": amount,
+            "product_data": {"name": label}}, "quantity": 1}]
+    else:
+        line_items = []
+        for l in lines:
+            nm = l["name"] + (f" x{l['qty']}" if l["qty"] > 1 else "")
+            if l["product"]["preorder"]:
+                nm = ("PRÉCOMMANDE : " if lang == "fr" else "PREORDER: ") + nm
+            if l["options"]:
+                nm += f" ({l['options'][:60]})"
+            line_items.append({"price_data": {
+                "currency": "cad", "unit_amount": l["amount"],
+                "product_data": {"name": nm}}, "quantity": 1})
+    sess = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        locale="fr" if lang == "fr" else "en",
+        line_items=line_items,
+        mode="payment",
+        shipping_address_collection={"allowed_countries": allowed},
+        shipping_options=[{"shipping_rate_data": {
+            "type": "fixed_amount",
+            "fixed_amount": {"amount": ship_cents, "currency": "cad"},
+            "display_name": ship_label}}],
+        phone_number_collection={"enabled": True},
+        success_url=f"{SITE_URL}/thank-you.html?order={oid}",
+        cancel_url=f"{SITE_URL}/shop.html?cancelled=1",
+        metadata={"order_id": oid, "kind": "shop", "ship_country": ship_country},
+    )
+    conn = db()
+    conn.execute("UPDATE orders SET stripe_session=? WHERE id=?", (sess.id, oid))
+    conn.commit()
+    conn.close()
+    return jsonify({"url": sess.url})
+
+
+def order_items_list(oid):
+    conn = db()
+    rows = conn.execute(
+        "SELECT product_id, product_name, qty, amount_cents, options "
+        "FROM order_items WHERE order_id=? ORDER BY id", (oid,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 @app.route("/api/order/<oid>")
 def api_order(oid):
     if not re.fullmatch(r"ord_[0-9a-f]{12}", oid or ""):
@@ -2132,6 +2302,10 @@ def api_order(oid):
         except Exception:
             pass
     d["price"] = money(d["amount_cents"])
+    if kind == "shop" and d.get("product_id") == "cart":
+        d["items"] = order_items_list(oid)
+        for i in d["items"]:
+            i["price"] = money(i["amount_cents"] or 0)
     return jsonify(d)
 
 
@@ -2151,11 +2325,19 @@ def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address=
         "UPDATE orders SET paid=1, email=?, customer_name=?, ship_name=?, ship_address=?, "
         "phone=? WHERE id=?",
         (email, customer_name, ship_name, ship_address, phone, oid))
-    row = conn.execute("SELECT product_id FROM orders WHERE id=?", (oid,)).fetchone()
-    if row:
-        conn.execute("UPDATE products SET stock = stock - "
-                     "(SELECT qty FROM orders WHERE id=?) "
-                     "WHERE id=? AND stock IS NOT NULL", (oid, row["product_id"]))
+    items = conn.execute(
+        "SELECT product_id, qty FROM order_items WHERE order_id=?", (oid,)).fetchall()
+    if items:
+        for it in items:
+            conn.execute("UPDATE products SET stock = stock - ? "
+                         "WHERE id=? AND stock IS NOT NULL",
+                         (it["qty"], it["product_id"]))
+    else:
+        row = conn.execute("SELECT product_id FROM orders WHERE id=?", (oid,)).fetchone()
+        if row:
+            conn.execute("UPDATE products SET stock = stock - "
+                         "(SELECT qty FROM orders WHERE id=?) "
+                         "WHERE id=? AND stock IS NOT NULL", (oid, row["product_id"]))
     conn.commit()
     conn.close()
 
@@ -2178,6 +2360,16 @@ def notify_seller_new_order(kind, oid):
     d = dict(o)
     if kind == "lamp":
         items = "Custom memorial lamp (%s)" % (d.get("pack") or "single")
+    elif d.get("product_id") == "cart":
+        cart_items = order_items_list(oid)
+        if cart_items:
+            items = "\n".join(
+                "  - %s x%s%s — %s" % (
+                    i["product_name"], i["qty"],
+                    (" (" + i["options"] + ")") if i["options"] else "",
+                    money(i["amount_cents"] or 0)) for i in cart_items)
+        else:
+            items = "%s x%s" % (d.get("product_name") or "cart", d.get("qty") or 1)
     else:
         items = "%s x%s" % (d.get("product_name") or d.get("product_id"), d.get("qty") or 1)
         if d.get("engraving_text"):
@@ -3153,7 +3345,11 @@ def admin_orders():
     rows = conn.execute("SELECT * FROM orders ORDER BY created DESC LIMIT 200").fetchall()
     lamps = conn.execute("SELECT * FROM lamp_orders ORDER BY created DESC LIMIT 200").fetchall()
     conn.close()
-    return jsonify({"orders": [dict(r) for r in rows],
+    orders = [dict(r) for r in rows]
+    for o in orders:
+        if o.get("product_id") == "cart":
+            o["items"] = order_items_list(o["id"])
+    return jsonify({"orders": orders,
                     "lamp_orders": [dict(r) for r in lamps]})
 
 

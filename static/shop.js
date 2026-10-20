@@ -80,6 +80,19 @@
     if (p.in_works) {
       links += ' <a class="btn btn-sm btn-outline" href="/progress.html">' + esc(T("home.build_btn")) + "</a>";
     }
+    /* Quick add to cart (cart.js handles the click). Variant products
+       (lighter designs, bust size/saint) add from their product page. */
+    var VARIANT_PIDS = { "custom-lighter": 1, "mini-bust": 1 };
+    if (p.purchasable && !p.in_works && !VARIANT_PIDS[p.id] && !(p.stock != null && p.stock <= 0)) {
+      var cimg = "";
+      var ph0 = (p.photos && p.photos.length) ? p.photos[0] : null;
+      if (ph0 && (ph0.kind || "photo") !== "video") cimg = ph0.photo;
+      else if (p.photo) cimg = p.photo;
+      links += ' <button type="button" class="btn btn-sm btn-brass" data-addcart data-pid="' + esc(p.id) +
+        '" data-name="' + esc(name) + '" data-img="' + esc(cimg) +
+        '" data-price="' + (p.price_cents || 0) + '" data-add="' + (p.additional_price_cents || 0) + '">' +
+        esc(T("js.add")) + "</button>";
+    }
     var foot = '<div class="card-foot"><span class="price">' + esc(p.price) +
       '</span><span style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">' + links + "</span></div>";
 

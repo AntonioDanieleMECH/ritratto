@@ -513,6 +513,13 @@
     var items;
     if (kind === "lamp") {
       items = "Custom memorial lamp (" + (o.pack === "pack4" ? "4-pack" : "single") + ")";
+    } else if (o.items && o.items.length) {
+      items = o.items.map(function (i) {
+        var s = (i.product_name || i.product_id) + " x" + i.qty;
+        if (i.options) s += " (" + i.options + ")";
+        return s;
+      }).join(" · ");
+      if (o.preorder) items += " (preorder" + (o.preorder_ship_date ? ": " + o.preorder_ship_date : "") + ")";
     } else {
       items = (o.product_name || o.product_id || "-") + " x" + (o.qty == null ? 1 : o.qty);
       if (o.engraving_text) items += ', engraved "' + o.engraving_text + '"';

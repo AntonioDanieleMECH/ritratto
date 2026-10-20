@@ -92,7 +92,7 @@
       "js.loading": "Chargement de la collection...",
       "js.empty": "Rien dans ce rayon pour le moment. Revenez bientôt.",
       "js.load_err": "Désolé, la boutique n'a pas pu être chargée. Veuillez actualiser la page et réessayer.",
-      "js.view": "Voir", "js.design": "Créez le vôtre",
+      "js.view": "Voir", "js.design": "Créez le vôtre", "js.add": "Ajouter",
       "js.preorder": "Précommande", "js.only_left": "Plus que {n} en stock",
       "js.coming_soon": "Bientôt disponible", "js.in_works": "En préparation",
 
@@ -343,7 +343,7 @@
       "js.loading": "Loading the collection...",
       "js.empty": "Nothing in this department yet. Check back soon.",
       "js.load_err": "Sorry, the shop could not be loaded. Please refresh the page and try again.",
-      "js.view": "View", "js.design": "Design yours",
+      "js.view": "View", "js.design": "Design yours", "js.add": "Add",
       "js.preorder": "Preorder", "js.only_left": "Only {n} left",
       "js.coming_soon": "Coming soon", "js.in_works": "In the works",
 
