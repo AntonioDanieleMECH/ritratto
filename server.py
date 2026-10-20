@@ -129,6 +129,7 @@ STR = {
         "design_gallery": "Choisir parmi nos 12 motifs",
         "design_upload": "Téléverser mon propre dessin",
         "saint_title": "Choisissez votre saint",
+        "size_title": "Grandeur",
         "preorder_note": "Ceci est une précommande. Expédition prévue : {date}. Vous serez facturé aujourd'hui.",
         "design_yours": "Créez le vôtre",
         "photo_soon": "Photo à venir",
@@ -200,6 +201,7 @@ STR = {
         "design_gallery": "Pick from our 12 designs",
         "design_upload": "Upload my own artwork",
         "saint_title": "Choose your saint",
+        "size_title": "Size",
         "preorder_note": "This is a preorder. Expected to ship {date}. You will be charged today.",
         "design_yours": "Design yours",
         "photo_soon": "Photo coming soon",
@@ -1095,6 +1097,59 @@ def seed():
          "Arrêtez d'offrir des cartes-cadeaux dont personne ne veut. L'argent comptant est la "
          "seule vraie carte-cadeau universelle — ceci le rend officiel. Insérez l'argent, "
          "offrez la carte."))
+    # Universal Gift Card: ONE listing at $4.99 with the new black-design
+    # photos (Antonio 2026-10-20). The old Gift-Card Case listing is the
+    # same product, so it is retired. Canadian and US money both fit.
+    conn.execute("UPDATE products SET price_cents=499, "
+                 "photo='/img/products/universal-gift-card-b1.jpg' "
+                 "WHERE id='universal-gift-card'")
+    if not conn.execute("SELECT 1 FROM product_photos WHERE id='php_ugc_b1'").fetchone():
+        conn.execute("DELETE FROM product_photos WHERE product_id='universal-gift-card'")
+        for _i in range(1, 8):
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, is_scale, kind, sort) "
+                "VALUES (?,?,?,0,'photo',?)",
+                (f"php_ugc_b{_i}", "universal-gift-card",
+                 f"/img/products/universal-gift-card-b{_i}.jpg", _i - 1))
+    conn.execute("UPDATE products SET active=0 WHERE id='giftcard-case'")
+    # Mini saint busts merged into ONE listing (Antonio 2026-10-20): size +
+    # saint dropdowns, retail = MSRP + $5 (Small $19.99 / Large $29.99).
+    # Heights: Small Carlo 8.5 cm / Andre 9.25 cm; Large Carlo 10 cm /
+    # Andre 10.5 cm. Matte white plant-based plastic (same as the lamps),
+    # protective black felt under the base.
+    if not conn.execute("SELECT 1 FROM products WHERE id='mini-bust'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, description, "
+            "description_fr, story, story_fr, depts, stock, preorder, preorder_ship_date, "
+            "engravable, purchasable, custom_link, active, sort, created) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("mini-bust", "Mini Saint Bust", "Mini buste de saint", 1999,
+             "/img/products/mini-bust-pro-1.jpg",
+             "A detailed mini bust of Saint Carlo Acutis or Saint Fr\u00e8re Andr\u00e9, in matte "
+             "white plant-based plastic, the same material as our prayer lamps. Hand crafted and "
+             "hand finished in Montreal, with a protective black felt under the base. "
+             "Two sizes: Small (Carlo Acutis 8.5 cm, Fr\u00e8re Andr\u00e9 9.25 cm) or Large "
+             "(Carlo Acutis 10 cm, Fr\u00e8re Andr\u00e9 10.5 cm). Pick your size and your saint above.",
+             "Un mini buste d\u00e9taill\u00e9 de saint Carlo Acutis ou de saint Fr\u00e8re Andr\u00e9, "
+             "en plastique v\u00e9g\u00e9tal blanc mat, le m\u00eame mat\u00e9riau que nos lampes de "
+             "pri\u00e8re. Fabriqu\u00e9 et fini \u00e0 la main \u00e0 Montr\u00e9al, avec un feutre noir "
+             "protecteur sous la base. Deux grandeurs : Petit (Carlo Acutis 8,5 cm, Fr\u00e8re "
+             "Andr\u00e9 9,25 cm) ou Grand (Carlo Acutis 10 cm, Fr\u00e8re Andr\u00e9 10,5 cm). "
+             "Choisissez la grandeur et le saint ci-dessus.",
+             "", "", "[\"religious\"]", None, 0, "", 0, 1, "", 1, 15, now_iso()))
+    for _ph, _srt in (("/img/products/mini-bust-pro-1.jpg", 0),
+                      ("/img/products/mini-bust-pro-3.jpg", 1),
+                      ("/img/products/mini-bust-pro-2.jpg", 2),
+                      ("/img/products/mini-bust-single-carlo.jpg", 3),
+                      ("/img/products/mini-bust-single-andre.jpg", 4)):
+        conn.execute(
+            "INSERT INTO product_photos (id, product_id, photo, is_scale, kind, sort) "
+            "SELECT ?, 'mini-bust', ?, 0, 'photo', ? WHERE NOT EXISTS "
+            "(SELECT 1 FROM product_photos WHERE product_id='mini-bust' AND photo=?)",
+            ("php_mb_" + _ph.split("/")[-1].replace(".jpg", "").replace("-", "_"),
+             _ph, _srt, _ph))
+    conn.execute("UPDATE products SET active=0 "
+                 "WHERE id IN ('mini-bust-small','mini-bust-large')")
     conn.commit()
     conn.close()
 
@@ -1472,8 +1527,16 @@ def product_page(pid):
             f'<input type="file" id="designFile" accept="image/*">'
             f'<input type="hidden" id="designUploadId" value="">'
             f'<span id="designUploadMsg" class="small muted"></span></div></div>')
-    elif p["id"] in ("mini-bust-small", "mini-bust-large"):
+    elif p["id"] == "mini-bust":
+        if lang == "fr":
+            _sz_opts = ('<option value="Small" data-price="1999">Petit \u2014 19,99 $ \u00b7 Carlo 8,5 cm / Fr\u00e8re Andr\u00e9 9,25 cm</option>'
+                        '<option value="Large" data-price="2999">Grand \u2014 29,99 $ \u00b7 Carlo 10 cm / Fr\u00e8re Andr\u00e9 10,5 cm</option>')
+        else:
+            _sz_opts = ('<option value="Small" data-price="1999">Small \u2014 $19.99 \u00b7 Carlo 8.5 cm / Fr\u00e8re Andr\u00e9 9.25 cm</option>'
+                        '<option value="Large" data-price="2999">Large \u2014 $29.99 \u00b7 Carlo 10 cm / Fr\u00e8re Andr\u00e9 10.5 cm</option>')
         option_field = (
+            f'<div class="field"><label for="sizeSelect">{t(lang, "size_title")}</label>'
+            f'<select id="sizeSelect">{_sz_opts}</select></div>'
             f'<div class="field"><label for="saintSelect">{t(lang, "saint_title")}</label>'
             f'<select id="saintSelect"><option value="Saint Fr\u00e8re Andr\u00e9">Saint Fr\u00e8re Andr\u00e9</option>'
             f'<option value="Carlo Acutis">Carlo Acutis</option></select></div>')
@@ -1562,6 +1625,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   }}
   var ss = document.getElementById('saintSelect');
   if (ss) payload.saint = ss.value;
+  var sz2 = document.getElementById('sizeSelect');
+  if (sz2) payload.size = sz2.value;
   var cp = document.getElementById('coupon');
   if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
   var sc = document.getElementById('shipCountry');
@@ -1602,6 +1667,11 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   var pctOff = 0;
   var okTpl = {json.dumps(t(lang, "coupon_ok"))}, badTxt = {json.dumps(t(lang, "coupon_bad"))};
   function money(c){{ return "$" + (c/100).toFixed(2); }}
+  function unitCents(){{
+    var s = document.getElementById('sizeSelect');
+    if (s) {{ var dp = s.options[s.selectedIndex].getAttribute('data-price'); if (dp) return parseInt(dp, 10); }}
+    return priceCents;
+  }}
   function total(q){{
     var t;
     if (addCents && q > 1) {{
@@ -1609,7 +1679,7 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
       t = packs * 9999;
       if (rest) t += priceCents + (rest-1) * addCents;
     }} else {{
-      t = priceCents * q;
+      t = unitCents() * q;
     }}
     if (pctOff) t = t - Math.round(t * pctOff / 100);
     return t;
@@ -1622,6 +1692,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   }}
   qtyEl.addEventListener('input', refresh);
   qtyEl.addEventListener('change', refresh);
+  var szEl = document.getElementById('sizeSelect');
+  if (szEl) szEl.addEventListener('change', refresh);
   var cpTimer = null;
   function checkCoupon(){{
     var code = cpEl.value.trim().toUpperCase();
@@ -1847,11 +1919,14 @@ def api_checkout():
     engraving = (data.get("engraving_text") or "").strip()[:200]
     design = (data.get("design") or "").strip()[:60]
     saint = (data.get("saint") or "").strip()[:40]
+    size = (data.get("size") or "").strip()[:20]
     _parts = []
     if design:
         _parts.append(design)
     if saint:
         _parts.append("Saint: " + saint)
+    if size:
+        _parts.append("Size: " + size)
     if engraving:
         _parts.append("Text: " + engraving)
     if _parts:
@@ -1861,9 +1936,12 @@ def api_checkout():
         return jsonify({"error": t(lang, "err_unknown_product")}), 404
     if p["stock"] is not None and p["stock"] < qty:
         return jsonify({"error": t(lang, "err_stock")}), 400
+    # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
+    if pid == "mini-bust":
+        amount = (2999 if size == "Large" else 1999) * qty
     # Tiered pricing (memorial lamps: $39.99 first, $29.99 per extra copy,
     # $99.99 per 4-pack of the same design). 4-packs always win when they fit.
-    if p["additional_price_cents"] and qty > 1:
+    elif p["additional_price_cents"] and qty > 1:
         packs, rest = divmod(qty, 4)
         amount = packs * LAMP_PACK4
         if rest:
