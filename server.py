@@ -875,6 +875,17 @@ def seed():
     conn.execute(
         "UPDATE products SET photo='/img/products/mug-10.jpg' "
         "WHERE id='mug' AND photo='/img/products/mug.jpg'")
+    # 2026-10-20: six Carlo lamp photos Antonio sent (monstrance panel studio +
+    # prayer-corner scene, three-lamp group, 4-face corner, Carlo and Virgin
+    # Mary panels). Appended after the existing gallery. Idempotent.
+    for _s, _i in enumerate(range(4, 10)):
+        _ph = f"/img/products/carlo-lamp-{_i}.jpg"
+        _phpid = f"php_carlo_carlo-lamp-{_i}_jpg"
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "carlo-lamp", _ph, 10 + _s, 0, now_iso()))
     # 2026-10-20: design mockup photos Antonio sent (names lineup, Best Teacher,
     # Lydia/Messi in scene settings). Appended after the existing gallery.
     # Idempotent.
