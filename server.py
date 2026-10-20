@@ -875,6 +875,17 @@ def seed():
     conn.execute(
         "UPDATE products SET photo='/img/products/mug-10.jpg' "
         "WHERE id='mug' AND photo='/img/products/mug.jpg'")
+    # 2026-10-20: design mockup photos Antonio sent (names lineup, Best Teacher,
+    # Lydia/Messi in scene settings). Appended after the existing gallery.
+    # Idempotent.
+    for _s, _i in enumerate(range(11, 18)):
+        _ph = f"/img/products/mug-{_i}.jpg"
+        _phpid = f"php_mug_mug-{_i}_jpg"
+        if not conn.execute("SELECT id FROM product_photos WHERE id=?", (_phpid,)).fetchone():
+            conn.execute(
+                "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                "VALUES (?,?,?,?,?,?)",
+                (_phpid, "mug", _ph, 10 + _s, 0, now_iso()))
     # Pricing 2026-10-18: custom memorial lamps are $39.99 for the first of a
     # design, $29.99 for each additional copy, 4-pack $99.99. Charm pricing
     # (.99) across the shop. Only touches rows still on the old pricing,
