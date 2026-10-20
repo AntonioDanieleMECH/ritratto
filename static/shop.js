@@ -4,10 +4,10 @@
 (function () {
   "use strict";
 
-  var grid = document.getElementById("productGrid");
+  var sectionsEl = document.getElementById("shopSections");
   var soonGrid = document.getElementById("soonGrid");
   var soonSection = document.getElementById("soonSection");
-  var tabs = document.getElementById("deptTabs");
+  var searchEl = document.getElementById("shopSearch");
   var cache = [];
 
   function esc(s) {
@@ -30,6 +30,7 @@
     var map = {
       religious: { fr: "Religieux", en: "Religious" },
       electronic: { fr: "Électronique", en: "Electronic" },
+      italian: { fr: "Italien", en: "Italian" },
       gag: { fr: "Humour", en: "Gag" }
     };
     return (map[d] || {})[lang()] || d;
@@ -100,23 +101,49 @@
     return new URLSearchParams(window.location.search).get("dept") || "";
   }
 
-  function setActiveTab(dept) {
-    var btns = tabs.querySelectorAll(".dept-tab");
-    btns.forEach(function (b) {
-      b.classList.toggle("active", (b.getAttribute("data-dept") || "") === dept);
-    });
+  /* Category divisors, religious first (Antonio 2026-10-20). Each product
+     lands in the first section it matches; the search bar filters all. */
+  var SECTIONS = [
+    { key: "religious", title: "shop.sec_religious", has: function (p) { return (p.depts || []).indexOf("religious") >= 0; } },
+    { key: "italian", title: "shop.sec_italian", has: function (p) { return (p.depts || []).indexOf("italian") >= 0; } },
+    { key: "gag", title: "shop.sec_gag", has: function (p) { return (p.depts || []).indexOf("gag") >= 0; } },
+    { key: "more", title: "shop.sec_more", has: function () { return true; } }
+  ];
+
+  function matchesSearch(p, q) {
+    if (!q) return true;
+    var hay = ((p.name || "") + " " + (p.name_fr || "") + " " +
+      (p.description || "") + " " + (p.description_fr || "")).toLowerCase();
+    return hay.indexOf(q) >= 0;
+  }
+
+  function sectionHTML(title, items) {
+    return '<div class="shop-sec-head"><h2>' + esc(title) + '</h2></div>' +
+      '<div class="grid grid-3">' + items.map(cardHTML).join("") + "</div>";
   }
 
   function render() {
     var dept = currentDept();
+    var q = searchEl ? searchEl.value.trim().toLowerCase() : "";
     var buyable = cache.filter(function (p) { return !p.in_works && (p.price_cents || 0) > 0; });
-    var hidden = cache.filter(function (p) { return (p.price_cents || 0) <= 0; });
     var soon = cache.filter(function (p) { return p.in_works; });
-    if (!buyable.length) {
-      notice(grid, "", T("js.empty"));
+    var pool = buyable.filter(function (p) { return matchesSearch(p, q); });
+    var html = "";
+    if (dept) {
+      var inDept = pool.filter(function (p) { return (p.depts || []).indexOf(dept) >= 0; });
+      if (inDept.length) html = sectionHTML(deptLabel(dept), inDept);
     } else {
-      grid.innerHTML = buyable.map(cardHTML).join("");
+      var used = {};
+      SECTIONS.forEach(function (s) {
+        var items = pool.filter(function (p) { return !used[p.id] && s.has(p); });
+        items.forEach(function (p) { used[p.id] = 1; });
+        if (items.length) html += sectionHTML(T(s.title), items);
+      });
     }
+    if (!html) {
+      html = '<div class="notice">' + esc(q ? T("shop.no_results") : T("js.empty")) + "</div>";
+    }
+    sectionsEl.innerHTML = html;
     if (soon.length && soonSection) {
       soonSection.style.display = "";
       soonGrid.innerHTML = soon.map(cardHTML).join("");
@@ -126,35 +153,24 @@
   }
 
   async function load() {
-    notice(grid, "", T("js.loading"));
+    notice(sectionsEl, "", T("js.loading"));
     try {
-      var dept = currentDept();
-      var r = await fetch("/api/products?dept=" + encodeURIComponent(dept));
+      var r = await fetch("/api/products");
       if (!r.ok) throw new Error("could not load products");
       var data = await r.json();
       cache = data.products || [];
-      setActiveTab(dept);
       render();
     } catch (e) {
-      notice(grid, "err", T("js.load_err"));
+      notice(sectionsEl, "err", T("js.load_err"));
       var rb = document.createElement("button");
       rb.className = "btn btn-outline"; rb.style.marginTop = "12px";
       rb.textContent = lang() === "fr" ? "Réessayer" : "Retry";
       rb.addEventListener("click", load);
-      grid.appendChild(rb);
+      sectionsEl.appendChild(rb);
     }
   }
 
-  tabs.addEventListener("click", function (e) {
-    var btn = e.target.closest(".dept-tab");
-    if (!btn) return;
-    var dept = btn.getAttribute("data-dept") || "";
-    setActiveTab(dept);
-    var url = new URL(window.location.href);
-    if (dept) url.searchParams.set("dept", dept); else url.searchParams.delete("dept");
-    window.history.replaceState(null, "", url.toString());
-    load();
-  });
+  if (searchEl) searchEl.addEventListener("input", render);
 
   window.adnRenderShop = render;
   load();

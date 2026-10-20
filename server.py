@@ -1150,6 +1150,45 @@ def seed():
              _ph, _srt, _ph))
     conn.execute("UPDATE products SET active=0 "
                  "WHERE id IN ('mini-bust-small','mini-bust-large')")
+    # Mug gallery (Antonio 2026-10-20): professional images first, the pro
+    # hand shot (mug-10) as the key image, real workshop shots last, and
+    # the duplicated mockup rows (mug-11..17) come out.
+    conn.execute("DELETE FROM product_photos WHERE product_id='mug' AND photo IN "
+                 "('/img/products/mug-11.jpg','/img/products/mug-12.jpg',"
+                 "'/img/products/mug-13.jpg','/img/products/mug-14.jpg',"
+                 "'/img/products/mug-15.jpg','/img/products/mug-16.jpg',"
+                 "'/img/products/mug-17.jpg')")
+    for _ph, _srt in (("/img/products/mug-10.jpg", 0), ("/img/products/mug-3.jpg", 1),
+                      ("/img/products/mug-8.jpg", 2), ("/img/products/mug-9.jpg", 3),
+                      ("/img/products/mug-4.jpg", 4), ("/img/products/mug-5.jpg", 5),
+                      ("/img/products/mug-6.jpg", 6), ("/img/products/mug-7.jpg", 7),
+                      ("/img/products/mug.jpg", 8), ("/img/products/mug-2.jpg", 9)):
+        conn.execute("UPDATE product_photos SET sort=? "
+                     "WHERE product_id='mug' AND photo=?", (_srt, _ph))
+    # Shop order (Antonio 2026-10-20): the nativity scene, the Carlo lamp
+    # and the lighters lead the shop.
+    for _pid, _srt in (("nativity", 1), ("carlo-lamp", 2), ("custom-lighter", 3),
+                       ("sheen-lamp", 4), ("padre-pio-lamp", 5), ("memorial-lamp", 6),
+                       ("mini-bust", 7), ("bust-collector", 8), ("mug", 9),
+                       ("card-case", 10), ("universal-gift-card", 11),
+                       ("battery-door", 12), ("gag-soon", 13)):
+        conn.execute("UPDATE products SET sort=? WHERE id=?", (_srt, _pid))
+    # Shop sections (Antonio 2026-10-20): the card case is an Italian good;
+    # the lighter leaves the gag tag (it leads the engraving section).
+    conn.execute("UPDATE products SET depts='[\"italian\"]' WHERE id='card-case'")
+    conn.execute("UPDATE products SET depts='[]' WHERE id='custom-lighter'")
+    # Religious lighter mockups (Antonio 2026-10-20) join the lighter
+    # gallery after the real photos.
+    for _ph, _srt in (("/img/products/lighter-religious-crucifix.jpg", 20),
+                      ("/img/products/lighter-religious-mary.jpg", 21),
+                      ("/img/products/lighter-religious-carlo.jpg", 22),
+                      ("/img/products/lighter-religious-joseph.jpg", 23)):
+        conn.execute(
+            "INSERT INTO product_photos (id, product_id, photo, is_scale, kind, sort) "
+            "SELECT ?, 'custom-lighter', ?, 0, 'photo', ? WHERE NOT EXISTS "
+            "(SELECT 1 FROM product_photos WHERE product_id='custom-lighter' AND photo=?)",
+            ("php_lr_" + _ph.split("/")[-1].replace(".jpg", "").replace("-", "_"),
+             _ph, _srt, _ph))
     conn.commit()
     conn.close()
 

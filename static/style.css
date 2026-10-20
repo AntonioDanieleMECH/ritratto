@@ -205,6 +205,12 @@ p { margin: 0 0 1em; }
 .card-body h3 { margin: 0; }
 .card-body p { color: var(--muted); font-size: 0.95rem; margin: 0; flex: 1; }
 .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.shop-tools { margin: 22px 0 4px; }
+.shop-search { width: 100%; max-width: 540px; padding: 12px 18px; border: 1px solid var(--line); border-radius: 999px; font: inherit; background: #fff; color: var(--ink); }
+.shop-search:focus { outline: 2px solid var(--brass); outline-offset: 1px; }
+.shop-sec-head { display: flex; align-items: center; gap: 16px; margin: 46px 0 18px; }
+.shop-sec-head h2 { margin: 0; white-space: nowrap; }
+.shop-sec-head::after { content: ""; flex: 1; border-top: 2px solid var(--brass); opacity: 0.45; }
 
 .price { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--ink); }
 .price-note { font-size: 0.8rem; color: var(--muted); }
