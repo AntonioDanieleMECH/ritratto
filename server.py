@@ -586,6 +586,8 @@ SEED_PHOTOS_EXTRA = [
     ("carlo-lamp", "/img/products/carlo-lamp-3.jpg"),
     ("nativity", "/img/products/nativity-2.jpg"),
     ("nativity", "/img/products/nativity-3.png"),
+    ("nativity", "/img/products/nativity-pro.jpg"),
+    ("nativity", "/img/products/nativity-4.jpg"),
     ("lighter", "/img/products/lighter-2.jpg"),
     ("lighter", "/img/products/lighter-3.jpg"),
     ("mug", "/img/products/mug-2.jpg"),
