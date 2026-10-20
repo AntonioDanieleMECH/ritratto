@@ -118,7 +118,7 @@ STR = {
         "footer_privacy": "Confidentialité", "footer_terms": "Conditions d'utilisation",
         "qty": "Quantité", "buy_now": "Acheter", "preorder_now": "Précommander",
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
-        "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. L'adresse de livraison est demandée au paiement.",
+        "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. Livraison : 1 à 2 semaines. L'adresse de livraison est demandée au paiement.",
         "ship_country": "Pays de livraison",
         "ship_ca": "Canada — 5 $",
         "ship_us": "États-Unis — 10 $",
@@ -189,7 +189,7 @@ STR = {
         "footer_privacy": "Privacy", "footer_terms": "Terms of use",
         "qty": "Quantity", "buy_now": "Buy now", "preorder_now": "Preorder now",
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
-        "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Shipping address collected at checkout.",
+        "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Delivery: 1-2 weeks. Shipping address collected at checkout.",
         "ship_country": "Shipping country",
         "ship_ca": "Canada — $5",
         "ship_us": "United States — $10",
@@ -748,6 +748,9 @@ def seed():
                 (_uid, "nativity-lamps", now_iso(), _txt, _txt_fr))
     # 2026-10-19: nativity price correction $23.99 -> $29.99 on live DBs. Idempotent.
     conn.execute("UPDATE products SET price_cents=2999 WHERE id='nativity' AND price_cents != 2999")
+    # 2026-10-20: memorial lamp French name never reached live DBs (seed-only insert).
+    conn.execute("UPDATE products SET name_fr='Lampe comm\u00e9morative personnalis\u00e9e' "
+                 "WHERE id='memorial-lamp' AND (name_fr IS NULL OR name_fr='')")
     conn.execute("UPDATE wip_updates SET text=REPLACE(text,'$23.99','$29.99') "
                  "WHERE project_id='nativity-lamps'")
     conn.execute("UPDATE wip_updates SET text_fr=REPLACE(text_fr,'23,99 $','29,99 $') "
