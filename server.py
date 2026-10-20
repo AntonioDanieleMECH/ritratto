@@ -727,6 +727,29 @@ def seed():
                  "transparent anti-jaunissement. Imprim\u00e9 en 3D, lourd comme la pierre.' WHERE id='ss2'")
     conn.execute("UPDATE wip_updates SET text=REPLACE(text,'$23.99','$29.99'), "
                  "text_fr=REPLACE(text_fr,'23,99 $','29,99 $') WHERE id='ss3'")
+    # 2026-10-20 (Antonio): the big Frère André statue is still in progress —
+    # plant-based plastic, painted and weighted, medium-sized, and it may
+    # appear at the Oratory boutique. The progress page wrongly called it
+    # finished and listed in the shop. Idempotent.
+    conn.execute("UPDATE wip_projects SET status='In finishing', status_fr='En finition' "
+                 "WHERE id='bust'")
+    conn.execute(
+        "UPDATE wip_updates SET text=?, text_fr=? WHERE id='b1'",
+        ("Still in progress. A medium-sized statue, 3D printed in plant-based plastic, "
+         "painted and weighted so it feels heavy like stone. It may appear at the "
+         "Saint Joseph's Oratory boutique.",
+         "Toujours en cours. Une statue de taille moyenne, imprim\u00e9e en 3D en plastique "
+         "d'origine v\u00e9g\u00e9tale, peinte et lest\u00e9e pour un poids qui rappelle la pierre. "
+         "Elle pourrait se retrouver \u00e0 la boutique de l'Oratoire Saint-Joseph."))
+    if not conn.execute("SELECT id FROM wip_updates WHERE id='ss4'").fetchone():
+        conn.execute(
+            "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
+            ("ss4", "stone-statues", now_iso(),
+             "Still in progress: a medium-sized statue in plant-based plastic, painted "
+             "and weighted. It may appear at the Oratory boutique.",
+             "Toujours en cours : une statue de taille moyenne en plastique d'origine "
+             "v\u00e9g\u00e9tale, peinte et lest\u00e9e. Elle pourrait se retrouver \u00e0 la boutique "
+             "de l'Oratoire."))
     # 2026-10-18: nativity lamp WIP project (Oratory boutique) from Antonio's photos. Idempotent.
     if not conn.execute("SELECT id FROM wip_projects WHERE id='nativity-lamps'").fetchone():
         conn.execute(
@@ -1045,12 +1068,12 @@ def seed():
             "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) VALUES (?,?,?,?,?,?,?,?)",
             ("bust", "Saint Frere Andre Collector's Edition Bust",
              "Buste de saint Frère André, édition collectionneur",
-             "Complete", "Terminé", "/img/work/bust-front.jpg", 2, now_iso()))
+             "In finishing", "En finition", "/img/work/bust-front.jpg", 2, now_iso()))
         conn.execute(
             "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
             ("b1", "bust", "2026-10-18T09:00:00",
-             "Finished. 1 of 1. 39 cm on a dark stained wood base with a brass Fr. Andre name plate. Listed in the shop.",
-             "Terminé. Pièce unique. 39 cm sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. En vente dans la boutique."))
+             "Still in progress. A medium-sized statue, 3D printed in plant-based plastic, painted and weighted so it feels heavy like stone. It may appear at the Saint Joseph's Oratory boutique.",
+             "Toujours en cours. Une statue de taille moyenne, imprimée en 3D en plastique d'origine végétale, peinte et lestée pour un poids qui rappelle la pierre. Elle pourrait se retrouver à la boutique de l'Oratoire Saint-Joseph."))
     # 2026-10-19 (Antonio): "The Universal Gift Card" novelty cash holder at $5,
     # with his professional Etsy photos. Idempotent.
     if not conn.execute("SELECT id FROM products WHERE id='universal-gift-card'").fetchone():
