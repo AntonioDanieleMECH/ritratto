@@ -41,6 +41,8 @@ import shutil
 import threading
 import time
 import smtplib
+import urllib.parse
+import urllib.request
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 from html import escape as h
@@ -273,6 +275,135 @@ def canonical_domain():
         return redirect(CANONICAL_URL + request.path + q, 301)
 
 
+@app.after_request
+def inject_analytics(response):
+    """Add the first-party analytics beacon to every public HTML page
+    (static and server-rendered alike) without editing each template."""
+    try:
+        if request.method == "GET" and response.status_code == 200 \
+                and not request.path.startswith(("/api/", "/admin")) \
+                and "text/html" in (response.content_type or ""):
+            response.direct_passthrough = False
+            data = response.get_data()
+            if 0 < len(data) < 2_000_000 and b"</body>" in data:
+                tag = b'<script src="/analytics.js" defer></script>'
+                response.set_data(data.replace(b"</body>", tag + b"</body>", 1))
+    except Exception:  # noqa: BLE001 - never break a page for analytics
+        pass
+    return response
+
+
+def _classify_source(ref_host):
+    h = (ref_host or "").lower()
+    if not h:
+        return "Direct"
+    if "instagram" in h:
+        return "Instagram"
+    if "facebook" in h or h == "fb.me" or "fbcdn" in h:
+        return "Facebook"
+    if "google" in h:
+        return "Google"
+    if "bing" in h:
+        return "Bing"
+    if "duckduckgo" in h:
+        return "DuckDuckGo"
+    if "youtube" in h:
+        return "YouTube"
+    if h == "t.co" or "twitter" in h or h == "x.com" or "x.com" in h:
+        return "X / Twitter"
+    if "tiktok" in h:
+        return "TikTok"
+    if "pinterest" in h:
+        return "Pinterest"
+    if "adncreations.ca" in h or "ritratto" in h:
+        return "Internal"
+    return h
+
+
+def _country_for(ip, ip_hash):
+    """Best-effort country for an IP, cached by ip_hash. Never raises."""
+    try:
+        conn = db()
+        row = conn.execute("SELECT country FROM geo_cache WHERE ip_hash=?",
+                           (ip_hash,)).fetchone()
+        if row:
+            conn.close()
+            return row[0] or ""
+        country = ""
+        if ip and not ip.startswith(("10.", "192.168.", "172.16.", "172.17.",
+                                      "172.18.", "172.19.", "172.2", "172.30.",
+                                      "172.31.", "127.", "::1")):
+            import urllib.request
+            req = urllib.request.Request(
+                "https://ipapi.co/" + ip + "/country_name/",
+                headers={"User-Agent": "adncreations-analytics/1.0"})
+            with urllib.request.urlopen(req, timeout=2.5) as r:
+                country = r.read().decode("utf-8", "ignore").strip()[:60]
+                if country.lower() in ("undefined", "none", "reserved"):
+                    country = ""
+        conn.execute("INSERT OR REPLACE INTO geo_cache (ip_hash, country, created) "
+                     "VALUES (?,?,?)", (ip_hash, country, now_iso()))
+        conn.commit()
+        conn.close()
+        return country
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+@app.route("/api/track", methods=["POST"])
+def api_track():
+    """First-party analytics beacon. Fire-and-forget; always 204."""
+    try:
+        ua = (request.headers.get("User-Agent") or "").lower()
+        if any(b in ua for b in ("bot", "crawler", "spider", "preview",
+                                 "headless", "python-requests", "curl", "wget")):
+            return "", 204
+        try:
+            data = json.loads(request.get_data(as_text=True) or "{}")
+        except Exception:  # noqa: BLE001
+            return "", 204
+        etype = str(data.get("type") or "pageview")[:12]
+        if etype not in ("pageview", "outbound"):
+            return "", 204
+        fwd = request.headers.get("X-Forwarded-For", "")
+        ip = (fwd.split(",")[0].strip() if fwd else "") or (request.remote_addr or "")
+        if not ip:
+            return "", 204
+        salt = app.secret_key or "adn-creations"
+        ip_hash = hashlib.sha256(f"{salt}|{ip}".encode()).hexdigest()[:24]
+        day = datetime.utcnow().strftime("%Y-%m-%d")
+        vid_raw = str(data.get("vid") or "")[:64]
+        vid = hashlib.sha256(f"{salt}|{vid_raw}".encode()).hexdigest()[:24] if vid_raw else ip_hash
+        conn = db()
+        n = conn.execute("SELECT COUNT(*) FROM analytics_events WHERE day=? AND vid=?",
+                         (day, vid)).fetchone()[0]
+        if n > 400:  # runaway beacon guard
+            conn.close()
+            return "", 204
+        ref = str(data.get("ref") or "")[:300]
+        ref_host = ""
+        if ref:
+            try:
+                ref_host = (urllib.parse.urlparse(ref).hostname or "")[:120]
+            except Exception:  # noqa: BLE001
+                ref_host = ""
+        conn.execute(
+            "INSERT INTO analytics_events (ts, day, sid, vid, type, path, ref_host, source, "
+            "utm_source, utm_medium, utm_campaign, country, tz, lang, target) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (now_iso(), day, str(data.get("sid") or "")[:64], vid, etype,
+             str(data.get("path") or "")[:200], ref_host, _classify_source(ref_host),
+             str(data.get("utm_source") or "")[:80], str(data.get("utm_medium") or "")[:80],
+             str(data.get("utm_campaign") or "")[:80], _country_for(ip, ip_hash),
+             str(data.get("tz") or "")[:60], str(data.get("lang") or "")[:12],
+             str(data.get("target") or "")[:300]))
+        conn.commit()
+        conn.close()
+    except Exception:  # noqa: BLE001
+        pass
+    return "", 204
+
+
 # ---------- db ----------
 def db():
     conn = sqlite3.connect(DB)
@@ -363,6 +494,22 @@ def db():
         "CREATE TABLE IF NOT EXISTS product_views "
         "(product_id TEXT, day TEXT, ip_hash TEXT, "
         "PRIMARY KEY (product_id, day, ip_hash))"
+    )
+    # Detailed visitor analytics (2026-10-21, Antonio): one row per pageview or
+    # outbound click, grouped by a per-visit session id, so the admin can see
+    # where visitors come from (referrer + country) and how they navigate.
+    # IPs are only stored as salted hashes; the raw IP is used transiently for
+    # the country lookup and cached against the hash.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS analytics_events "
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, day TEXT, sid TEXT, "
+        " vid TEXT, type TEXT, path TEXT, ref_host TEXT, source TEXT, "
+        " utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, "
+        " country TEXT, tz TEXT, lang TEXT, target TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS geo_cache "
+        "(ip_hash TEXT PRIMARY KEY, country TEXT, created TEXT)"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS reviews "
@@ -2825,7 +2972,7 @@ def admin_page():
 <div class="admin-wrap">
 <p class="kicker">ADN Creations</p>
 <h1>Store admin</h1>
-<p class="muted">Manage products, preorders, announcements, work-in-progress updates, and orders. Changes go live immediately. <a href="/admin/logout">Log out</a></p>
+<p class="muted">Manage products, preorders, announcements, work-in-progress updates, and orders. Changes go live immediately. <a href="/admin/analytics">Visitor analytics</a> · <a href="/admin/logout">Log out</a></p>
 
 <div class="admin-card">
 <h2>Products</h2>
@@ -2955,6 +3102,90 @@ def admin_page():
 <script>var ADMIN_TOKEN = {json.dumps(token)};</script>
 <script src="/admin.js"></script>"""
     return shell("Store admin", "ADN Creations store administration.", body)
+
+
+@app.route("/admin/analytics")
+def admin_analytics():
+    if not admin_ok():
+        return redirect("/admin/login")
+    conn = db()
+    since = (datetime.utcnow() - timedelta(days=29)).strftime("%Y-%m-%d")
+    pv = conn.execute("SELECT COUNT(*) FROM analytics_events WHERE type='pageview' AND day>=?",
+                      (since,)).fetchone()[0]
+    visits = conn.execute("SELECT COUNT(DISTINCT sid) FROM analytics_events WHERE type='pageview' AND day>=?",
+                          (since,)).fetchone()[0]
+    visitors = conn.execute("SELECT COUNT(DISTINCT vid) FROM analytics_events WHERE type='pageview' AND day>=?",
+                            (since,)).fetchone()[0]
+    first_join = ("FROM analytics_events e JOIN (SELECT sid, MIN(id) mid FROM analytics_events "
+                  "WHERE type='pageview' AND day>=? GROUP BY sid) f ON e.id=f.mid ")
+    sources = conn.execute("SELECT e.source, COUNT(*) c " + first_join +
+                           "GROUP BY e.source ORDER BY c DESC", (since,)).fetchall()
+    countries = conn.execute("SELECT e.country, COUNT(*) c " + first_join +
+                             "AND e.country<>'' GROUP BY e.country ORDER BY c DESC", (since,)).fetchall()
+    entries = conn.execute("SELECT e.path, COUNT(*) c " + first_join +
+                           "GROUP BY e.path ORDER BY c DESC LIMIT 12", (since,)).fetchall()
+    exits = conn.execute(
+        "SELECT e.path, COUNT(*) c FROM analytics_events e JOIN "
+        "(SELECT sid, MAX(id) mid FROM analytics_events WHERE type='pageview' AND day>=? GROUP BY sid) f "
+        "ON e.id=f.mid GROUP BY e.path ORDER BY c DESC LIMIT 12", (since,)).fetchall()
+    top_pages = conn.execute(
+        "SELECT path, COUNT(*) c FROM analytics_events WHERE type='pageview' AND day>=? "
+        "GROUP BY path ORDER BY c DESC LIMIT 15", (since,)).fetchall()
+    outbound = conn.execute(
+        "SELECT target, COUNT(*) c FROM analytics_events WHERE type='outbound' AND day>=? "
+        "GROUP BY target ORDER BY c DESC LIMIT 12", (since,)).fetchall()
+    rows = conn.execute(
+        "SELECT sid, ts, path FROM analytics_events WHERE type='pageview' AND day>=? "
+        "ORDER BY sid, id", (since,)).fetchall()
+    conn.close()
+    from collections import OrderedDict
+    sessions = OrderedDict()
+    for r in rows:
+        sessions.setdefault(r["sid"], []).append((r["ts"], r["path"]))
+    path_counts = {}
+    for seq in sessions.values():
+        if len(seq) >= 2:
+            key = " \u2192 ".join(p for _, p in seq[:5])
+            path_counts[key] = path_counts.get(key, 0) + 1
+    top_paths = sorted(path_counts.items(), key=lambda kv: -kv[1])[:10]
+    recent = sorted(sessions.items(), key=lambda kv: kv[1][0][0], reverse=True)[:15]
+
+    def table(title, pairs, empty="Nothing yet."):
+        items = "".join(f"<tr><td>{h(str(a))}</td><td style='text-align:right'>{b}</td></tr>"
+                        for a, b in pairs)
+        if not items:
+            items = f"<tr><td class='muted'>{empty}</td><td></td></tr>"
+        return (f"<div class='admin-card'><h2>{title}</h2>"
+                f"<table style='width:100%'>{items}</table></div>")
+
+    recent_html = ""
+    for sid, seq in recent:
+        steps = " \u2192 ".join(p for _, p in seq[:6])
+        recent_html += (f"<tr><td>{h(seq[0][0][:16].replace('T', ' '))}</td>"
+                        f"<td>{h(steps)}</td></tr>")
+    if not recent_html:
+        recent_html = "<tr><td class='muted'>No visits recorded yet.</td><td></td></tr>"
+    body = f"""
+<div class="admin-wrap">
+<p class="kicker">ADN Creations</p>
+<h1>Visitor analytics <span class="muted" style="font-size:16px">(last 30 days)</span></h1>
+<p class="muted"><a href="/admin/">&larr; Back to store admin</a></p>
+<div class="admin-card">
+<h2>Overview</h2>
+<p style="font-size:18px"><strong>{visits}</strong> visits &nbsp;·&nbsp; <strong>{visitors}</strong> visitors &nbsp;·&nbsp; <strong>{pv}</strong> page views</p>
+<p class="small muted">A visit is one browsing session. Sources and countries come from each visit's first page. Tracking started 2026-10-21, so history builds from today.</p>
+</div>
+{table("Where visits come from", [(r[0] or "Direct", r[1]) for r in sources])}
+{table("Countries", [(r[0], r[1]) for r in countries])}
+{table("Most viewed pages", [(r[0], r[1]) for r in top_pages])}
+{table("First page of the visit (entry)", [(r[0], r[1]) for r in entries])}
+{table("Last page of the visit (exit)", [(r[0], r[1]) for r in exits])}
+{table("Common journeys (2+ pages)", top_paths)}
+{table("Clicked away to (outbound)", [(r[0], r[1]) for r in outbound])}
+<div class="admin-card"><h2>Most recent visits</h2>
+<table style="width:100%">{recent_html}</table></div>
+</div>"""
+    return shell("Visitor analytics", "ADN Creations visitor analytics.", body)
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
