@@ -77,6 +77,9 @@ CANONICAL_URL = "https://adncreations.ca"
 OLD_HOSTS_URLS = ("https://ritratto.onrender.com", "http://ritratto.onrender.com",
                   "https://ritratto.ca", "http://ritratto.ca",
                   "https://www.ritratto.ca", "http://www.ritratto.ca")
+# Display-only CAD->USD estimate rate for price labels (2026-10-22).
+# All charges stay in CAD; this only renders the "≈ US$…" hint.
+USD_RATE = 0.73
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
 ADMIN_USER = os.environ.get("ADMIN_USER", "")
@@ -119,6 +122,7 @@ STR = {
         "footer_made": "Conçu et fabriqué à Montréal.",
         "footer_privacy": "Confidentialité", "footer_terms": "Conditions d'utilisation",
         "qty": "Quantité", "buy_now": "Acheter", "preorder_now": "Précommander",
+        "usd_approx": "≈ {usd} $ US (approx.)",
         "add_to_cart": "Ajouter au panier",
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
         "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. Livraison : 1 à 2 semaines. L'adresse de livraison est demandée au paiement.",
@@ -198,6 +202,7 @@ STR = {
         "footer_made": "Designed and built in Montreal.",
         "footer_privacy": "Privacy", "footer_terms": "Terms of use",
         "qty": "Quantity", "buy_now": "Buy now", "preorder_now": "Preorder now",
+        "usd_approx": "≈ US${usd} (approx.)",
         "add_to_cart": "Add to cart",
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
         "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Delivery: 1-2 weeks. Shipping address collected at checkout.",
@@ -1515,7 +1520,17 @@ def abs_url(path):
 
 
 def money(cents):
-    return f"${cents / 100:,.2f}"
+    return f"${cents / 100:,.2f} CAD"
+
+
+def usd_est(cents):
+    """Approximate USD equivalent (whole dollars) of a CAD cent amount."""
+    return int(round(cents / 100 * USD_RATE))
+
+
+def usd_note(cents, lang):
+    """Localized approximate-USD hint shown under a CAD price."""
+    return t(lang, "usd_approx").format(usd=usd_est(cents))
 
 
 def get_product(pid):
@@ -1767,11 +1782,11 @@ def product_page(pid):
             f'<span id="designUploadMsg" class="small muted"></span></div></div>')
     elif p["id"] == "mini-bust":
         if lang == "fr":
-            _sz_opts = ('<option value="Small" data-price="1999">Petit \u2014 19,99 $ \u00b7 Carlo 8,5 cm / Fr\u00e8re Andr\u00e9 9,25 cm</option>'
-                        '<option value="Large" data-price="2999">Grand \u2014 29,99 $ \u00b7 Carlo 10 cm / Fr\u00e8re Andr\u00e9 10,5 cm</option>')
+            _sz_opts = ('<option value="Small" data-price="1999">Petit \u2014 19,99 $ CAD \u00b7 Carlo 8,5 cm / Fr\u00e8re Andr\u00e9 9,25 cm</option>'
+                        '<option value="Large" data-price="2999">Grand \u2014 29,99 $ CAD \u00b7 Carlo 10 cm / Fr\u00e8re Andr\u00e9 10,5 cm</option>')
         else:
-            _sz_opts = ('<option value="Small" data-price="1999">Small \u2014 $19.99 \u00b7 Carlo 8.5 cm / Fr\u00e8re Andr\u00e9 9.25 cm</option>'
-                        '<option value="Large" data-price="2999">Large \u2014 $29.99 \u00b7 Carlo 10 cm / Fr\u00e8re Andr\u00e9 10.5 cm</option>')
+            _sz_opts = ('<option value="Small" data-price="1999">Small \u2014 $19.99 CAD \u00b7 Carlo 8.5 cm / Fr\u00e8re Andr\u00e9 9.25 cm</option>'
+                        '<option value="Large" data-price="2999">Large \u2014 $29.99 CAD \u00b7 Carlo 10 cm / Fr\u00e8re Andr\u00e9 10.5 cm</option>')
         option_field = (
             f'<div class="field"><label for="sizeSelect">{t(lang, "size_title")}</label>'
             f'<select id="sizeSelect">{_sz_opts}</select></div>'
@@ -1903,14 +1918,16 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
 }})();
 (function(){{  /* live tier-price total as quantity changes */
   var qtyEl = document.getElementById('qty'), btn = document.getElementById('buyBtn'),
-      priceEl = document.getElementById('priceTotal'), cpEl = document.getElementById('coupon'),
+      priceEl = document.getElementById('priceTotal'), usdEl = document.getElementById('priceUsd'),
+      cpEl = document.getElementById('coupon'),
       cpMsg = document.getElementById('couponMsg');
   if (!qtyEl || !btn) return;
   var priceCents = {p["price_cents"]}, addCents = {p["additional_price_cents"] or 0};
   var baseLabel = {json.dumps(label)};
   var pctOff = 0;
   var okTpl = {json.dumps(t(lang, "coupon_ok"))}, badTxt = {json.dumps(t(lang, "coupon_bad"))};
-  function money(c){{ return "$" + (c/100).toFixed(2); }}
+  var usdTpl = {json.dumps(t(lang, "usd_approx"))}, USD_RATE = {USD_RATE};
+  function money(c){{ return "$" + (c/100).toFixed(2) + " CAD"; }}
   function unitCents(){{
     var s = document.getElementById('sizeSelect');
     if (s) {{ var dp = s.options[s.selectedIndex].getAttribute('data-price'); if (dp) return parseInt(dp, 10); }}
@@ -1933,6 +1950,7 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     var t = money(total(q));
     btn.innerHTML = baseLabel + ' &middot; ' + t;
     if (priceEl) priceEl.textContent = t;
+    if (usdEl) usdEl.textContent = usdTpl.replace("{{usd}}", Math.round(total(q) / 100 * USD_RATE));
   }}
   qtyEl.addEventListener('input', refresh);
   qtyEl.addEventListener('change', refresh);
@@ -1983,6 +2001,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <h1 style="font-size:2rem">{h(name)}</h1>
 <div class="dept-tags" style="margin-bottom:12px">{tags} {product_badges(p, lang)}</div>
 <p class="price" id="priceTotal">{money(p["price_cents"])}</p>
+<p class="small muted" id="priceUsd" style="margin-top:2px">{usd_note(p["price_cents"], lang)}</p>
 <p class="muted">{h(desc)}</p>
 {tier_note}
 {preorder_note}
@@ -3748,7 +3767,7 @@ def compose_share_text(kind, item):
         url = f"{SITE_URL}/product/{item['id']}"
         photo = abs_url(item.get("photo") or "/img/products/carlo-lamp.jpg")
         pre = "Preorder now open" if item.get("preorder") else "Now available"
-        text = (f"{pre}: {item['name']} ({money(item['price_cents'])} CAD)\n\n"
+        text = (f"{pre}: {item['name']} ({money(item['price_cents'])})\n\n"
                 f"Designed and hand crafted in Montreal.\n\nOrder here: {url}")
     else:
         url = f"{SITE_URL}/announcement/{item['id']}"

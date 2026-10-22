@@ -18,8 +18,8 @@
       checkout: "Passer à la caisse", remove: "Retirer",
       coupon_ph: "Code promo (facultatif)", discount: "Rabais",
       ship_to: "Pays de livraison",
-      ship_ca: "Canada — 5 $", ship_us: "États-Unis — 10 $",
-      ship_intl: "International — 15 $",
+      ship_ca: "Canada — 5 $ CAD", ship_us: "États-Unis — 10 $ CAD",
+      ship_intl: "International — 15 $ CAD",
       added: "Ajouté ✓", failed: "Le paiement a échoué. Réessayez.",
       preparing: "Préparation..."
     },
@@ -29,8 +29,8 @@
       checkout: "Checkout", remove: "Remove",
       coupon_ph: "Coupon code (optional)", discount: "Discount",
       ship_to: "Shipping country",
-      ship_ca: "Canada — $5", ship_us: "United States — $10",
-      ship_intl: "International — $15",
+      ship_ca: "Canada — $5 CAD", ship_us: "United States — $10 CAD",
+      ship_intl: "International — $15 CAD",
       added: "Added ✓", failed: "Checkout failed. Please try again.",
       preparing: "Preparing..."
     }
@@ -42,7 +42,7 @@
     return l === "en" ? "en" : "fr";
   }
   function T(k) { return (S[lang()] || S.fr)[k] || k; }
-  function money(c) { return "$" + (c / 100).toFixed(2); }
+  function money(c) { return "$" + (c / 100).toFixed(2) + " CAD"; }
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
