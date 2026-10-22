@@ -56,9 +56,18 @@
   function save(items) {
     try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
   }
+  var COLOR_NAMES = {
+    chrome: { fr: "Chrome", en: "Chrome" },
+    blue: { fr: "Bleu", en: "Blue" },
+    black: { fr: "Noir", en: "Black" }
+  };
+  function colorName(c) {
+    var m = COLOR_NAMES[c];
+    return m ? m[lang()] : c;
+  }
   function keyOf(it) {
     return [it.pid, it.design || "", it.saint || "", it.size || "",
-            it.engraving || ""].join("|");
+            it.color || "", it.engraving || ""].join("|");
   }
   function lineTotal(it) {
     var q = it.qty || 1;
@@ -74,6 +83,7 @@
     if (it.design) parts.push(it.design);
     if (it.saint) parts.push("Saint: " + it.saint);
     if (it.size) parts.push("Size: " + it.size);
+    if (it.color) parts.push((lang() === "fr" ? "Couleur" : "Color") + ": " + colorName(it.color));
     if (it.engraving) parts.push(it.engraving);
     return parts.join(" · ");
   }
@@ -341,7 +351,7 @@
         return {
           product_id: it.pid, qty: it.qty || 1,
           engraving_text: it.engraving || "", design: it.design || "",
-          saint: it.saint || "", size: it.size || ""
+          saint: it.saint || "", size: it.size || "", color: it.color || ""
         };
       }),
       coupon: document.getElementById("cartCoupon").value.trim(),
@@ -384,7 +394,9 @@
       var qtyEl = document.getElementById("qty");
       var qty = qtyEl ? (parseInt(qtyEl.value, 10) || 1) : 1;
       var unit = p.price_cents || 0;
-      var size = "", saint = "", design = "", engraving = "";
+      var size = "", saint = "", design = "", engraving = "", color = "";
+      var cs = document.getElementById("colorSelect");
+      if (cs) color = cs.value;
       var sz = document.getElementById("sizeSelect");
       if (sz) {
         size = sz.value;
@@ -417,7 +429,7 @@
       add({
         pid: pid, name: name, img: img, qty: qty,
         unit_cents: unit, add_cents: p.additional_price_cents || 0,
-        design: design, saint: saint, size: size, engraving: engraving
+        design: design, saint: saint, size: size, color: color, engraving: engraving
       });
       if (addBtn) {
         var orig = addBtn.textContent;
@@ -440,7 +452,7 @@
         qty: 1,
         unit_cents: parseInt(b.getAttribute("data-price"), 10) || 0,
         add_cents: parseInt(b.getAttribute("data-add"), 10) || 0,
-        design: "", saint: "", size: "", engraving: ""
+        design: "", saint: "", size: "", color: "", engraving: ""
       });
       var orig = b.textContent;
       b.textContent = T("added");

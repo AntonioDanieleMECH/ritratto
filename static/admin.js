@@ -933,12 +933,13 @@
         return "<tr>" +
           "<td><strong>" + esc(c.code) + "</strong>" + (c.active ? "" : ' <span class="small muted">(off)</span>') + "</td>" +
           "<td>" + esc(String(c.percent_off)) + "%</td>" +
+          "<td>" + esc(String(c.commission_pct || 0)) + "%</td>" +
           "<td>" + esc(c.note || "") + "</td>" +
           "<td>" + toggle +
           ' <button class="btn btn-outline" data-coupon-delete="' + esc(c.code) + '">Delete</button></td></tr>';
       }).join("");
       list.innerHTML = tableWrap(
-        '<table class="admin-table"><thead><tr><th>Code</th><th>Off</th><th>Note</th><th></th>' +
+        '<table class="admin-table"><thead><tr><th>Code</th><th>Off</th><th>Commission</th><th>Note</th><th></th>' +
         "</tr></thead><tbody>" + rows + "</tbody></table>");
       list.querySelectorAll("[data-coupon-toggle]").forEach(function (b) {
         b.addEventListener("click", async function () {
@@ -964,10 +965,12 @@
     e.preventDefault();
     var code = $("cf-code").value.trim().toUpperCase();
     var pct = parseInt($("cf-pct").value, 10);
+    var comm = parseInt(($("cf-comm") || {}).value, 10) || 0;
     var note = $("cf-note").value.trim();
     if (!code || !pct) return;
-    await call("/api/admin/coupons", { method: "POST", body: JSON.stringify({ code: code, percent_off: pct, note: note }) });
+    await call("/api/admin/coupons", { method: "POST", body: JSON.stringify({ code: code, percent_off: pct, commission_pct: comm, note: note }) });
     $("cf-code").value = ""; $("cf-pct").value = ""; $("cf-note").value = "";
+    if ($("cf-comm")) $("cf-comm").value = "0";
     loadCoupons();
   }
 

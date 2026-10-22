@@ -82,7 +82,7 @@
     }
     /* Quick add to cart (cart.js handles the click). Variant products
        (lighter designs, bust size/saint) add from their product page. */
-    var VARIANT_PIDS = { "custom-lighter": 1, "mini-bust": 1 };
+    var VARIANT_PIDS = { "custom-lighter": 1, "holy-lighter": 1, "mini-bust": 1 };
     if (p.purchasable && !p.in_works && !VARIANT_PIDS[p.id] && !(p.stock != null && p.stock <= 0)) {
       var cimg = "";
       var ph0 = (p.photos && p.photos.length) ? p.photos[0] : null;

@@ -139,7 +139,10 @@ STR = {
         "engraving_label": "Texte à graver (facultatif)",
         "engraving_ph": "p. ex. Aku, depuis 2026",
         "design_title": "Choisissez votre motif",
-        "design_gallery": "Choisir parmi nos 12 motifs",
+        "design_gallery": "Choisir parmi nos 4 motifs",
+        "saint_gallery": "Choisir parmi nos modèles de saints",
+        "color_title": "Couleur",
+        "in_stock": "{n} en stock",
         "design_upload": "Téléverser mon propre dessin",
         "saint_title": "Choisissez votre saint",
         "size_title": "Grandeur",
@@ -219,7 +222,10 @@ STR = {
         "engraving_label": "Custom engraving text (optional)",
         "engraving_ph": "e.g. Aku, Est. 2026",
         "design_title": "Choose your design",
-        "design_gallery": "Pick from our 12 designs",
+        "design_gallery": "Pick from our 4 designs",
+        "saint_gallery": "Pick from our saint designs",
+        "color_title": "Color",
+        "in_stock": "{n} in stock",
         "design_upload": "Upload my own artwork",
         "saint_title": "Choose your saint",
         "size_title": "Size",
@@ -539,6 +545,15 @@ def db():
         "(code TEXT PRIMARY KEY, percent_off INTEGER DEFAULT 0, "
         " active INTEGER DEFAULT 1, note TEXT DEFAULT '', created TEXT)"
     )
+    # Shared variant stock pools (2026-10-22): products that draw from the
+    # same physical blanks (the two lighter listings share one pool of
+    # chrome/blue/black blanks) read and decrement THESE rows, keyed by
+    # (pool, colour), instead of their own products.stock.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS variant_stock "
+        "(pool TEXT, color TEXT, stock INTEGER DEFAULT 0, "
+        " PRIMARY KEY (pool, color))"
+    )
     # Public first-order code (2026-10-21, conversion pack): shown on product
     # pages; usage is tracked because the code is saved on each order.
     conn.execute(
@@ -580,6 +595,11 @@ def db():
         "ALTER TABLE lamp_orders ADD COLUMN phone TEXT DEFAULT ''",
         "ALTER TABLE orders ADD COLUMN notified INTEGER DEFAULT 0",
         "ALTER TABLE lamp_orders ADD COLUMN notified INTEGER DEFAULT 0",
+        # shared stock pools + order colours + coupon commission (2026-10-22)
+        "ALTER TABLE products ADD COLUMN stock_pool TEXT DEFAULT ''",
+        "ALTER TABLE orders ADD COLUMN color TEXT DEFAULT ''",
+        "ALTER TABLE order_items ADD COLUMN color TEXT DEFAULT ''",
+        "ALTER TABLE coupons ADD COLUMN commission_pct INTEGER DEFAULT 0",
     ):
         try:
             conn.execute(ddl)
@@ -1371,27 +1391,80 @@ def seed():
     # Shop order (Antonio 2026-10-20): the nativity scene, the Carlo lamp
     # and the lighters lead the shop.
     for _pid, _srt in (("nativity", 1), ("carlo-lamp", 2), ("custom-lighter", 3),
-                       ("sheen-lamp", 4), ("padre-pio-lamp", 5), ("memorial-lamp", 6),
-                       ("mini-bust", 7), ("bust-collector", 8), ("mug", 9),
-                       ("card-case", 10), ("universal-gift-card", 11),
-                       ("battery-door", 12), ("gag-soon", 13)):
+                       ("holy-lighter", 4),
+                       ("sheen-lamp", 5), ("padre-pio-lamp", 6), ("memorial-lamp", 7),
+                       ("mini-bust", 8), ("bust-collector", 9), ("mug", 10),
+                       ("card-case", 11), ("universal-gift-card", 12),
+                       ("battery-door", 13), ("gag-soon", 14)):
         conn.execute("UPDATE products SET sort=? WHERE id=?", (_srt, _pid))
     # Shop sections (Antonio 2026-10-20): the card case is an Italian good;
     # the lighter leaves the gag tag (it leads the engraving section).
     conn.execute("UPDATE products SET depts='[\"italian\"]' WHERE id='card-case'")
     conn.execute("UPDATE products SET depts='[]' WHERE id='custom-lighter'")
-    # Religious lighter mockups (Antonio 2026-10-20) join the lighter
-    # gallery after the real photos.
-    for _ph, _srt in (("/img/products/lighter-religious-crucifix.jpg", 20),
-                      ("/img/products/lighter-religious-mary.jpg", 21),
-                      ("/img/products/lighter-religious-carlo.jpg", 22),
-                      ("/img/products/lighter-religious-joseph.jpg", 23)):
+    # 2026-10-22 (Antonio): the lighter listing SPLITS in two at $24.99 —
+    # "Custom Engraved Lighter" keeps the generic custom designs (1-4) +
+    # artwork upload, and a NEW "Holy Lighter" listing carries the saint
+    # designs (the religious mockups move to it) + upload your own image.
+    # Both draw on ONE shared pool of blanks by colour (chrome 19, blue 25,
+    # black 25): see variant_stock / LIGHTER_POOL.
+    if not conn.execute("SELECT id FROM products WHERE id='holy-lighter'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("holy-lighter", "Holy Lighter \u2014 Saint Edition",
+             "Briquet grav\u00e9 \u2014 Saints", 2499,
+             "/img/products/lighter-religious-crucifix.jpg",
+             "A Zippo-style lighter laser engraved with a saint: choose the Crucifix, "
+             "the Virgin Mary, Carlo Acutis or Saint Joseph, or upload your own image "
+             "and we engrave it for you. In its gift case, in chrome, blue or black.",
+             "Un briquet style Zippo grav\u00e9 au laser \u00e0 l'image d'un saint : "
+             "choisissez le Crucifix, la Vierge Marie, Carlo Acutis ou saint Joseph, "
+             "ou t\u00e9l\u00e9versez votre propre image et nous la gravons pour vous. "
+             "Dans son coffret cadeau, en chrome, bleu ou noir.",
+             "A saint you carry. The image is engraved with the fiber laser on a "
+             "Zippo-style lighter, a mark that will not fade, in chrome, blue or black.",
+             "Un saint qui vous accompagne. L'image est grav\u00e9e au laser \u00e0 fibre "
+             "sur un briquet style Zippo, une marque qui ne s'effacera pas, en chrome, "
+             "bleu ou noir.",
+             json.dumps(["religious"]), None, 0, "", 0, 1, "", 1, 4, now_iso()))
+    # Holy Lighter gallery: Antonio's four religious mockups lead it. The
+    # picker swaps in approved engraving templates here later (same rows).
+    for _ph, _srt in (("/img/products/lighter-religious-crucifix.jpg", 0),
+                      ("/img/products/lighter-religious-mary.jpg", 1),
+                      ("/img/products/lighter-religious-carlo.jpg", 2),
+                      ("/img/products/lighter-religious-joseph.jpg", 3)):
         conn.execute(
             "INSERT INTO product_photos (id, product_id, photo, is_scale, kind, sort) "
-            "SELECT ?, 'custom-lighter', ?, 0, 'photo', ? WHERE NOT EXISTS "
-            "(SELECT 1 FROM product_photos WHERE product_id='custom-lighter' AND photo=?)",
-            ("php_lr_" + _ph.split("/")[-1].replace(".jpg", "").replace("-", "_"),
+            "SELECT ?, 'holy-lighter', ?, 0, 'photo', ? WHERE NOT EXISTS "
+            "(SELECT 1 FROM product_photos WHERE product_id='holy-lighter' AND photo=?)",
+            ("php_hl_" + _ph.split("/")[-1].replace(".jpg", "").replace("-", "_"),
              _ph, _srt, _ph))
+    # ...and the saint mockups leave the custom listing's gallery.
+    conn.execute(
+        "DELETE FROM product_photos WHERE product_id='custom-lighter' AND photo IN "
+        "('/img/products/lighter-religious-crucifix.jpg',"
+        "'/img/products/lighter-religious-mary.jpg',"
+        "'/img/products/lighter-religious-carlo.jpg',"
+        "'/img/products/lighter-religious-joseph.jpg')")
+    # Shared blank pool (seeded once; live counts change only via orders
+    # or direct DB edits, never re-seeded).
+    for _color, _n in (("chrome", 19), ("blue", 25), ("black", 25)):
+        conn.execute(
+            "INSERT OR IGNORE INTO variant_stock (pool, color, stock) VALUES (?,?,?)",
+            (LIGHTER_POOL, _color, _n))
+    conn.execute(
+        "UPDATE products SET stock_pool=? WHERE id IN ('custom-lighter','holy-lighter')",
+        (LIGHTER_POOL,))
+    # Creator code for The Simple Catholic (Antonio 2026-10-22): 20% off for
+    # his followers, 15% commission. PRIVATE — created here only; it is never
+    # rendered on any public page (only WELCOME10 is). Antonio hands it out.
+    conn.execute(
+        "INSERT OR IGNORE INTO coupons (code, percent_off, active, note, "
+        "commission_pct, created) VALUES ('SIMPLE20', 20, 1, "
+        "'Creator: The Simple Catholic (@thesimplecatholic)', 15, ?)",
+        (now_iso(),))
     conn.commit()
     conn.close()
 
@@ -1531,6 +1604,66 @@ def usd_est(cents):
 def usd_note(cents, lang):
     """Localized approximate-USD hint shown under a CAD price."""
     return t(lang, "usd_approx").format(usd=usd_est(cents))
+
+
+# ---------- shared blank-stock pools (2026-10-22) ----------
+# The Custom Engraved Lighter and the Holy Lighter are engraved from the
+# SAME physical blanks, so both listings draw on one pool keyed by colour:
+# chrome 19, blue 25, black 25 at launch. A colour at 0 in the pool is
+# unavailable on BOTH listings; checkout decrements the pool, never the
+# per-product stock, for pooled products.
+LIGHTER_POOL = "lighter-blanks"
+LIGHTER_COLORS = ("chrome", "blue", "black")
+COLOR_LABELS = {"chrome": ("Chrome", "Chrome"),
+                "blue": ("Bleu", "Blue"),
+                "black": ("Noir", "Black")}
+
+
+def color_label(color, lang="en"):
+    fr, en = COLOR_LABELS.get(color, (color, color))
+    return fr if lang == "fr" else en
+
+
+# Holy Lighter saint picker: (stored design value, FR label, EN label,
+# option image). Option images are Antonio's existing mockups for now;
+# approved engraving templates swap in later by changing an image path
+# here (and adding a row for Saint Teresa of Avila) — nothing else moves.
+HOLY_TEMPLATES = [
+    ("Crucifix", "Crucifix", "Crucifix",
+     "/img/products/lighter-religious-crucifix.jpg"),
+    ("Virgin Mary", "Vierge Marie", "Virgin Mary",
+     "/img/products/lighter-religious-mary.jpg"),
+    ("Carlo Acutis", "Carlo Acutis", "Carlo Acutis",
+     "/img/products/lighter-religious-carlo.jpg"),
+    ("Saint Joseph", "Saint Joseph", "Saint Joseph",
+     "/img/products/lighter-religious-joseph.jpg"),
+]
+
+
+def product_pool(p):
+    """The shared stock pool a product row draws from ('' if none)."""
+    try:
+        return (p["stock_pool"] or "").strip()
+    except (IndexError, KeyError):
+        return ""
+
+
+def pool_levels(pool):
+    """Current {color: stock} levels for a shared pool."""
+    conn = db()
+    rows = conn.execute(
+        "SELECT color, stock FROM variant_stock WHERE pool=?", (pool,)).fetchall()
+    conn.close()
+    return {r["color"]: (r["stock"] or 0) for r in rows}
+
+
+def eff_stock(p):
+    """Effective stock for a product row: the pool total for pooled
+    products, else the product's own stock (None = unlimited)."""
+    pool = product_pool(p)
+    if pool:
+        return sum(pool_levels(pool).values())
+    return p["stock"]
 
 
 def get_product(pid):
@@ -1698,6 +1831,10 @@ def product_page(pid):
     p = get_product(pid)
     if not p:
         abort(404)
+    # Pooled products (the lighters) display and gate on the shared pool
+    # total, not their own stock column.
+    p = dict(p)
+    p["stock"] = eff_stock(p)
     track_visit(f"/product/{pid}")
     track_product_view(pid)
     name = pick(p, lang, "name")
@@ -1764,10 +1901,10 @@ def product_page(pid):
                            f'placeholder="{h(t(lang, "engraving_ph"))}"></div>')
     option_field = ""
     if p["id"] == "custom-lighter":
-        _des_opts = "".join(f'<option value="Design {i}">Design {i}</option>' for i in range(1, 13))
+        _des_opts = "".join(f'<option value="Design {i}">Design {i}</option>' for i in range(1, 5))
         _thumbs = "".join(
             f'<img src="/img/designs/lighter-design-{i}.jpg" data-d="{i}" alt="Design {i}" loading="lazy">'
-            for i in range(1, 13))
+            for i in range(1, 5))
         option_field = (
             f'<div class="field"><label>{t(lang, "design_title")}</label>'
             f'<div class="design-mode"><label><input type="radio" name="designmode" value="gallery" checked> '
@@ -1776,6 +1913,25 @@ def product_page(pid):
             f'<div id="designGalleryPick"><select id="designSelect">{_des_opts}</select>'
             f'<div class="design-preview"><img id="designPreview" src="/img/designs/lighter-design-1.jpg" '
             f'alt="Design 1"></div><div class="design-thumbs">{_thumbs}</div></div>'
+            f'<div id="designUploadPick" style="display:none">'
+            f'<input type="file" id="designFile" accept="image/*">'
+            f'<input type="hidden" id="designUploadId" value="">'
+            f'<span id="designUploadMsg" class="small muted"></span></div></div>')
+    elif p["id"] == "holy-lighter":
+        _t_opts = "".join(
+            f'<option value="{v}" data-img="{img}">{fr if lang == "fr" else en}</option>'
+            for v, fr, en, img in HOLY_TEMPLATES)
+        _t_thumbs = "".join(
+            f'<img src="{img}" data-v="{v}" alt="{en}" loading="lazy">'
+            for v, fr, en, img in HOLY_TEMPLATES)
+        option_field = (
+            f'<div class="field"><label>{t(lang, "design_title")}</label>'
+            f'<div class="design-mode"><label><input type="radio" name="designmode" value="gallery" checked> '
+            f'{t(lang, "saint_gallery")}</label> '
+            f'<label><input type="radio" name="designmode" value="upload"> {t(lang, "design_upload")}</label></div>'
+            f'<div id="designGalleryPick"><select id="designSelect">{_t_opts}</select>'
+            f'<div class="design-preview"><img id="designPreview" src="{HOLY_TEMPLATES[0][3]}" '
+            f'alt="Crucifix"></div><div class="design-thumbs">{_t_thumbs}</div></div>'
             f'<div id="designUploadPick" style="display:none">'
             f'<input type="file" id="designFile" accept="image/*">'
             f'<input type="hidden" id="designUploadId" value="">'
@@ -1823,6 +1979,66 @@ def product_page(pid):
       else { msg.textContent = (j.error || 'upload failed'); msg.style.color = 'red'; }
     } catch(e){ msg.textContent = 'upload failed'; msg.style.color = 'red'; }
   });
+})();
+</script>"""
+    if p["id"] == "holy-lighter":
+        design_js = """<script>
+(function(){
+  var sel = document.getElementById('designSelect'), prev = document.getElementById('designPreview');
+  function pick(){ if(!sel) return; var o = sel.options[sel.selectedIndex];
+    if(prev && o){ prev.src = o.getAttribute('data-img'); prev.alt = o.text; }
+    document.querySelectorAll('.design-thumbs img').forEach(function(t){
+      t.classList.toggle('on', t.getAttribute('data-v') === sel.value); }); }
+  if(sel) sel.addEventListener('change', pick);
+  document.querySelectorAll('.design-thumbs img').forEach(function(t){
+    t.addEventListener('click', function(){ if(sel){ sel.value = t.getAttribute('data-v'); pick(); } }); });
+  document.querySelectorAll('input[name="designmode"]').forEach(function(r){
+    r.addEventListener('change', function(){
+      var gal = r.value === 'gallery';
+      document.getElementById('designGalleryPick').style.display = gal ? '' : 'none';
+      document.getElementById('designUploadPick').style.display = gal ? 'none' : ''; }); });
+  var fi = document.getElementById('designFile'), msg = document.getElementById('designUploadMsg');
+  if(fi) fi.addEventListener('change', async function(){
+    if(!fi.files.length) return;
+    msg.textContent = '…'; msg.style.color = '';
+    var fd = new FormData(); fd.append('file', fi.files[0]);
+    try {
+      var r = await fetch('/api/design-upload', {method: 'POST', body: fd});
+      var j = await r.json();
+      if(j.file){ document.getElementById('designUploadId').value = j.file;
+        msg.textContent = '✓'; msg.style.color = 'green'; }
+      else { msg.textContent = (j.error || 'upload failed'); msg.style.color = 'red'; }
+    } catch(e){ msg.textContent = 'upload failed'; msg.style.color = 'red'; }
+  });
+})();
+</script>"""
+    # Colour picker for pooled products (the lighters): options come from
+    # the shared pool; a colour at 0 is disabled here AND rejected server-side.
+    color_field = ""
+    if product_pool(p):
+        _levels = pool_levels(product_pool(p))
+        _c_opts = ""
+        _picked = False
+        for _c in LIGHTER_COLORS:
+            _n = _levels.get(_c, 0)
+            _sel = ""
+            if _n > 0 and not _picked:
+                _sel = " selected"
+                _picked = True
+            _dis = " disabled" if _n <= 0 else ""
+            _c_opts += (f'<option value="{_c}" data-stock="{_n}"{_sel}{_dis}>'
+                        f'{h(color_label(_c, lang))} \u2014 '
+                        f'{t(lang, "in_stock").format(n=_n)}</option>')
+        color_field = (f'<div class="field"><label for="colorSelect">{t(lang, "color_title")}</label>'
+                       f'<select id="colorSelect">{_c_opts}</select></div>')
+        design_js += """<script>
+(function(){
+  var cs = document.getElementById('colorSelect'), q = document.getElementById('qty');
+  function sync(){ if(!cs || !q) return; var o = cs.options[cs.selectedIndex];
+    var s = parseInt((o && o.getAttribute('data-stock')) || '10', 10);
+    var mx = Math.max(1, Math.min(10, s)); q.max = mx;
+    if((parseInt(q.value || '1', 10) || 1) > mx) q.value = mx; }
+  if(cs){ cs.addEventListener('change', sync); sync(); }
 })();
 </script>"""
     preorder_note = ""
@@ -1886,6 +2102,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   if (ss) payload.saint = ss.value;
   var sz2 = document.getElementById('sizeSelect');
   if (sz2) payload.size = sz2.value;
+  var co = document.getElementById('colorSelect');
+  if (co) payload.color = co.value;
   var cp = document.getElementById('coupon');
   if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
   var sc = document.getElementById('shipCountry');
@@ -2012,6 +2230,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <div id="couponMsg" class="small" style="margin-top:6px"></div></div>
 {engraving_field}
 {option_field}
+{color_field}
 <div class="field"><label for="shipCountry">{t(lang, "ship_country")}</label>
 <select id="shipCountry">
 <option value="CA">{t(lang, "ship_ca")}</option>
@@ -2117,6 +2336,8 @@ def api_products():
             continue
         d = dict(p)
         d["price"] = money(p["price_cents"])
+        if product_pool(p):
+            d["stock"] = eff_stock(p)  # shared pool total for pooled products
         d["depts"] = depts
         d["photos"] = photos_by.get(p["id"], [])
         for k in ("preorder", "engravable", "purchasable", "in_works"):
@@ -2183,6 +2404,7 @@ def api_checkout():
     design = (data.get("design") or "").strip()[:60]
     saint = (data.get("saint") or "").strip()[:40]
     size = (data.get("size") or "").strip()[:20]
+    color = (data.get("color") or "").strip().lower()[:20]
     _parts = []
     if design:
         _parts.append(design)
@@ -2190,6 +2412,8 @@ def api_checkout():
         _parts.append("Saint: " + saint)
     if size:
         _parts.append("Size: " + size)
+    if color in LIGHTER_COLORS:
+        _parts.append("Color: " + color_label(color))
     if engraving:
         _parts.append("Text: " + engraving)
     if _parts:
@@ -2197,7 +2421,13 @@ def api_checkout():
     p = get_product(pid)
     if not p or not p["purchasable"] or p["in_works"]:
         return jsonify({"error": t(lang, "err_unknown_product")}), 404
-    if p["stock"] is not None and p["stock"] < qty:
+    _pool = product_pool(p)
+    if _pool:
+        # Pooled product (lighters): the chosen colour must have enough
+        # blanks left in the shared pool.
+        if color not in LIGHTER_COLORS or pool_levels(_pool).get(color, 0) < qty:
+            return jsonify({"error": t(lang, "err_stock")}), 400
+    elif p["stock"] is not None and p["stock"] < qty:
         return jsonify({"error": t(lang, "err_stock")}), 400
     # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
     if pid == "mini-bust":
@@ -2220,9 +2450,11 @@ def api_checkout():
     conn = db()
     conn.execute(
         "INSERT INTO orders (id, created, product_id, product_name, amount_cents, qty, "
-        "engraving_text, preorder, preorder_ship_date, paid, coupon) VALUES (?,?,?,?,?,?,?,?,?,0,?)",
+        "engraving_text, preorder, preorder_ship_date, paid, coupon, color) "
+        "VALUES (?,?,?,?,?,?,?,?,?,0,?,?)",
         (oid, now_iso(), pid, name, amount, qty, engraving,
-         p["preorder"], p["preorder_ship_date"], coupon_code))
+         p["preorder"], p["preorder_ship_date"], coupon_code,
+         color if _pool else ""))
     conn.commit()
     conn.close()
     label = name + (f" x{qty}" if qty > 1 else "")
@@ -2308,6 +2540,7 @@ def api_cart_checkout():
         design = (it.get("design") or "").strip()[:60]
         saint = (it.get("saint") or "").strip()[:40]
         size = (it.get("size") or "").strip()[:20]
+        color = (it.get("color") or "").strip().lower()[:20]
         _parts = []
         if design:
             _parts.append(design)
@@ -2315,12 +2548,17 @@ def api_cart_checkout():
             _parts.append("Saint: " + saint)
         if size:
             _parts.append("Size: " + size)
+        if color in LIGHTER_COLORS:
+            _parts.append("Color: " + color_label(color))
         if engraving:
             _parts.append("Text: " + engraving)
         options = "; ".join(_parts)[:200]
         p = get_product(pid)
         if not p or not p["purchasable"] or p["in_works"]:
             return jsonify({"error": t(lang, "err_unknown_product")}), 404
+        _pool = product_pool(p)
+        if _pool and color not in LIGHTER_COLORS:
+            return jsonify({"error": t(lang, "err_stock")}), 400
         # Same pricing rules as /api/checkout.
         if pid == "mini-bust":
             line_amount = (2999 if size == "Large" else 1999) * qty
@@ -2334,10 +2572,25 @@ def api_cart_checkout():
         total_qty_by_pid[pid] = total_qty_by_pid.get(pid, 0) + qty
         lines.append({"pid": pid, "qty": qty, "amount": line_amount,
                       "options": options, "name": pick(p, lang, "name"),
-                      "product": p})
+                      "product": p, "color": color if _pool else "",
+                      "pool": _pool})
     for pid, q in total_qty_by_pid.items():
         p = get_product(pid)
-        if p["stock"] is not None and p["stock"] < q:
+        if not product_pool(p) and p["stock"] is not None and p["stock"] < q:
+            return jsonify({"error": t(lang, "err_stock")}), 400
+    # Shared pools: aggregate demand per (pool, colour) across ALL lines —
+    # both lighter listings draw on the same blanks, so two lines in
+    # different listings can together exhaust a colour.
+    _pool_demand = {}
+    for l in lines:
+        if l["pool"]:
+            _k = (l["pool"], l["color"])
+            _pool_demand[_k] = _pool_demand.get(_k, 0) + l["qty"]
+    _pool_cache = {}
+    for (_pool, _color), _q in _pool_demand.items():
+        if _pool not in _pool_cache:
+            _pool_cache[_pool] = pool_levels(_pool)
+        if _pool_cache[_pool].get(_color, 0) < _q:
             return jsonify({"error": t(lang, "err_stock")}), 400
     amount = sum(l["amount"] for l in lines)
     pct_off, coupon_code = get_coupon(data.get("coupon"))
@@ -2365,8 +2618,9 @@ def api_cart_checkout():
     for l in lines:
         conn.execute(
             "INSERT INTO order_items (order_id, product_id, product_name, qty, "
-            "amount_cents, options) VALUES (?,?,?,?,?,?)",
-            (oid, l["pid"], l["name"], l["qty"], l["amount"], l["options"]))
+            "amount_cents, options, color) VALUES (?,?,?,?,?,?,?)",
+            (oid, l["pid"], l["name"], l["qty"], l["amount"], l["options"],
+             l["color"]))
     conn.commit()
     conn.close()
     if not STRIPE_SECRET:
@@ -2514,6 +2768,21 @@ def _fmt_address(addr):
     return "\n".join(p for p in parts if p)
 
 
+def _decrement_stock(conn, pid, qty, color=""):
+    """Decrement stock for one sold line: the shared pool for pooled
+    products (the lighters), else the product's own stock column."""
+    prow = conn.execute(
+        "SELECT stock_pool FROM products WHERE id=?", (pid,)).fetchone()
+    pool = ((prow["stock_pool"] or "") if prow else "")
+    if pool and color:
+        conn.execute(
+            "UPDATE variant_stock SET stock = stock - ? WHERE pool=? AND color=?",
+            (qty, pool, color))
+    else:
+        conn.execute("UPDATE products SET stock = stock - ? "
+                     "WHERE id=? AND stock IS NOT NULL", (qty, pid))
+
+
 def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address="", phone=""):
     conn = db()
     conn.execute(
@@ -2521,18 +2790,16 @@ def mark_order_paid(oid, email="", customer_name="", ship_name="", ship_address=
         "phone=? WHERE id=?",
         (email, customer_name, ship_name, ship_address, phone, oid))
     items = conn.execute(
-        "SELECT product_id, qty FROM order_items WHERE order_id=?", (oid,)).fetchall()
+        "SELECT product_id, qty, color FROM order_items WHERE order_id=?", (oid,)).fetchall()
     if items:
         for it in items:
-            conn.execute("UPDATE products SET stock = stock - ? "
-                         "WHERE id=? AND stock IS NOT NULL",
-                         (it["qty"], it["product_id"]))
+            _decrement_stock(conn, it["product_id"], it["qty"], it["color"] or "")
     else:
-        row = conn.execute("SELECT product_id FROM orders WHERE id=?", (oid,)).fetchone()
+        row = conn.execute(
+            "SELECT product_id, qty, color FROM orders WHERE id=?", (oid,)).fetchone()
         if row:
-            conn.execute("UPDATE products SET stock = stock - "
-                         "(SELECT qty FROM orders WHERE id=?) "
-                         "WHERE id=? AND stock IS NOT NULL", (oid, row["product_id"]))
+            _decrement_stock(conn, row["product_id"], row["qty"] or 1,
+                             row["color"] or "")
     conn.commit()
     conn.close()
 
@@ -2772,11 +3039,16 @@ def admin_coupons():
         except (TypeError, ValueError):
             return jsonify({"error": "bad percent"}), 400
         note = (data.get("note") or "").strip()[:160]
+        try:
+            comm = max(0, min(90, int(data.get("commission_pct") or 0)))
+        except (TypeError, ValueError):
+            comm = 0
         if not code or not pct:
             return jsonify({"error": "code and percent required"}), 400
         conn.execute(
-            "INSERT OR REPLACE INTO coupons (code, percent_off, active, note, created) "
-            "VALUES (?,?,1,?,?)", (code, pct, note, now_iso()))
+            "INSERT OR REPLACE INTO coupons (code, percent_off, active, note, "
+            "commission_pct, created) VALUES (?,?,1,?,?,?)",
+            (code, pct, note, comm, now_iso()))
         conn.commit()
     rows = conn.execute("SELECT * FROM coupons ORDER BY created DESC").fetchall()
     conn.close()
@@ -3142,6 +3414,7 @@ def admin_page():
 <div class="field"><label>Code (e.g. KRISTIE15)</label><input type="text" id="cf-code" required maxlength="32" style="text-transform:uppercase"></div>
 <div class="field"><label>Percent off (1-90)</label><input type="number" id="cf-pct" min="1" max="90" required></div>
 </div>
+<div class="field"><label>Commission % for the creator (0 = none)</label><input type="number" id="cf-comm" min="0" max="90" value="0"></div>
 <div class="field"><label>Note (e.g. creator name)</label><input type="text" id="cf-note" maxlength="160"></div>
 <button class="btn btn-primary" type="submit">Create code</button>
 </form>
