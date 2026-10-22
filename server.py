@@ -122,6 +122,12 @@ STR = {
         "add_to_cart": "Ajouter au panier",
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
         "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. Livraison : 1 à 2 semaines. L'adresse de livraison est demandée au paiement.",
+        "seller_trusted": "Fournisseur de confiance de l'Oratoire Saint-Joseph de Montréal",
+        "seller_ship": "Expédition : 5 $ au Canada (gratuite dès 50 $), 10 $ aux États-Unis, 15 $ à l'international. Livraison : 1 à 2 semaines.",
+        "seller_returns": "Retours acceptés.",
+        "seller_contact": "Un problème ou une question ? N'hésitez pas à nous écrire, il nous fera plaisir de vous aider.",
+        "seller_welcome": "Première commande ? 10 % de rabais avec le code WELCOME10.",
+        "seller_secure": "Paiement sécurisé avec Stripe. L'adresse de livraison est demandée au paiement.",
         "ship_country": "Pays de livraison",
         "ship_ca": "Canada — 5 $",
         "ship_us": "États-Unis — 10 $",
@@ -195,6 +201,12 @@ STR = {
         "add_to_cart": "Add to cart",
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
         "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Delivery: 1-2 weeks. Shipping address collected at checkout.",
+        "seller_trusted": "Trusted supplier to Saint Joseph's Oratory in Montreal",
+        "seller_ship": "Shipping: $5 in Canada (free on orders over $50), $10 to the US, $15 international. Delivery: 1-2 weeks.",
+        "seller_returns": "Returns accepted.",
+        "seller_contact": "Any problems or questions? Please feel free to reach out, we are happy to help.",
+        "seller_welcome": "First order? Get 10% off with code WELCOME10.",
+        "seller_secure": "Secure checkout with Stripe. Shipping address collected at checkout.",
         "ship_country": "Shipping country",
         "ship_ca": "Canada — $5",
         "ship_us": "United States — $10",
@@ -522,6 +534,12 @@ def db():
         "(code TEXT PRIMARY KEY, percent_off INTEGER DEFAULT 0, "
         " active INTEGER DEFAULT 1, note TEXT DEFAULT '', created TEXT)"
     )
+    # Public first-order code (2026-10-21, conversion pack): shown on product
+    # pages; usage is tracked because the code is saved on each order.
+    conn.execute(
+        "INSERT OR IGNORE INTO coupons (code, percent_off, active, note, created) "
+        "VALUES ('WELCOME10', 10, 1, 'First order 10% off (public code)', ?)",
+        (now_iso(),))
     for ddl in (
         "ALTER TABLE orders ADD COLUMN coupon TEXT DEFAULT ''",
     ):
@@ -1814,7 +1832,12 @@ def product_page(pid):
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money(p["price_cents"])}</button>'
                         f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
-                        f'<p class="small muted" style="margin-top:10px">{t(lang, "secure_checkout")}</p>')
+                        f'<div style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2">'
+                        f'<p style="margin:0 0 6px"><strong>{t(lang, "seller_trusted")}</strong></p>'
+                        f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_ship")}</p>'
+                        f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_returns")} {t(lang, "seller_contact")}</p>'
+                        f'<p class="small" style="margin:0 0 6px"><strong>{t(lang, "seller_welcome")}</strong></p>'
+                        f'<p class="small muted" style="margin:0">{t(lang, "seller_secure")}</p></div>')
     else:
         buy_html = f'<div class="notice">{t(lang, "coming_soon")}</div>'
     custom = ""
@@ -2202,6 +2225,8 @@ def api_checkout():
         ship_country = "CA"
     # Tiered shipping: $5 Canada, $10 US, $15 worldwide.
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
+    if ship_country == "CA" and amount >= 5000:
+        ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
     if ship_country == "CA":
         allowed = ["CA"]
     elif ship_country == "US":
@@ -2337,6 +2362,8 @@ def api_cart_checkout():
         ship_country = "CA"
     # Tiered shipping: $5 Canada, $10 US, $15 worldwide.
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
+    if ship_country == "CA" and amount >= 5000:
+        ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
     if ship_country == "CA":
         allowed = ["CA"]
     elif ship_country == "US":
@@ -2880,6 +2907,8 @@ def lamp_checkout():
     if ship_country not in ("CA", "US", "INT"):
         ship_country = "CA"
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
+    if ship_country == "CA" and amount >= 5000:
+        ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
     if ship_country == "CA":
         allowed = ["CA"]
     elif ship_country == "US":
