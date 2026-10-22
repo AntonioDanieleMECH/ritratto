@@ -1702,12 +1702,12 @@ HOLY_TEMPLATE_GROUPS = [
     ("Passages bibliques", "Bible passages", [
         ("Be Not Afraid — Isaiah 41:10", "Be Not Afraid — Isaiah 41:10",
          "Be Not Afraid — Isaiah 41:10",
-         "/img/templates/verse-be-not-afraid.png"),
+         "/img/templates/verse-be-not-afraid-vertical.png"),
         ("Philippians 4:13", "Philippians 4:13", "Philippians 4:13",
-         "/img/templates/verse-philippians.png"),
+         "/img/templates/verse-philippians-vertical.png"),
         ("Jesus, I Trust in You", "Jesus, I Trust in You",
          "Jesus, I Trust in You",
-         "/img/templates/verse-jesus-i-trust.png"),
+         "/img/templates/verse-jesus-i-trust-vertical.png"),
     ]),
 ]
 HOLY_TEMPLATES = [row for _gfr, _gen, _rows in HOLY_TEMPLATE_GROUPS
