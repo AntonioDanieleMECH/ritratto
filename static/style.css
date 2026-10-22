@@ -432,3 +432,4 @@ p { margin: 0 0 1em; }
 .design-thumbs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 8px; }
 .design-thumbs img { width: 100%; border: 2px solid transparent; border-radius: 6px; cursor: pointer; background: #fff; }
 .design-thumbs img.on { border-color: var(--brass-deep); }
+.design-group-label { grid-column: 1 / -1; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--brass-deep); margin-top: 6px; }

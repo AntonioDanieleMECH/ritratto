@@ -140,7 +140,7 @@ STR = {
         "engraving_ph": "p. ex. Aku, depuis 2026",
         "design_title": "Choisissez votre motif",
         "design_gallery": "Choisir parmi nos 4 motifs",
-        "saint_gallery": "Choisir parmi nos modèles de saints",
+        "saint_gallery": "Choisir parmi nos modèles",
         "color_title": "Couleur",
         "in_stock": "{n} en stock",
         "design_upload": "Téléverser mon propre dessin",
@@ -223,7 +223,7 @@ STR = {
         "engraving_ph": "e.g. Aku, Est. 2026",
         "design_title": "Choose your design",
         "design_gallery": "Pick from our 4 designs",
-        "saint_gallery": "Pick from our saint designs",
+        "saint_gallery": "Pick from our designs",
         "color_title": "Color",
         "in_stock": "{n} in stock",
         "design_upload": "Upload my own artwork",
@@ -1416,21 +1416,55 @@ def seed():
             ("holy-lighter", "Holy Lighter \u2014 Saint Edition",
              "Briquet grav\u00e9 \u2014 Saints", 2499,
              "/img/products/lighter-religious-crucifix.jpg",
-             "A Zippo-style lighter laser engraved with a saint: choose the Crucifix, "
-             "the Virgin Mary, Carlo Acutis or Saint Joseph, or upload your own image "
-             "and we engrave it for you. In its gift case, in chrome, blue or black.",
-             "Un briquet style Zippo grav\u00e9 au laser \u00e0 l'image d'un saint : "
-             "choisissez le Crucifix, la Vierge Marie, Carlo Acutis ou saint Joseph, "
-             "ou t\u00e9l\u00e9versez votre propre image et nous la gravons pour vous. "
-             "Dans son coffret cadeau, en chrome, bleu ou noir.",
+             "A Zippo-style lighter laser engraved with the design of your choice: "
+             "saints (Crucifix, Virgin Mary, Carlo Acutis, Saint Joseph, Saint Teresa "
+             "of Avila, Sacred Heart of Jesus), symbols (cross, Holy Spirit dove, "
+             "ichthys, Chi Rho, rosary, Lamb of God, Sacred Heart) and Bible passages "
+             "\u2014 simple bold-line engravings that read clearly \u2014 or upload your "
+             "own image and we engrave it for you. In its gift case, in chrome, blue "
+             "or black.",
+             "Un briquet style Zippo grav\u00e9 au laser avec le motif de votre choix : "
+             "des saints (Crucifix, Vierge Marie, Carlo Acutis, saint Joseph, sainte "
+             "Th\u00e9r\u00e8se d'Avila, Sacr\u00e9-C\u0153ur de J\u00e9sus), des symboles "
+             "(croix, colombe du Saint-Esprit, ichthys, Chi Rho, chapelet, Agneau de "
+             "Dieu, Sacr\u00e9-C\u0153ur) et des passages bibliques \u2014 des gravures en "
+             "lignes simples et bien lisibles \u2014 ou t\u00e9l\u00e9versez votre propre "
+             "image et nous la gravons pour vous. Dans son coffret cadeau, en chrome, "
+             "bleu ou noir.",
              "A saint you carry. The image is engraved with the fiber laser on a "
              "Zippo-style lighter, a mark that will not fade, in chrome, blue or black.",
              "Un saint qui vous accompagne. L'image est grav\u00e9e au laser \u00e0 fibre "
              "sur un briquet style Zippo, une marque qui ne s'effacera pas, en chrome, "
              "bleu ou noir.",
              json.dumps(["religious"]), None, 0, "", 0, 1, "", 1, 4, now_iso()))
-    # Holy Lighter gallery: Antonio's four religious mockups lead it. The
-    # picker swaps in approved engraving templates here later (same rows).
+    # 2026-10-22 (later): the picker now carries the full approved template
+    # set (saints, symbols, Bible passages — see HOLY_TEMPLATE_GROUPS), so
+    # refresh the seeded listing copy to match. Guarded on the description
+    # still reading exactly as first seeded, so an admin edit Antonio made
+    # since is never overwritten.
+    conn.execute(
+        "UPDATE products SET description=?, description_fr=? "
+        "WHERE id='holy-lighter' AND description=?",
+        ("A Zippo-style lighter laser engraved with the design of your choice: "
+         "saints (Crucifix, Virgin Mary, Carlo Acutis, Saint Joseph, Saint Teresa "
+         "of Avila, Sacred Heart of Jesus), symbols (cross, Holy Spirit dove, "
+         "ichthys, Chi Rho, rosary, Lamb of God, Sacred Heart) and Bible passages "
+         "\u2014 simple bold-line engravings that read clearly \u2014 or upload your "
+         "own image and we engrave it for you. In its gift case, in chrome, blue "
+         "or black.",
+         "Un briquet style Zippo grav\u00e9 au laser avec le motif de votre choix : "
+         "des saints (Crucifix, Vierge Marie, Carlo Acutis, saint Joseph, sainte "
+         "Th\u00e9r\u00e8se d'Avila, Sacr\u00e9-C\u0153ur de J\u00e9sus), des symboles "
+         "(croix, colombe du Saint-Esprit, ichthys, Chi Rho, chapelet, Agneau de "
+         "Dieu, Sacr\u00e9-C\u0153ur) et des passages bibliques \u2014 des gravures en "
+         "lignes simples et bien lisibles \u2014 ou t\u00e9l\u00e9versez votre propre "
+         "image et nous la gravons pour vous. Dans son coffret cadeau, en chrome, "
+         "bleu ou noir.",
+         "A Zippo-style lighter laser engraved with a saint: choose the Crucifix, "
+         "the Virgin Mary, Carlo Acutis or Saint Joseph, or upload your own image "
+         "and we engrave it for you. In its gift case, in chrome, blue or black."))
+    # Holy Lighter gallery: Antonio's four religious mockups (real photos of
+    # the engraved lighters) lead it; the picker uses the template artwork.
     for _ph, _srt in (("/img/products/lighter-religious-crucifix.jpg", 0),
                       ("/img/products/lighter-religious-mary.jpg", 1),
                       ("/img/products/lighter-religious-carlo.jpg", 2),
@@ -1624,20 +1658,60 @@ def color_label(color, lang="en"):
     return fr if lang == "fr" else en
 
 
-# Holy Lighter saint picker: (stored design value, FR label, EN label,
-# option image). Option images are Antonio's existing mockups for now;
-# approved engraving templates swap in later by changing an image path
-# here (and adding a row for Saint Teresa of Avila) — nothing else moves.
-HOLY_TEMPLATES = [
-    ("Crucifix", "Crucifix", "Crucifix",
-     "/img/products/lighter-religious-crucifix.jpg"),
-    ("Virgin Mary", "Vierge Marie", "Virgin Mary",
-     "/img/products/lighter-religious-mary.jpg"),
-    ("Carlo Acutis", "Carlo Acutis", "Carlo Acutis",
-     "/img/products/lighter-religious-carlo.jpg"),
-    ("Saint Joseph", "Saint Joseph", "Saint Joseph",
-     "/img/products/lighter-religious-joseph.jpg"),
+# Holy Lighter design picker (Antonio 2026-10-22, final selection after
+# reviewing both template batches): easy-to-engrave, instantly recognizable
+# bold-line templates — the one detailed exception is the Sacred Heart of
+# Jesus. Rows are (stored design value, FR label, EN label, option image),
+# grouped saints -> symbols -> Bible passages; "upload your own image"
+# stays as the picker's second mode. The stored value is what lands on
+# the order, exactly like the custom lighter's design choices.
+HOLY_TEMPLATE_GROUPS = [
+    ("Saints", "Saints", [
+        ("Crucifix", "Crucifix", "Crucifix",
+         "/img/templates/crucifix.png"),
+        ("Virgin Mary", "Vierge Marie", "Virgin Mary",
+         "/img/templates/virgin-mary.png"),
+        ("Carlo Acutis", "Carlo Acutis", "Carlo Acutis",
+         "/img/templates/carlo-acutis.png"),
+        ("Saint Joseph", "Saint Joseph", "Saint Joseph",
+         "/img/templates/saint-joseph.png"),
+        ("Saint Teresa of Avila", "Sainte Thérèse d'Avila",
+         "Saint Teresa of Avila",
+         "/img/templates/saint-teresa-avila.png"),
+        ("Sacred Heart of Jesus", "Sacré-Cœur de Jésus",
+         "Sacred Heart of Jesus",
+         "/img/templates/sacred-heart-jesus.png"),
+    ]),
+    ("Symboles", "Symbols", [
+        ("Cross", "Croix", "Cross",
+         "/img/templates/cross.png"),
+        ("Holy Spirit Dove", "Colombe du Saint-Esprit", "Holy Spirit Dove",
+         "/img/templates/holy-spirit-dove.png"),
+        ("Ichthys", "Ichthys", "Ichthys",
+         "/img/templates/ichthys.png"),
+        ("Chi Rho", "Chi Rho", "Chi Rho",
+         "/img/templates/chi-rho.png"),
+        ("Rosary", "Chapelet", "Rosary",
+         "/img/templates/rosary.png"),
+        ("Lamb of God", "Agneau de Dieu", "Lamb of God",
+         "/img/templates/lamb-of-god.png"),
+        ("Sacred Heart (symbol)", "Sacré-Cœur (symbole)",
+         "Sacred Heart (symbol)",
+         "/img/templates/sacred-heart-symbol.png"),
+    ]),
+    ("Passages bibliques", "Bible passages", [
+        ("Be Not Afraid — Isaiah 41:10", "Be Not Afraid — Isaiah 41:10",
+         "Be Not Afraid — Isaiah 41:10",
+         "/img/templates/verse-be-not-afraid.png"),
+        ("Philippians 4:13", "Philippians 4:13", "Philippians 4:13",
+         "/img/templates/verse-philippians.png"),
+        ("Jesus, I Trust in You", "Jesus, I Trust in You",
+         "Jesus, I Trust in You",
+         "/img/templates/verse-jesus-i-trust.png"),
+    ]),
 ]
+HOLY_TEMPLATES = [row for _gfr, _gen, _rows in HOLY_TEMPLATE_GROUPS
+                  for row in _rows]
 
 
 def product_pool(p):
@@ -1918,12 +1992,17 @@ def product_page(pid):
             f'<input type="hidden" id="designUploadId" value="">'
             f'<span id="designUploadMsg" class="small muted"></span></div></div>')
     elif p["id"] == "holy-lighter":
-        _t_opts = "".join(
-            f'<option value="{v}" data-img="{img}">{fr if lang == "fr" else en}</option>'
-            for v, fr, en, img in HOLY_TEMPLATES)
-        _t_thumbs = "".join(
-            f'<img src="{img}" data-v="{v}" alt="{en}" loading="lazy">'
-            for v, fr, en, img in HOLY_TEMPLATES)
+        _t_opts = ""
+        _t_thumbs = ""
+        for _gfr, _gen, _rows in HOLY_TEMPLATE_GROUPS:
+            _glabel = _gfr if lang == "fr" else _gen
+            _t_opts += (f'<optgroup label="{h(_glabel)}">' + "".join(
+                f'<option value="{v}" data-img="{img}">{fr if lang == "fr" else en}</option>'
+                for v, fr, en, img in _rows) + "</optgroup>")
+            _t_thumbs += (f'<span class="design-group-label">{h(_glabel)}</span>'
+                          + "".join(
+                f'<img src="{img}" data-v="{v}" alt="{en}" loading="lazy">'
+                for v, fr, en, img in _rows))
         option_field = (
             f'<div class="field"><label>{t(lang, "design_title")}</label>'
             f'<div class="design-mode"><label><input type="radio" name="designmode" value="gallery" checked> '
