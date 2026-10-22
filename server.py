@@ -363,7 +363,7 @@ def api_track():
         except Exception:  # noqa: BLE001
             return "", 204
         etype = str(data.get("type") or "pageview")[:12]
-        if etype not in ("pageview", "outbound"):
+        if etype not in ("pageview", "outbound", "addcart"):
             return "", 204
         fwd = request.headers.get("X-Forwarded-For", "")
         ip = (fwd.split(",")[0].strip() if fwd else "") or (request.remote_addr or "")
@@ -3134,6 +3134,13 @@ def admin_analytics():
     outbound = conn.execute(
         "SELECT target, COUNT(*) c FROM analytics_events WHERE type='outbound' AND day>=? "
         "GROUP BY target ORDER BY c DESC LIMIT 12", (since,)).fetchall()
+    cart_adds = conn.execute(
+        "SELECT target, COUNT(*) c FROM analytics_events WHERE type='addcart' AND day>=? "
+        "GROUP BY target ORDER BY c DESC LIMIT 12", (since,)).fetchall()
+    if cart_adds:
+        names = {r["id"]: r["name"] for r in
+                 conn.execute("SELECT id, name FROM products").fetchall()}
+        cart_adds = [(names.get(r[0], r[0]), r[1]) for r in cart_adds]
     rows = conn.execute(
         "SELECT sid, ts, path FROM analytics_events WHERE type='pageview' AND day>=? "
         "ORDER BY sid, id", (since,)).fetchall()
@@ -3181,6 +3188,7 @@ def admin_analytics():
 {table("First page of the visit (entry)", [(r[0], r[1]) for r in entries])}
 {table("Last page of the visit (exit)", [(r[0], r[1]) for r in exits])}
 {table("Common journeys (2+ pages)", top_paths)}
+{table("Added to cart", cart_adds)}
 {table("Clicked away to (outbound)", [(r[0], r[1]) for r in outbound])}
 <div class="admin-card"><h2>Most recent visits</h2>
 <table style="width:100%">{recent_html}</table></div>

@@ -317,6 +317,12 @@
     if (!found) items.push(it);
     save(items);
     render();
+    // first-party analytics: record the add (product id only, no personal data)
+    try {
+      var _b = JSON.stringify({ type: "addcart", path: location.pathname, target: it.pid,
+        sid: sessionStorage.getItem("adn_sid") || "", vid: localStorage.getItem("adn_vid") || "" });
+      if (navigator.sendBeacon) navigator.sendBeacon("/api/track", new Blob([_b], { type: "application/json" }));
+    } catch (e) {}
     var cc = document.getElementById("cartCount");
     cc.classList.add("bump");
     setTimeout(function () { cc.classList.remove("bump"); }, 200);
