@@ -1680,7 +1680,7 @@ HOLY_TEMPLATE_GROUPS = [
          "/img/templates/saint-teresa-avila.png"),
         ("Sacred Heart of Jesus", "Sacré-Cœur de Jésus",
          "Sacred Heart of Jesus",
-         "/img/templates/sacred-heart-jesus.png"),
+         "/img/templates/sacred-heart-jesus-f2.png"),
     ]),
     ("Symboles", "Symbols", [
         ("Cross", "Croix", "Cross",
@@ -1697,7 +1697,7 @@ HOLY_TEMPLATE_GROUPS = [
          "/img/templates/lamb-of-god.png"),
         ("Sacred Heart (symbol)", "Sacré-Cœur (symbole)",
          "Sacred Heart (symbol)",
-         "/img/templates/sacred-heart-symbol.png"),
+         "/img/templates/sacred-heart-symbol-simple.png"),
     ]),
     ("Passages bibliques", "Bible passages", [
         ("Be Not Afraid — Isaiah 41:10", "Be Not Afraid — Isaiah 41:10",
