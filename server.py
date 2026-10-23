@@ -1683,7 +1683,7 @@ def color_label(color, lang="en"):
 HOLY_TEMPLATE_GROUPS = [
     ("Saints", "Saints", [
         ("Crucifix", "Crucifix", "Crucifix",
-         "/img/templates/crucifix.png?v=2"),
+         "/img/templates/crucifix.png?v=3"),
         ("Virgin Mary", "Vierge Marie", "Virgin Mary",
          "/img/templates/virgin-mary.png"),
         ("Carlo Acutis", "Carlo Acutis", "Carlo Acutis",
