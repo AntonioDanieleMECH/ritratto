@@ -138,6 +138,9 @@ STR = {
         "ship_intl": "International — 15 $",
         "engraving_label": "Texte à graver (facultatif)",
         "engraving_ph": "p. ex. Aku, depuis 2026",
+        "initials_label": "Ajouter des initiales au dos (+5 $ CA)",
+        "initials_note": "Initiales en relief imprimées au dos. Plus il y a de lettres, plus elles sont petites pour bien s'adapter.",
+        "initials_ph": "p. ex. AD",
         "design_title": "Choisissez votre motif",
         "design_gallery": "Choisir parmi nos 4 motifs",
         "saint_gallery": "Choisir parmi nos modèles",
@@ -221,6 +224,9 @@ STR = {
         "ship_intl": "International — $15",
         "engraving_label": "Custom engraving text (optional)",
         "engraving_ph": "e.g. Aku, Est. 2026",
+        "initials_label": "Add initials on the back (+CA$5)",
+        "initials_note": "Raised initials printed on the back. The more letters, the smaller they are sized to fit.",
+        "initials_ph": "e.g. AD",
         "design_title": "Choose your design",
         "design_gallery": "Pick from our 4 designs",
         "saint_gallery": "Pick from our designs",
@@ -723,9 +729,9 @@ SEED_PRODUCTS = [
      "depts": [], "stock": None, "engravable": 1, "sort": 7},
     {"id": "card-case", "name": "Italian Playing-Card Case", "price_cents": 2499,
      "photo": "",
-     "description": "Fitted case for Italian playing cards, Scopa and Briscola sizes. Hand crafted from plant-based bioplastic.",
+     "description": "Fitted case for Italian playing cards, Scopa and Briscola sizes. Hand crafted from plant-based bioplastic. Make it yours: add initials raised on the back for CA$5 more. The more letters, the smaller they are sized to fit.",
      "name_fr": "Étui pour cartes à jouer italiennes",
-     "description_fr": "Étui ajusté pour jeux de cartes italiennes, formats Scopa et Briscola. Fait à la main en bioplastique d'origine végétale.",
+     "description_fr": "Étui ajusté pour jeux de cartes italiennes, formats Scopa et Briscola. Fait à la main en bioplastique d'origine végétale. Personnalisez-le : ajoutez des initiales en relief au dos pour 5 $ CA de plus. Plus il y a de lettres, plus elles sont petites pour bien s'adapter.",
      "story": "Italian card games deserve better than a torn box. A fitted case for Scopa and Briscola decks, printed to precise tolerances so the cards slide in just right.",
      "story_fr": "Les jeux de cartes italiens méritent mieux qu'une boîte déchirée. Un étui ajusté pour les jeux Scopa et Briscola, imprimé avec des tolérances précises pour que les cartes s'y glissent parfaitement.",
      "depts": [], "stock": None, "sort": 8},
@@ -1155,6 +1161,18 @@ def seed():
                              ("battery-door", 1200, 1199), ("bust-collector", 225000, 224999)):
         conn.execute("UPDATE products SET price_cents=? WHERE id=? AND price_cents=?",
                      (_new, _pid, _old))
+    # 2026-10-23: card-case raised-initials add-on copy (Antonio). Appends
+    # the sentence once, only while the marker is missing, so any later
+    # admin edits to the description are left alone.
+    conn.execute(
+        "UPDATE products SET description=COALESCE(description,'') || ?, "
+        "description_fr=COALESCE(description_fr,'') || ? "
+        "WHERE id='card-case' AND COALESCE(description,'') NOT LIKE '%Make it yours%'",
+        (" Make it yours: add initials raised on the back for CA$5 more. "
+         "The more letters, the smaller they are sized to fit.",
+         " Personnalisez-le : ajoutez des initiales en relief au dos pour "
+         "5 $ CA de plus. Plus il y a de lettres, plus elles sont petites "
+         "pour bien s'adapter."))
     # French content for rows seeded before the bilingual update
     fr_updates = {
         "carlo-lamp": ("Lampe de pri\u00e8re Carlo Acutis \u00e0 4 faces",
@@ -2122,6 +2140,39 @@ def product_page(pid):
   if(cs){ cs.addEventListener('change', sync); sync(); }
 })();
 </script>"""
+    # Raised-initials add-on (card-case only): a checkbox reveals the
+    # initials input. The letters are 3D-printed raised on the back of the
+    # case (NOT engraving); more letters are sized smaller to fit. The
+    # server re-derives the +CA$5 from the product and the text.
+    initials_field = ""
+    initials_js = ""
+    if p["id"] == "card-case":
+        initials_field = (
+            f'<div class="field"><label><input type="checkbox" id="initialsToggle"> '
+            f'{t(lang, "initials_label")}</label>'
+            f'<div id="initialsWrap" style="display:none;margin-top:8px">'
+            f'<input type="text" id="initialsText" maxlength="6" '
+            f'placeholder="{h(t(lang, "initials_ph"))}" style="text-transform:uppercase">'
+            f'<p class="small muted" style="margin:6px 0 0">{t(lang, "initials_note")}</p>'
+            f'</div></div>')
+        initials_js = """<script>
+(function(){
+  var tg = document.getElementById('initialsToggle'), tx = document.getElementById('initialsText'),
+      wrap = document.getElementById('initialsWrap'), q = document.getElementById('qty');
+  if(!tg || !tx) return;
+  function bump(){ if(q) q.dispatchEvent(new Event('change')); }
+  tg.addEventListener('change', function(){
+    wrap.style.display = tg.checked ? '' : 'none';
+    if(tg.checked) tx.focus();
+    bump();
+  });
+  tx.addEventListener('input', function(){
+    var v = tx.value.toUpperCase().replace(/[^A-Z ]/g, '').slice(0, 6);
+    if(v !== tx.value) tx.value = v;
+    bump();
+  });
+})();
+</script>"""
     preorder_note = ""
     if p["preorder"]:
         preorder_note = (f'<div class="preorder-note">{t(lang, "preorder_note").format(date=h(p["preorder_ship_date"] or ("bientôt" if lang == "fr" else "soon")))}</div>')
@@ -2185,6 +2236,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   if (sz2) payload.size = sz2.value;
   var co = document.getElementById('colorSelect');
   if (co) payload.color = co.value;
+  var iniT = document.getElementById('initialsText'), iniC = document.getElementById('initialsToggle');
+  if (iniT && iniC && iniC.checked) payload.initials = iniT.value;
   var cp = document.getElementById('coupon');
   if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
   var sc = document.getElementById('shipCountry');
@@ -2241,6 +2294,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     }} else {{
       t = unitCents() * q;
     }}
+    var iniT = document.getElementById('initialsText'), iniC = document.getElementById('initialsToggle');
+    if (iniT && iniC && iniC.checked && iniT.value.trim()) t += 500;
     if (pctOff) t = t - Math.round(t * pctOff / 100);
     return t;
   }}
@@ -2311,6 +2366,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <div id="couponMsg" class="small" style="margin-top:6px"></div></div>
 {engraving_field}
 {option_field}
+{initials_field}
 {color_field}
 <div class="field"><label for="shipCountry">{t(lang, "ship_country")}</label>
 <select id="shipCountry">
@@ -2326,7 +2382,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {story_html}
 {reviews_section(pid, lang)}
 </div>
-{gal_js}{buy_js}{design_js}{notify_js}"""
+{gal_js}{buy_js}{design_js}{notify_js}{initials_js}"""
     # Product structured data (rich results): offers + aggregate rating when reviews exist.
     rconn = db()
     rrow = rconn.execute(
@@ -2473,6 +2529,18 @@ def api_coupon_validate():
     return jsonify({"ok": True, "code": code, "percent_off": pct})
 
 
+INITIALS_ADDON_CENTS = 500   # CA$5 raised-initials add-on (card-case only)
+
+
+def clean_initials(raw):
+    """Sanitize the raised-initials add-on text: letters and spaces only,
+    uppercase, max 6 characters. '' means the add-on is not selected. The
+    initials are 3D-printed raised on the back of the case (not engraved);
+    more letters are simply sized smaller to fit."""
+    s = re.sub(r"[^A-Za-z ]", "", (raw or "").upper())
+    return re.sub(r"\s+", " ", s)[:6].strip()
+
+
 @app.route("/api/checkout", methods=["POST"])
 def api_checkout():
     data = request.get_json(force=True)
@@ -2486,6 +2554,7 @@ def api_checkout():
     saint = (data.get("saint") or "").strip()[:40]
     size = (data.get("size") or "").strip()[:20]
     color = (data.get("color") or "").strip().lower()[:20]
+    initials = clean_initials(data.get("initials")) if pid == "card-case" else ""
     _parts = []
     if design:
         _parts.append(design)
@@ -2495,6 +2564,8 @@ def api_checkout():
         _parts.append("Size: " + size)
     if color in LIGHTER_COLORS:
         _parts.append("Color: " + color_label(color))
+    if initials:
+        _parts.append("Initials: " + initials)
     if engraving:
         _parts.append("Text: " + engraving)
     if _parts:
@@ -2522,6 +2593,11 @@ def api_checkout():
             amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
     else:
         amount = p["price_cents"] * qty
+    # Raised-initials add-on (card-case): +CA$5 when initials are given.
+    # Re-derived server-side from the product and the initials text; the
+    # client only ever sends the letters, never a price.
+    if initials:
+        amount += INITIALS_ADDON_CENTS
     # Discount coupon (percent off the total, e.g. creator codes).
     pct_off, coupon_code = get_coupon(data.get("coupon"))
     if pct_off:
@@ -2622,6 +2698,7 @@ def api_cart_checkout():
         saint = (it.get("saint") or "").strip()[:40]
         size = (it.get("size") or "").strip()[:20]
         color = (it.get("color") or "").strip().lower()[:20]
+        initials = clean_initials(it.get("initials")) if pid == "card-case" else ""
         _parts = []
         if design:
             _parts.append(design)
@@ -2631,6 +2708,8 @@ def api_cart_checkout():
             _parts.append("Size: " + size)
         if color in LIGHTER_COLORS:
             _parts.append("Color: " + color_label(color))
+        if initials:
+            _parts.append("Initials: " + initials)
         if engraving:
             _parts.append("Text: " + engraving)
         options = "; ".join(_parts)[:200]
@@ -2650,6 +2729,10 @@ def api_cart_checkout():
                 line_amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
         else:
             line_amount = p["price_cents"] * qty
+        # Raised-initials add-on (card-case): +CA$5 per line with initials,
+        # re-derived server-side exactly like /api/checkout.
+        if initials:
+            line_amount += INITIALS_ADDON_CENTS
         total_qty_by_pid[pid] = total_qty_by_pid.get(pid, 0) + qty
         lines.append({"pid": pid, "qty": qty, "amount": line_amount,
                       "options": options, "name": pick(p, lang, "name"),

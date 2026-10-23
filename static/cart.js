@@ -10,6 +10,7 @@
   var SHIP_KEY = "adn_ship_country";
   var SHIP_CENTS = { CA: 500, US: 1000, INT: 1500 };
   var PACK4 = 9999;
+  var INITIALS_CENTS = 500; /* raised-initials add-on (card-case), flat per line */
 
   var S = {
     fr: {
@@ -67,16 +68,20 @@
   }
   function keyOf(it) {
     return [it.pid, it.design || "", it.saint || "", it.size || "",
-            it.color || "", it.engraving || ""].join("|");
+            it.color || "", it.initials || "", it.engraving || ""].join("|");
   }
   function lineTotal(it) {
     var q = it.qty || 1;
+    var t;
     if (it.add_cents && q > 1) {
-      var packs = Math.floor(q / 4), rest = q % 4, t = packs * PACK4;
+      var packs = Math.floor(q / 4), rest = q % 4;
+      t = packs * PACK4;
       if (rest) t += it.unit_cents + (rest - 1) * it.add_cents;
-      return t;
+    } else {
+      t = (it.unit_cents || 0) * q;
     }
-    return (it.unit_cents || 0) * q;
+    if (it.initials) t += INITIALS_CENTS;
+    return t;
   }
   function optionsText(it) {
     var parts = [];
@@ -84,6 +89,7 @@
     if (it.saint) parts.push("Saint: " + it.saint);
     if (it.size) parts.push("Size: " + it.size);
     if (it.color) parts.push((lang() === "fr" ? "Couleur" : "Color") + ": " + colorName(it.color));
+    if (it.initials) parts.push("Initials: " + it.initials);
     if (it.engraving) parts.push(it.engraving);
     return parts.join(" · ");
   }
@@ -351,7 +357,8 @@
         return {
           product_id: it.pid, qty: it.qty || 1,
           engraving_text: it.engraving || "", design: it.design || "",
-          saint: it.saint || "", size: it.size || "", color: it.color || ""
+          saint: it.saint || "", size: it.size || "", color: it.color || "",
+          initials: it.initials || ""
         };
       }),
       coupon: document.getElementById("cartCoupon").value.trim(),
@@ -405,6 +412,10 @@
       }
       var ss = document.getElementById("saintSelect");
       if (ss) saint = ss.value;
+      var initials = "";
+      var iniT = document.getElementById("initialsText"),
+        iniC = document.getElementById("initialsToggle");
+      if (iniT && iniC && iniC.checked) initials = iniT.value.trim().toUpperCase();
       var eng = document.getElementById("engraving");
       if (eng) engraving = eng.value.trim();
       var dmode = document.querySelector('input[name="designmode"]:checked');
@@ -429,7 +440,8 @@
       add({
         pid: pid, name: name, img: img, qty: qty,
         unit_cents: unit, add_cents: p.additional_price_cents || 0,
-        design: design, saint: saint, size: size, color: color, engraving: engraving
+        design: design, saint: saint, size: size, color: color,
+        initials: initials, engraving: engraving
       });
       if (addBtn) {
         var orig = addBtn.textContent;
@@ -452,7 +464,7 @@
         qty: 1,
         unit_cents: parseInt(b.getAttribute("data-price"), 10) || 0,
         add_cents: parseInt(b.getAttribute("data-add"), 10) || 0,
-        design: "", saint: "", size: "", color: "", engraving: ""
+        design: "", saint: "", size: "", color: "", initials: "", engraving: ""
       });
       var orig = b.textContent;
       b.textContent = T("added");
