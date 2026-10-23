@@ -1418,16 +1418,16 @@ def seed():
              "/img/products/lighter-religious-crucifix.jpg",
              "A Zippo-style lighter laser engraved with the design of your choice: "
              "saints (Crucifix, Virgin Mary, Carlo Acutis, Saint Joseph, Saint Teresa "
-             "of Avila, Sacred Heart of Jesus), symbols (cross, Holy Spirit dove, "
-             "ichthys, Chi Rho, rosary, Lamb of God, Sacred Heart) and Bible passages "
+             "of Avila), symbols (cross, "
+             "ichthys, Chi Rho, Lamb of God) and Bible passages "
              "\u2014 simple bold-line engravings that read clearly \u2014 or upload your "
              "own image and we engrave it for you. In its gift case, in chrome, blue "
              "or black.",
              "Un briquet style Zippo grav\u00e9 au laser avec le motif de votre choix : "
              "des saints (Crucifix, Vierge Marie, Carlo Acutis, saint Joseph, sainte "
-             "Th\u00e9r\u00e8se d'Avila, Sacr\u00e9-C\u0153ur de J\u00e9sus), des symboles "
-             "(croix, colombe du Saint-Esprit, ichthys, Chi Rho, chapelet, Agneau de "
-             "Dieu, Sacr\u00e9-C\u0153ur) et des passages bibliques \u2014 des gravures en "
+             "Th\u00e9r\u00e8se d'Avila), des symboles "
+             "(croix, ichthys, Chi Rho, Agneau de "
+             "Dieu) et des passages bibliques \u2014 des gravures en "
              "lignes simples et bien lisibles \u2014 ou t\u00e9l\u00e9versez votre propre "
              "image et nous la gravons pour vous. Dans son coffret cadeau, en chrome, "
              "bleu ou noir.",
@@ -1447,22 +1447,32 @@ def seed():
         "WHERE id='holy-lighter' AND description=?",
         ("A Zippo-style lighter laser engraved with the design of your choice: "
          "saints (Crucifix, Virgin Mary, Carlo Acutis, Saint Joseph, Saint Teresa "
-         "of Avila, Sacred Heart of Jesus), symbols (cross, Holy Spirit dove, "
-         "ichthys, Chi Rho, rosary, Lamb of God, Sacred Heart) and Bible passages "
+         "of Avila), symbols (cross, "
+         "ichthys, Chi Rho, Lamb of God) and Bible passages "
          "\u2014 simple bold-line engravings that read clearly \u2014 or upload your "
          "own image and we engrave it for you. In its gift case, in chrome, blue "
          "or black.",
          "Un briquet style Zippo grav\u00e9 au laser avec le motif de votre choix : "
          "des saints (Crucifix, Vierge Marie, Carlo Acutis, saint Joseph, sainte "
-         "Th\u00e9r\u00e8se d'Avila, Sacr\u00e9-C\u0153ur de J\u00e9sus), des symboles "
-         "(croix, colombe du Saint-Esprit, ichthys, Chi Rho, chapelet, Agneau de "
-         "Dieu, Sacr\u00e9-C\u0153ur) et des passages bibliques \u2014 des gravures en "
+         "Th\u00e9r\u00e8se d'Avila), des symboles "
+         "(croix, ichthys, Chi Rho, Agneau de "
+         "Dieu) et des passages bibliques \u2014 des gravures en "
          "lignes simples et bien lisibles \u2014 ou t\u00e9l\u00e9versez votre propre "
          "image et nous la gravons pour vous. Dans son coffret cadeau, en chrome, "
          "bleu ou noir.",
          "A Zippo-style lighter laser engraved with a saint: choose the Crucifix, "
          "the Virgin Mary, Carlo Acutis or Saint Joseph, or upload your own image "
          "and we engrave it for you. In its gift case, in chrome, blue or black."))
+    # 2026-10-22 (evening): Antonio trimmed the picker (Sacred Heart of
+    # Jesus, Holy Spirit dove, rosary, Sacred Heart symbol and Jesus, I
+    # Trust in You removed) — refresh the listing copy to match. Guarded
+    # on the previous copy, same pattern as above.
+    conn.execute(
+        "UPDATE products SET description=?, description_fr=? "
+        "WHERE id='holy-lighter' AND description=?",
+        ('A Zippo-style lighter laser engraved with the design of your choice: saints (Crucifix, Virgin Mary, Carlo Acutis, Saint Joseph, Saint Teresa of Avila), symbols (cross, ichthys, Chi Rho, Lamb of God) and Bible passages — simple bold-line engravings that read clearly — or upload your own image and we engrave it for you. In its gift case, in chrome, blue or black.',
+         "Un briquet style Zippo gravé au laser avec le motif de votre choix : des saints (Crucifix, Vierge Marie, Carlo Acutis, saint Joseph, sainte Thérèse d'Avila), des symboles (croix, ichthys, Chi Rho, Agneau de Dieu) et des passages bibliques — des gravures en lignes simples et bien lisibles — ou téléversez votre propre image et nous la gravons pour vous. Dans son coffret cadeau, en chrome, bleu ou noir.",
+         'A Zippo-style lighter laser engraved with the design of your choice: saints (Crucifix, Virgin Mary, Carlo Acutis, Saint Joseph, Saint Teresa of Avila, Sacred Heart of Jesus), symbols (cross, Holy Spirit dove, ichthys, Chi Rho, rosary, Lamb of God, Sacred Heart) and Bible passages — simple bold-line engravings that read clearly — or upload your own image and we engrave it for you. In its gift case, in chrome, blue or black.'))
     # Holy Lighter gallery: Antonio's four religious mockups (real photos of
     # the engraved lighters) lead it; the picker uses the template artwork.
     for _ph, _srt in (("/img/products/lighter-religious-crucifix.jpg", 0),
@@ -1660,15 +1670,20 @@ def color_label(color, lang="en"):
 
 # Holy Lighter design picker (Antonio 2026-10-22, final selection after
 # reviewing both template batches): easy-to-engrave, instantly recognizable
-# bold-line templates — the one detailed exception is the Sacred Heart of
-# Jesus. Rows are (stored design value, FR label, EN label, option image),
-# grouped saints -> symbols -> Bible passages; "upload your own image"
-# stays as the picker's second mode. The stored value is what lands on
-# the order, exactly like the custom lighter's design choices.
+# bold-line templates. Rows are (stored design value, FR label, EN label,
+# option image), grouped saints -> symbols -> Bible passages; "upload
+# your own image" stays as the picker's second mode. The stored value is
+# what lands on the order, exactly like the custom lighter's design
+# choices. Trimmed later the same evening at Antonio's request (from his
+# screenshots of the live picker): Sacred Heart of Jesus, Holy Spirit
+# Dove, Rosary, Sacred Heart (symbol) and Jesus, I Trust in You removed —
+# their image files stay on disk, just unlisted. The crucifix artwork was
+# also redrawn the same evening (subtle eyes/abs on Jesus, shorter cross
+# top stub); its URL carries ?v=2 to bust phone caches of the old art.
 HOLY_TEMPLATE_GROUPS = [
     ("Saints", "Saints", [
         ("Crucifix", "Crucifix", "Crucifix",
-         "/img/templates/crucifix.png"),
+         "/img/templates/crucifix.png?v=2"),
         ("Virgin Mary", "Vierge Marie", "Virgin Mary",
          "/img/templates/virgin-mary.png"),
         ("Carlo Acutis", "Carlo Acutis", "Carlo Acutis",
@@ -1678,26 +1693,16 @@ HOLY_TEMPLATE_GROUPS = [
         ("Saint Teresa of Avila", "Sainte Thérèse d'Avila",
          "Saint Teresa of Avila",
          "/img/templates/saint-teresa-avila.png"),
-        ("Sacred Heart of Jesus", "Sacré-Cœur de Jésus",
-         "Sacred Heart of Jesus",
-         "/img/templates/sacred-heart-jesus-f2.png"),
     ]),
     ("Symboles", "Symbols", [
         ("Cross", "Croix", "Cross",
          "/img/templates/cross.png"),
-        ("Holy Spirit Dove", "Colombe du Saint-Esprit", "Holy Spirit Dove",
-         "/img/templates/holy-spirit-dove.png"),
         ("Ichthys", "Ichthys", "Ichthys",
          "/img/templates/ichthys.png"),
         ("Chi Rho", "Chi Rho", "Chi Rho",
          "/img/templates/chi-rho.png"),
-        ("Rosary", "Chapelet", "Rosary",
-         "/img/templates/rosary.png"),
         ("Lamb of God", "Agneau de Dieu", "Lamb of God",
          "/img/templates/lamb-of-god.png"),
-        ("Sacred Heart (symbol)", "Sacré-Cœur (symbole)",
-         "Sacred Heart (symbol)",
-         "/img/templates/sacred-heart-symbol-simple.png"),
     ]),
     ("Passages bibliques", "Bible passages", [
         ("Be Not Afraid — Isaiah 41:10", "Be Not Afraid — Isaiah 41:10",
@@ -1705,9 +1710,6 @@ HOLY_TEMPLATE_GROUPS = [
          "/img/templates/verse-be-not-afraid-vertical.png"),
         ("Philippians 4:13", "Philippians 4:13", "Philippians 4:13",
          "/img/templates/verse-philippians-vertical.png"),
-        ("Jesus, I Trust in You", "Jesus, I Trust in You",
-         "Jesus, I Trust in You",
-         "/img/templates/verse-jesus-i-trust-vertical.png"),
     ]),
 ]
 HOLY_TEMPLATES = [row for _gfr, _gen, _rows in HOLY_TEMPLATE_GROUPS
