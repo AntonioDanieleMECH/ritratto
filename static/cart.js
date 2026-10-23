@@ -10,7 +10,10 @@
   var SHIP_KEY = "adn_ship_country";
   var SHIP_CENTS = { CA: 500, US: 1000, INT: 1500 };
   var PACK4 = 9999;
-  var INITIALS_CENTS = 500; /* raised-initials add-on (card-case), flat per line */
+  var INITIALS_CENTS = 500; /* raised-initials add-on (card-case): CA$5 per
+    UNIQUE initials string across the cart — the same initials on several
+    lines/cases is one customization, charged once (server enforces this;
+    this file only mirrors it for the displayed totals) */
 
   var S = {
     fr: {
@@ -70,7 +73,7 @@
     return [it.pid, it.design || "", it.saint || "", it.size || "",
             it.color || "", it.initials || "", it.engraving || ""].join("|");
   }
-  function lineTotal(it) {
+  function lineTotal(it, withIni) {
     var q = it.qty || 1;
     var t;
     if (it.add_cents && q > 1) {
@@ -80,7 +83,10 @@
     } else {
       t = (it.unit_cents || 0) * q;
     }
-    if (it.initials) t += INITIALS_CENTS;
+    /* The initials charge lands only on the first line carrying each
+       distinct string; render() decides via iniCharged and passes the
+       verdict in as withIni. */
+    if (it.initials && withIni) t += INITIALS_CENTS;
     return t;
   }
   function optionsText(it) {
@@ -261,6 +267,17 @@
       return;
     }
     foot.style.display = "";
+    /* Initials dedupe (mirrors the server): the first line carrying each
+       distinct initials string bears the CA$5 charge; later lines with
+       the same string are not charged again. */
+    var seenIni = {}, iniCharged = {};
+    items.forEach(function (it) {
+      if (it.initials && !seenIni[it.initials]) {
+        seenIni[it.initials] = true;
+        iniCharged[keyOf(it)] = true;
+      }
+    });
+    function lt(it) { return lineTotal(it, !!iniCharged[keyOf(it)]); }
     box.innerHTML = items.map(function (it) {
       var k = keyOf(it);
       var opts = optionsText(it);
@@ -272,12 +289,12 @@
         '<button type="button" data-act="dec" data-k="' + esc(k) + '" aria-label="-">−</button>' +
         "<span>" + (it.qty || 1) + "</span>" +
         '<button type="button" data-act="inc" data-k="' + esc(k) + '" aria-label="+">+</button>' +
-        "</span><strong>" + money(lineTotal(it)) + "</strong></div>" +
+        "</span><strong>" + money(lt(it)) + "</strong></div>" +
         '<button type="button" class="cl-rm" data-act="rm" data-k="' + esc(k) + '">' +
         esc(T("remove")) + "</button>" +
         "</div></div>";
     }).join("");
-    var sub = items.reduce(function (s, it) { return s + lineTotal(it); }, 0);
+    var sub = items.reduce(function (s, it) { return s + lt(it); }, 0);
     var disc = pctOff ? Math.round(sub * pctOff / 100) : 0;
     var ship = SHIP_CENTS[shipCountry()];
     document.getElementById("cartSubL").textContent = T("subtotal");

@@ -2729,15 +2729,14 @@ def api_cart_checkout():
                 line_amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
         else:
             line_amount = p["price_cents"] * qty
-        # Raised-initials add-on (card-case): +CA$5 per line with initials,
-        # re-derived server-side exactly like /api/checkout.
-        if initials:
-            line_amount += INITIALS_ADDON_CENTS
+        # The raised-initials add-on is NOT priced here: it is charged per
+        # unique initials string across the whole cart (see below), not
+        # per line, so this loop only records the sanitized text.
         total_qty_by_pid[pid] = total_qty_by_pid.get(pid, 0) + qty
         lines.append({"pid": pid, "qty": qty, "amount": line_amount,
                       "options": options, "name": pick(p, lang, "name"),
                       "product": p, "color": color if _pool else "",
-                      "pool": _pool})
+                      "pool": _pool, "initials": initials})
     for pid, q in total_qty_by_pid.items():
         p = get_product(pid)
         if not product_pool(p) and p["stock"] is not None and p["stock"] < q:
@@ -2756,6 +2755,18 @@ def api_cart_checkout():
             _pool_cache[_pool] = pool_levels(_pool)
         if _pool_cache[_pool].get(_color, 0) < _q:
             return jsonify({"error": t(lang, "err_stock")}), 400
+    # Raised-initials add-on: CA$5 per UNIQUE customization (Antonio's
+    # 2026-10-23 rule). The same initials string is one customization and
+    # is charged once, however many cases or cart lines carry it; each
+    # different string is a separate customization. The charge is booked
+    # onto the first line carrying each distinct string, so the stored
+    # line amounts still sum to the order total. Initials only ever
+    # survive sanitizing on card-case lines (see the loop above).
+    _seen_initials = set()
+    for l in lines:
+        if l["initials"] and l["initials"] not in _seen_initials:
+            _seen_initials.add(l["initials"])
+            l["amount"] += INITIALS_ADDON_CENTS
     amount = sum(l["amount"] for l in lines)
     pct_off, coupon_code = get_coupon(data.get("coupon"))
     if pct_off:
