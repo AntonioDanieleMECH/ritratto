@@ -2200,7 +2200,8 @@ def _pcard(p, lang, occ=""):
             f'<a class="pcard" href="/product/{p["id"]}">'
             f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
             f'<div class="pc-body"><h3>{h(name)}</h3>') + \
-           f'<p class="price">{money2(p["price_cents"], lang)}</p></div></a>'
+           f'<p class="price">{money2(p["price_cents"], lang)}</p>' + \
+           f'<span class="btn btn-line" style="margin-top:10px">{"Voir" if lang == "fr" else "View"}</span></div></a>'
 
 
 def _saint_suggest_section(lang):
@@ -2783,7 +2784,8 @@ def shop_page(lang):
                 f'<a href="/product/{p["id"]}" style="text-decoration:none;color:var(--ink);display:block">'
                 f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
                 f'<div class="pc-body"><h3>{h(name)}</h3>{badges}'
-                f'<p class="price">{money2(p["price_cents"], lang)}</p></div></a>{qa}</div>')
+                f'<p class="price">{money2(p["price_cents"], lang)}</p>'
+                f'<span class="btn btn-line" style="margin-top:10px">{"Voir" if lang == "fr" else "View"}</span></div></a>{qa}</div>')
 
     parts = [f"""
 <section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Boutique' if lang == 'fr' else 'Shop'}</h1>
