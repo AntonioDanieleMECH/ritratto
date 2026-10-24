@@ -1973,8 +1973,9 @@ def product_page(pid):
                          'preload="metadata" style="width:100%;display:block"></video>')
         else:
             main_html = '<img src="' + h(first["src"]) + '" alt="' + h(name) + '">'
+        thumbs_html = ('<div class="gal-thumbs">' + thumbs + "</div>") if len(items) > 1 else ""
         gallery = ('<div class="product-gallery"><div id="galMainWrap">' + main_html + "</div>"
-                   '<div class="gal-thumbs">' + thumbs + "</div>" + scale_cap + "</div>")
+                   + thumbs_html + scale_cap + "</div>")
         gal_js = (
             "<script>"
             "var GAL_ITEMS=" + items_json + ";"
