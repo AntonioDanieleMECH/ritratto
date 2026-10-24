@@ -963,6 +963,10 @@ SEED_PHOTOS_EXTRA = [
     ("andre-stone-statue", "/img/products/andre-stone-front.jpg"),
     ("carlo-stone-statue", "/img/products/carlo-stone-front.jpg"),
     ("carlo-stone-statue", "/img/products/carlo-stone-side.jpg"),
+    # The original real photos as secondary gallery shots (Antonio).
+    ("andre-stone-statue", "/img/products/andre-stone-real.jpg"),
+    ("carlo-stone-statue", "/img/products/carlo-stone-real-front.jpg"),
+    ("carlo-stone-statue", "/img/products/carlo-stone-real-side.jpg"),
 ]
 
 
@@ -2523,7 +2527,7 @@ def workshop_page(lang):
 </section>
 <section class="section" id="process"><h2>{h(st('process_title', lang))}</h2>
 <div class="steps4">{steps}</div></section>
-<section class="section"><div class="split" style="background:#fff">
+<section class="section"><div class="split" style="background:var(--raised)">
 <div><img src="/img/products/bust-threequarter.webp" alt="{h(st('bust_title', lang))}" style="height:340px"></div>
 <div><p class="eyebrow">{h(st('bust_title', lang))}</p>
 <p class="muted">{h(st('bust_text', lang))}</p>
@@ -3226,7 +3230,7 @@ def product_page(pid):
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money2(p["price_cents"], lang)}</button>'
                         f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
-                        f'<div style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2;color:#33302A">'
+                        f'<div class="trustbox" style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2;color:#33302A">'
                         f'<p style="margin:0 0 6px"><strong>{t(lang, "seller_trusted")}</strong></p>'
                         f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_ship")}</p>'
                         f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_returns")} {t(lang, "seller_contact")}</p>'
