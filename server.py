@@ -483,6 +483,17 @@ def db():
         "AND depts='[\"gag\"]'",
         "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
         "AND photo LIKE '%/nativity-pro.jpg'",
+        # 2026-10-24: the lit Sheen hero (Antonio's new photos) becomes the
+        # product photo and leads the gallery. Compare-and-set on the old
+        # photo path so later admin changes are never overwritten.
+        "UPDATE products SET photo='/img/products/sheen-lit-hero.jpg' "
+        "WHERE id='sheen-lamp' AND photo='/img/products/sheen-lamp.jpg'",
+        "UPDATE product_photos SET sort=-10 WHERE product_id='sheen-lamp' "
+        "AND photo LIKE '%/sheen-lit-hero.jpg'",
+        "UPDATE product_photos SET sort=90 WHERE product_id='sheen-lamp' "
+        "AND photo='/img/products/sheen-lamp.jpg'",
+        "UPDATE product_photos SET sort=91 WHERE product_id='sheen-lamp' "
+        "AND photo='/img/products/sheen-lamp-2.jpg'",
         # Antonio's answers 2026-10-24: the collector statue is 32 cm,
         # 39 cm with its base (both numbers were already on the site,
         # each presented as the whole size).
@@ -779,7 +790,7 @@ SEED_PRODUCTS = [
      "story_fr": "Padre Pio a porté les stigmates pendant cinquante ans et appelait la messe sa force. Cette lampe réunit quatre moments autour d'une lumière chaude : son portrait, Padre Pio élevant l'hostie à la messe, son église et Notre-Dame avec l'Enfant qu'il aimait. Chaque face est un lithophane, imprimé assez fin pour que la lumière dessine l'image à même le plastique.",
      "depts": ["religious", "electronic"], "stock": None, "sort": 2},
     {"id": "sheen-lamp", "name": "Fulton Sheen 4-Face Prayer Lamp", "price_cents": 1999,
-     "photo": "/img/products/sheen-lamp.jpg",
+     "photo": "/img/products/sheen-lit-hero.jpg",
      "description": "Four lithophane faces of Blessed Fulton Sheen in warm LED light. Hand crafted in Montreal from plant-based bioplastic.",
      "name_fr": "Lampe de prière Fulton Sheen à 4 faces",
      "description_fr": "Quatre faces lithophanes du bienheureux Fulton Sheen sous une chaude lumière DEL. Fait à la main à Montréal en bioplastique d'origine végétale.",
@@ -879,8 +890,11 @@ SEED_PRODUCTS = [
 SEED_PHOTOS = [
     ("carlo-lamp", "/img/products/carlo-lamp.jpg", 0, 0),
     ("carlo-lamp", "/img/work/carlo-lamp-lit.jpg", 1, 0),
-    ("sheen-lamp", "/img/products/sheen-lamp.jpg", 0, 0),
-    ("sheen-lamp", "/img/products/sheen-lamp-2.jpg", 1, 0),
+    ("sheen-lamp", "/img/products/sheen-lit-hero.jpg", 0, 0),
+    ("sheen-lamp", "/img/products/sheen-lit-book.jpg", 1, 0),
+    ("sheen-lamp", "/img/products/sheen-lit-adoration.jpg", 2, 0),
+    ("sheen-lamp", "/img/products/sheen-lit-quote.jpg", 3, 0),
+    ("sheen-lamp", "/img/products/sheen-lit-profile.jpg", 4, 0),
     ("memorial-lamp", "/img/products/memorial-lamp.jpg", 0, 0),
     ("bust-collector", "/img/products/bust-real-front.jpg", 0, 0),
     ("bust-collector", "/img/products/bust-real-34.jpg", 1, 0),
@@ -905,6 +919,13 @@ SEED_PHOTOS_EXTRA = [
     ("mug", "/img/products/mug-2.jpg"),
     ("giftcard-case", "/img/products/giftcard-case.jpg"),
     ("custom-lighter", "/img/products/custom-lighter-2.jpg"),
+    # 2026-10-24: Antonio's new lit Sheen photos, edited onto a warm dark
+    # studio background (lamp pixels are his own photos).
+    ("sheen-lamp", "/img/products/sheen-lit-hero.jpg"),
+    ("sheen-lamp", "/img/products/sheen-lit-book.jpg"),
+    ("sheen-lamp", "/img/products/sheen-lit-adoration.jpg"),
+    ("sheen-lamp", "/img/products/sheen-lit-quote.jpg"),
+    ("sheen-lamp", "/img/products/sheen-lit-profile.jpg"),
 ]
 
 
@@ -1336,9 +1357,9 @@ def seed():
         conn.execute(
             "UPDATE products SET name_fr=?, description_fr=? "
             "WHERE id=? AND (name_fr IS NULL OR name_fr='')", (nfr, dfr, pid))
-    # Fulton Sheen photos now exist (added 2026-10-18)
+    # Fulton Sheen photos now exist (added 2026-10-18; lit set 2026-10-24)
     conn.execute(
-        "UPDATE products SET photo='/img/products/sheen-lamp.jpg' "
+        "UPDATE products SET photo='/img/products/sheen-lit-hero.jpg' "
         "WHERE id='sheen-lamp' AND (photo IS NULL OR photo='')")
     # Seed product photo galleries (once)
     if conn.execute("SELECT COUNT(*) FROM product_photos").fetchone()[0] == 0:
