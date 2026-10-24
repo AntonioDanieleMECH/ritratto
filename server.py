@@ -2029,7 +2029,7 @@ def home_page(lang):
 </div>
 <p class="fineprint">{h(fine)}</p>
 </div>
-<div class="hero-img"><img src="{h(nat['photo'] if nat else '')}" alt="{h(nat_name)}"></div>
+<div class="hero-img"><img src="/img/products/nativity-pro.jpg" alt="{h(nat_name)}"></div>
 </section>""")
     # trust row
     trusts = [st(f"trust_{i}", lang) for i in range(1, 5)]
@@ -2039,8 +2039,11 @@ def home_page(lang):
     # by saint
     saints = [(carlo, "Carlo Acutis"), (mini, "Frère André"), (pio, "Padre Pio"),
               (sheen, "Fulton Sheen"), (nat, "Sainte Famille" if lang == "fr" else "Holy Family")]
+    _circle_img = {"carlo-lamp": "/img/work/carlo-lamp-lit.jpg",
+                   "mini-bust": "/img/products/mini-bust-single-andre.jpg",
+                   "nativity": "/img/products/nativity-2.jpg"}
     circles = "".join(
-        f'<a class="saint" href="/product/{p["id"]}"><img src="{h(p["photo"] or "")}" '
+        f'<a class="saint" href="/product/{p["id"]}"><img src="{h(_circle_img.get(p["id"], p["photo"] or ""))}" '
         f'alt="{h(lbl)}" loading="lazy"><span>{h(lbl)}</span></a>'
         for p, lbl in saints if p)
     parts.append(f'<section class="section" id="saints"><h2>{h(st("bysaint_title", lang))}</h2>'
@@ -2133,7 +2136,10 @@ document.getElementById('setAdd').addEventListener('click', function(){{
 <a class="btn btn-cream" href="/contact.html">{h(st('bust_cta', lang))}</a>
 <a href="/workshop" style="margin-left:12px">{'Son histoire' if lang == 'fr' else 'How it was made'}</a>
 </div>
-<div><img src="{h(bust['photo'] or '')}" alt="{h(pick(bust, lang, 'name'))}" loading="lazy"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<img src="{h(bust['photo'] or '')}" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
+<img src="/img/products/bust-real-34.jpg" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
+</div>
 </div></section>""")
     # email band
     parts.append(f"""
@@ -2225,15 +2231,263 @@ def api_newsletter():
     return jsonify({"ok": True, "code": "WELCOME10"})
 
 
+# ---------- workshop + italia (rebuild 2026-10-24) ----------
+_FORM_CSS = """<style>
+.wform label{display:block;font-size:13.5px;margin:12px 0 4px;opacity:.85}
+.wform input,.wform textarea,.wform select{width:100%;padding:11px;border-radius:8px;
+border:1px solid var(--line2);background:var(--raised);color:var(--ink);font:inherit}
+.wform .btn{margin-top:16px}
+</style>"""
+
+
+def _form_js(form_id, endpoint, fields, ok_msg, lang="fr"):
+    pairs = ", ".join(f"{k}: document.getElementById('{eid}').value" for k, eid in fields)
+    return f"""<script>
+document.getElementById('{form_id}').addEventListener('submit', async function(e){{
+  e.preventDefault();
+  var msg = document.getElementById('{form_id}Msg');
+  var payload = {{ {pairs}, lang: {json.dumps(lang)} }};
+  try {{
+    var r = await fetch('{endpoint}', {{method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(payload)}});
+    msg.textContent = r.ok ? {json.dumps(ok_msg)} : '✗';
+    if (r.ok) document.getElementById('{form_id}').reset();
+  }} catch(e) {{ msg.textContent = '✗'; }}
+}});
+</script>"""
+
+
+def workshop_page(lang):
+    bust = _prod("bust-collector")
+    conn = db()
+    wips = conn.execute("SELECT * FROM wip_projects ORDER BY sort, created LIMIT 12").fetchall()
+    conn.close()
+    bench = ""
+    shown = 0
+    for w in wips:
+        nm = pick(w, lang, "project")
+        if "sacr" in nm.lower():
+            continue  # Antonio stopped the Sacred Heart lamp (2026-10-16)
+        stt = pick(w, lang, "status")
+        bench += (f'<div class="step"><div class="n">{h(stt)}</div>'
+                  f'<h3>{h(nm)}</h3></div>')
+        shown += 1
+        if shown >= 3:
+            break
+    steps = "".join(
+        f'<div class="step"><div class="n">0{i}</div><h3>{h(st(f"process_{i}_t", lang))}</h3>'
+        f'<p>{h(st(f"process_{i}_x", lang))}</p></div>' for i in range(1, 5))
+    ok_msg = ("Merci! Votre idée est bien reçue." if lang == "fr" else "Thank you! Your idea was received.")
+    suggest_form = f"""
+<section class="section" id="ideas"><h2>{h(st('suggest_title', lang))}</h2>
+<p class="sub">{h(st('suggest_text', lang))}</p>
+<form class="wform" id="sgForm" style="max-width:640px">
+<label>{'Nom' if lang == 'fr' else 'Name'}</label><input id="sgName" required maxlength="120">
+<label>Email</label><input id="sgEmail" type="email" required maxlength="160">
+<label>{'Titre du projet' if lang == 'fr' else 'Project title'}</label><input id="sgTitle" required maxlength="160">
+<label>Description</label><textarea id="sgDesc" rows="4" required maxlength="2000"></textarea>
+<label>{'Catégorie' if lang == 'fr' else 'Category'}</label>
+<select id="sgCat"><option value="product">{'Produit' if lang == 'fr' else 'Product'}</option>
+<option value="custom">{'Sur mesure' if lang == 'fr' else 'Custom'}</option>
+<option value="collab">Collaboration</option><option value="other">{'Autre' if lang == 'fr' else 'Other'}</option></select>
+<button class="btn btn-gold" type="submit">{'Envoyer' if lang == 'fr' else 'Send'}</button>
+<span id="sgFormMsg" style="margin-left:12px"></span></form></section>
+""" + _form_js("sgForm", "/api/suggest-project",
+               [("name", "sgName"), ("email", "sgEmail"), ("title", "sgTitle"),
+                ("description", "sgDesc"), ("category", "sgCat")], ok_msg, lang)
+    body = f"""
+<section class="hero">
+<div><p class="mono" style="color:var(--gold)">ADN Creations / {'Atelier' if lang == 'fr' else 'Workshop'}</p>
+<h1>{h(st('atelier_title', lang))}</h1>
+<p>{h(st('atelier_story', lang))}</p></div>
+<div class="hero-img"><img src="/img/products/bust-workshop.webp" alt="Atelier ADN Creations" style="height:440px"></div>
+</section>
+<section class="section" id="process"><h2>{h(st('process_title', lang))}</h2>
+<div class="steps4">{steps}</div></section>
+<section class="section"><div class="split" style="background:#fff">
+<div><img src="/img/products/bust-threequarter.webp" alt="{h(st('bust_title', lang))}" style="height:340px"></div>
+<div><p class="eyebrow">{h(st('bust_title', lang))}</p>
+<p class="muted">{h(st('bust_text', lang))}</p>
+<a class="btn btn-gold" href="/product/bust-collector">{'Voir la pièce' if lang == 'fr' else 'See the piece'}</a>
+</div></div></section>
+<section class="section" id="bench"><h2>{h(st('bench_title', lang))}</h2>
+<div class="steps4">{bench}
+<a class="step" href="#ideas" style="text-decoration:none;color:var(--ink)"><div class="n">+</div>
+<h3>{h(st('suggest_title', lang))}</h3><p>{h(st('suggest_text', lang))}</p></a></div></section>
+<section class="section" id="work"><h2>{h(st('work_title', lang))}</h2>
+<div class="cards3">
+<a class="linkcard" href="/custom-lamp.html"><h3>{h(st('work_1_t', lang))}</h3><p>{h(st('work_1_x', lang))}</p></a>
+<a class="linkcard" href="/workshop/engraving"><h3>{h(st('work_2_t', lang))}</h3><p>{h(st('work_2_x', lang))}</p></a>
+<a class="linkcard" href="/workshop/portraits"><h3>{h(st('work_3_t', lang))}</h3><p>{h(st('work_3_x', lang))}</p></a>
+</div></section>
+{suggest_form}
+<div class="darkband"><h2 style="color:#eeebe4">{h(st('more_title', lang))}</h2>
+<p><a href="/shop.html">{'La boutique' if lang == 'fr' else 'The shop'}</a> ·
+<a href="/product/custom-lighter">{'Briquets gravés' if lang == 'fr' else 'Engraved lighters'}</a> ·
+<a href="/italia">Italia</a> · <a href="/">{'Art sacré' if lang == 'fr' else 'Sacred shop'}</a></p></div>
+{_FORM_CSS}"""
+    title = ("L'Atelier — ADN Creations" if lang == "fr" else "The Workshop — ADN Creations")
+    return sacred_shell(title, st("atelier_story", lang)[:155], body, lang=lang,
+                        theme="atelier", path="/workshop")
+
+
+def workshop_form_page(lang, kind):
+    if kind == "engraving":
+        title = ("Gravure sur mesure" if lang == "fr" else "Custom engraving")
+        intro = ("Gravure laser au xTool F2 : briquets, bouteilles, bois, métal. "
+                 "Dites-nous ce que vous voulez graver." if lang == "fr" else
+                 "Laser engraving on the xTool F2: lighters, bottles, wood, metal. "
+                 "Tell us what you want engraved.")
+        fields = [("name", "egName"), ("email", "egEmail"), ("product", "egProduct"),
+                  ("message", "egMsg")]
+        form = f"""
+<form class="wform" id="egForm" style="max-width:640px">
+<label>{'Nom' if lang == 'fr' else 'Name'}</label><input id="egName" required maxlength="120">
+<label>Email</label><input id="egEmail" type="email" required maxlength="160">
+<label>{'Produit' if lang == 'fr' else 'Product'}</label><input id="egProduct" maxlength="120">
+<label>Message</label><textarea id="egMsg" rows="5" required maxlength="2000"></textarea>
+<button class="btn btn-gold" type="submit">{'Envoyer la demande' if lang == 'fr' else 'Send the request'}</button>
+<span id="egFormMsg" style="margin-left:12px"></span></form>"""
+        js = _form_js("egForm", "/api/engraving-request", fields,
+                      "Merci! Demande reçue." if lang == "fr" else "Thank you! Request received.", lang)
+    else:
+        title = ("Portraits 3D" if lang == "fr" else "3D portraits")
+        intro = ("Un portrait imprimé en 3D à partir de vos photos. "
+                 "Décrivez votre idée, on s'occupe du reste." if lang == "fr" else
+                 "A 3D-printed portrait from your photos. Describe your idea, we handle the rest.")
+        fields = [("name", "porName"), ("email", "porEmail"), ("idea", "porIdea")]
+        form = f"""
+<form class="wform" id="porForm" style="max-width:640px">
+<label>{'Nom' if lang == 'fr' else 'Name'}</label><input id="porName" required maxlength="120">
+<label>Email</label><input id="porEmail" type="email" required maxlength="160">
+<label>{'Votre idée' if lang == 'fr' else 'Your idea'}</label><textarea id="porIdea" rows="5" required maxlength="2000"></textarea>
+<button class="btn btn-gold" type="submit">{'Envoyer' if lang == 'fr' else 'Send'}</button>
+<span id="porFormMsg" style="margin-left:12px"></span></form>"""
+        js = _form_js("porForm", "/api/portrait-idea", fields,
+                      "Merci! Idée reçue." if lang == "fr" else "Thank you! Idea received.", lang)
+    body = f"""
+<section class="section"><p class="mono" style="color:var(--gold)">ADN Creations / {'Atelier' if lang == 'fr' else 'Workshop'}</p>
+<h1 style="font-size:44px;margin:8px 0">{h(title)}</h1>
+<p class="muted" style="max-width:60ch">{h(intro)}</p>
+{form}</section>
+{_FORM_CSS}{js}"""
+    return sacred_shell(title + " — ADN Creations", intro[:155], body, lang=lang,
+                        theme="atelier", path=f"/workshop/{kind}")
+
+
+def italia_page(lang):
+    case = _prod("card-case")
+    gift = _prod("universal-gift-card")
+    case_price = money2(case["price_cents"], lang) if case else ""
+    body = f"""
+<section class="hero">
+<div><h1>{h(st('italia_hero_title', lang))}</h1>
+<p>{h(st('italia_hero_text', lang))}</p>
+<div class="hero-ctas">
+<a class="btn btn-gold" href="/product/card-case">{'Voir l\'étui' if lang == 'fr' else 'See the case'} · {case_price}</a>
+<a class="btn btn-line" href="/product/card-case">{h(st('italia_initials_cta', lang))}</a>
+</div></div>
+<div class="hero-img"><img src="{h(case['photo'] if case else '')}" alt="Scopa / Briscola" style="height:440px"></div>
+</section>
+<section class="section" id="jeux"><h2>{h(st('italia_games_title', lang))}</h2>
+<div class="cards3">
+<a class="pcard" href="/product/card-case"><img src="/img/products/scopa-case-1.webp" alt="Scopa" loading="lazy">
+<div class="pc-body"><h3>Scopa</h3><p class="price">{case_price}</p></div></a>
+<a class="pcard" href="/product/card-case"><img src="/img/products/briscola-case-1.webp" alt="Briscola" loading="lazy">
+<div class="pc-body"><h3>Briscola</h3><p class="price">{case_price}</p></div></a>
+<a class="pcard" href="/product/universal-gift-card"><img src="{h(gift['photo'] if gift else '')}" alt="Gift card case" loading="lazy">
+<div class="pc-body"><h3>{h(pick(gift, lang, 'name') if gift else '')}</h3><p class="price">{money2(gift['price_cents'], lang) if gift else ''}</p></div></a>
+</div></section>
+<section class="section"><div class="initials-band"><div class="split" style="background:transparent;border:none;padding:0">
+<div><img src="/img/products/scopa-case-2.webp" alt="Initiales en relief" loading="lazy" style="height:300px"></div>
+<div><h2>{h(st('italia_initials_title', lang))}</h2>
+<p style="color:#cfc4ad">{h(st('italia_initials_text', lang))}</p>
+<a class="btn btn-cream" href="/product/card-case">{h(st('italia_initials_cta', lang))}</a>
+</div></div></div></section>
+<section class="section" id="cadeaux"><h2>{h(st('italia_gift_title', lang))}</h2>
+<div class="cards3">
+<a class="linkcard" href="/product/card-case"><h3>{h(st('italia_gift_1', lang))}</h3></a>
+<a class="linkcard" href="/product/card-case"><h3>{h(st('italia_gift_2', lang))}</h3></a>
+<a class="linkcard" href="/product/universal-gift-card"><h3>{h(st('italia_gift_3', lang))}</h3></a>
+</div></section>
+<section class="section" id="histoire">
+<blockquote style="font-family:var(--serif);font-style:italic;font-size:26px;text-align:center;max-width:720px;margin:0 auto;line-height:1.4">{h(st('italia_story', lang))}</blockquote>
+</section>
+<section class="section"><h2>{h(st('italia_also', lang))}</h2>
+<div class="pills"><a href="/">{'Art sacré' if lang == 'fr' else 'Sacred art'}</a>
+<a href="/workshop">L'Atelier</a></div></section>"""
+    title = ("Italia — ADN Creations" if lang == "fr" else "Italia — ADN Creations")
+    return sacred_shell(title, st("italia_hero_text", lang)[:155], body, lang=lang,
+                        theme="italia", path="/italia")
+
+
+@app.route("/workshop")
+def workshop():
+    track_visit("/workshop")
+    lang = get_lang()
+    return lang_response(workshop_page(lang), lang)
+
+
+@app.route("/workshop/engraving")
+def workshop_engraving():
+    track_visit("/workshop/engraving")
+    lang = get_lang()
+    return lang_response(workshop_form_page(lang, "engraving"), lang)
+
+
+@app.route("/workshop/portraits")
+def workshop_portraits():
+    track_visit("/workshop/portraits")
+    lang = get_lang()
+    return lang_response(workshop_form_page(lang, "portraits"), lang)
+
+
+@app.route("/italia")
+def italia():
+    track_visit("/italia")
+    lang = get_lang()
+    return lang_response(italia_page(lang), lang)
+
+
+@app.route("/about.html")
+def _redir_about():
+    return redirect("/workshop", 301)
+
+
+@app.route("/work.html")
+def _redir_work():
+    return redirect("/workshop", 301)
+
+
+@app.route("/progress.html")
+def _redir_progress():
+    return redirect("/workshop#bench", 301)
+
+
+@app.route("/suggest.html")
+def _redir_suggest():
+    return redirect("/workshop#ideas", 301)
+
+
+@app.route("/engraving.html")
+def _redir_engraving():
+    return redirect("/workshop/engraving", 301)
+
+
+@app.route("/portraits.html")
+def _redir_portraits():
+    return redirect("/workshop/portraits", 301)
+
+
 # ---------- public pages ----------
 @app.route("/sitemap.xml")
 def sitemap_xml():
     """Generated from the live catalogue so it can never drift from the shop."""
     pages = [("/", "weekly", "1.0"), ("/shop.html", "daily", "0.9"),
-             ("/work.html", "weekly", "0.9"), ("/engraving.html", "monthly", "0.8"),
-             ("/portraits.html", "monthly", "0.8"), ("/progress.html", "weekly", "0.8"),
-             ("/custom-lamp.html", "monthly", "0.8"), ("/about.html", "monthly", "0.7"),
-             ("/reviews.html", "weekly", "0.7"), ("/suggest.html", "monthly", "0.7"),
+             ("/workshop", "weekly", "0.9"), ("/italia", "weekly", "0.9"),
+             ("/workshop/engraving", "monthly", "0.8"),
+             ("/workshop/portraits", "monthly", "0.8"),
+             ("/custom-lamp.html", "monthly", "0.8"),
+             ("/reviews.html", "weekly", "0.7"),
              ("/contact.html", "monthly", "0.7"), ("/privacy.html", "yearly", "0.3"),
              ("/terms.html", "yearly", "0.3")]
     conn = db()
