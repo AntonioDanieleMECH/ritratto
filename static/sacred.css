@@ -202,11 +202,11 @@ body.italia .initials-band h2{color:#f6f1e7}
 .trustbox .small,.trustbox .muted{color:#57503f}
 .trustbox strong{color:#241f14}
 
-/* Workshop editorial photos are portrait studio shots in landscape
-   slots; cover-cropping cut the bust's face off. Show them whole —
-   the photos' own black backdrop fills the frame. */
-body.atelier .hero-img img{object-fit:contain;background:#14110d}
-body.atelier .split img{object-fit:contain;background:#14110d}
+/* Workshop editorial photos: render at natural aspect, filling the
+   column edge to edge. Fixed-height slots either cropped the bust
+   (cover) or shrank it inside black bars (contain). */
+body.atelier .hero-img img{height:auto;object-fit:contain}
+body.atelier .split img{height:auto;object-fit:contain}
 
 /* product gallery inside sacred pages (existing gallery markup) */
 body.sacred .product-gallery #galMainWrap img,body.sacred .product-gallery #galMainWrap video{

@@ -2523,12 +2523,12 @@ def workshop_page(lang):
 <div><p class="mono" style="color:var(--gold)">ADN Creations / {'Atelier' if lang == 'fr' else 'Workshop'}</p>
 <h1>{h(st('atelier_title', lang))}</h1>
 <p>{h(st('atelier_story', lang))}</p></div>
-<div class="hero-img"><img src="/img/products/bust-workshop.webp" alt="Atelier ADN Creations" style="height:440px"></div>
+<div class="hero-img"><img src="/img/products/bust-workshop.webp" alt="Atelier ADN Creations"></div>
 </section>
 <section class="section" id="process"><h2>{h(st('process_title', lang))}</h2>
 <div class="steps4">{steps}</div></section>
 <section class="section"><div class="split" style="background:var(--raised)">
-<div><img src="/img/products/bust-threequarter.webp" alt="{h(st('bust_title', lang))}" style="height:340px"></div>
+<div><img src="/img/products/bust-threequarter.webp" alt="{h(st('bust_title', lang))}"></div>
 <div><p class="eyebrow">{h(st('bust_title', lang))}</p>
 <p class="muted">{h(st('bust_text', lang))}</p>
 <a class="btn btn-gold" href="/product/bust-collector">{'Voir la pièce' if lang == 'fr' else 'See the piece'}</a>
