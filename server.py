@@ -90,8 +90,10 @@ FB_PAGE_URL = "https://www.facebook.com/61592937237761"
 FB_PAGE_TOKEN = os.environ.get("FB_PAGE_TOKEN", "")
 
 DEPTS = ["religious", "electronic", "gag"]
-DEPT_LABELS = {"religious": "Religious", "electronic": "Electronic", "gag": "Gag"}
-DEPT_LABELS_FR = {"religious": "Religieux", "electronic": "Électronique", "gag": "Humour"}
+DEPT_LABELS = {"religious": "Religious", "electronic": "Electronic", "gag": "Gag",
+               "italian": "Italian"}
+DEPT_LABELS_FR = {"religious": "Religieux", "electronic": "Électronique", "gag": "Humour",
+                  "italian": "Italien"}
 
 OFFICE_EN = "Downtown office: 204 rue du Saint-Sacrement, Espace 300, H2Y 1W8 Montréal QC"
 OFFICE_FR = "Bureau du centre-ville : 204, rue du Saint-Sacrement, bureau 300, H2Y 1W8 Montréal (QC)"
@@ -1007,6 +1009,11 @@ def seed():
     # keeping its real Aku photo in the gallery and the Stogies mockup as card.
     conn.execute("UPDATE products SET price_cents=2499 WHERE id='custom-lighter' AND price_cents != 2499")
     conn.execute("UPDATE products SET active=0 WHERE id='lighter'")
+    # 2026-10-23 (rebuild Phase A): hide the $0.00 "gag-soon" placeholder and
+    # the photo-less battery door from the shop until they have real photos.
+    # Both stay in the catalogue, just inactive — reversible in one line.
+    conn.execute("UPDATE products SET active=0 WHERE id='gag-soon'")
+    conn.execute("UPDATE products SET active=0 WHERE id='battery-door'")
     _cl_photos = ["/img/products/custom-lighter.jpg",
                   "/img/products/custom-lighter-stogies.jpg",
                   "/img/products/custom-lighter-mirelas-chrome.jpg",
