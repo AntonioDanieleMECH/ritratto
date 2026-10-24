@@ -603,6 +603,9 @@ def db():
         "ALTER TABLE wip_projects ADD COLUMN status_fr TEXT DEFAULT ''",
         "ALTER TABLE wip_updates ADD COLUMN text_fr TEXT DEFAULT ''",
         "ALTER TABLE product_photos ADD COLUMN kind TEXT DEFAULT 'photo'",
+        # gift options (added 2026-10-24, rebuild)
+        "ALTER TABLE orders ADD COLUMN gift_wrap INTEGER DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN gift_message TEXT DEFAULT ''",
         # order dispatch (added 2026-10-18)
         "ALTER TABLE orders ADD COLUMN customer_name TEXT DEFAULT ''",
         "ALTER TABLE orders ADD COLUMN ship_name TEXT DEFAULT ''",
@@ -1877,7 +1880,8 @@ def sundays_before_advent():
     return n
 
 
-def sacred_shell(title, description, body, lang="fr", theme="sacred", active="", path="/"):
+def sacred_shell(title, description, body, lang="fr", theme="sacred", active="", path="/",
+                 legacy_css=False, og_image=""):
     other = "en" if lang == "fr" else "fr"
     canonical = CANONICAL_URL + path
     banner = ""
@@ -1934,11 +1938,12 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
 <meta property="og:description" content="{h(description)}">
 <meta property="og:url" content="{canonical}">
 <meta property="og:type" content="website">
+{('<meta property="og:image" content="' + h(og_image) + '">') if og_image else ''}
 <meta name="theme-color" content="#14110d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Instrument+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/sacred.css">
+{('<link rel="stylesheet" href="/style.css">' + chr(10)) if legacy_css else ''}<link rel="stylesheet" href="/sacred.css">
 </head>
 <body class="{theme}">
 {ribbon}{top}{banner}
@@ -2168,6 +2173,25 @@ document.getElementById('nlForm').addEventListener('submit', function(e){{
              else "ADN Creations — Hand crafted prayer lamps, Montreal")
     desc = st("hero_sub", lang)[:155]
     return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/")
+
+
+def gift_wrap_cents():
+    """Gift-wrap price from Site text key 'gift_wrap_price' (dollars, e.g. '4.99');
+    defaults to $4.99 when unset or unparsable."""
+    raw = (st("gift_wrap_price", "fr") or "").replace("$", "").replace(",", ".").strip()
+    try:
+        return max(0, int(round(float(raw) * 100))) if raw else 499
+    except ValueError:
+        return 499
+
+
+@app.route("/api/site-config")
+def api_site_config():
+    return jsonify({"gift_wrap_cents": gift_wrap_cents(),
+                    "gift_wrap_label_fr": st("giftwrap_label", "fr"),
+                    "gift_wrap_label_en": st("giftwrap_label", "en"),
+                    "gift_msg_label_fr": st("giftmsg_label", "fr"),
+                    "gift_msg_label_en": st("giftmsg_label", "en")})
 
 
 @app.route("/api/newsletter", methods=["POST"])
@@ -2618,7 +2642,7 @@ def product_page(pid):
             buy_html = f'<div class="notice notice-err">{t(lang, "sold_out")}</div>'
         else:
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
-            buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money(p["price_cents"])}</button>'
+            buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money2(p["price_cents"], lang)}</button>'
                         f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
                         f'<div style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2">'
                         f'<p style="margin:0 0 6px"><strong>{t(lang, "seller_trusted")}</strong></p>'
@@ -2663,6 +2687,10 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   if (co) payload.color = co.value;
   var iniT = document.getElementById('initialsText'), iniC = document.getElementById('initialsToggle');
   if (iniT && iniC && iniC.checked) payload.initials = iniT.value;
+  var gwT = document.getElementById('giftWrapToggle');
+  if (gwT && gwT.checked) payload.gift_wrap = true;
+  var gmT = document.getElementById('giftMsgToggle'), gmX = document.getElementById('giftMsgText');
+  if (gmT && gmT.checked && gmX) payload.gift_message = gmX.value;
   var cp = document.getElementById('coupon');
   if (cp && cp.value.trim()) payload.coupon = cp.value.trim();
   var sc = document.getElementById('shipCountry');
@@ -2756,6 +2784,9 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   refresh();
 }})();
 </script>"""
+    if lang == "fr" and buy_js:
+        buy_js = buy_js.replace('"$" + (c/100).toFixed(2) + " CAD"',
+                                '(c/100).toFixed(2).replace(".", ",") + " $ CAD"')
     notify_js = ""
     if p["in_works"]:
         notify_js = f"""<script>
@@ -2771,28 +2802,129 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
   else msg.innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '</div>';
 }});
 </script>"""
+    # ---- rebuild blocks (2026-10-24): quantity radio cards, gift options,
+    # info box, sticky mobile bar, cross-sell ----
+    eyebrow = "ADN Creations"
+    if "religious" in depts:
+        eyebrow = ("Vendu à l'Oratoire Saint-Joseph" if lang == "fr"
+                   else "Sold at Saint Joseph's Oratory")
+    elif "italian" in depts:
+        eyebrow = "ADN Creations · Italia"
+    stockline = ""
+    if p["stock"] is not None and 0 < p["stock"] <= 10 and p["purchasable"]:
+        stockline = (f'<p class="stockline">{"Fabriqué en petits lots, plus que " if lang == "fr" else "Made in small batches, only "}'
+                     f'{p["stock"]} {"en stock" if lang == "fr" else "left"}</p>')
+    qty_cards = ""
+    qty_cards_js = ""
+    _can_buy = p["purchasable"] and not p["in_works"] and not (p["stock"] is not None and p["stock"] <= 0)
+    if _can_buy and pid == "memorial-lamp" and p["additional_price_cents"]:
+        _save4 = p["price_cents"] + 3 * p["additional_price_cents"] - LAMP_PACK4
+        _c1 = ("1 lampe" if lang == "fr" else "1 lamp")
+        _c4 = ("4 lampes" if lang == "fr" else "4 lamps")
+        _c4n = (f"Pour la famille ou la paroisse · économisez {money2(_save4, lang)}" if lang == "fr"
+                else f"For family or parish · save {money2(_save4, lang)}")
+        qty_cards = (
+            '<div class="radio-cards" id="qtyCards">'
+            f'<div class="radio-card sel" data-qty="1"><input type="radio" name="qtycard" checked>'
+            f'<div><strong>{_c1}</strong></div><div style="margin-left:auto;font-weight:700">{money2(p["price_cents"], lang)}</div></div>'
+            f'<div class="radio-card" data-qty="4"><input type="radio" name="qtycard">'
+            f'<div><strong>{_c4}</strong><div class="small muted">{_c4n}</div></div>'
+            f'<div style="margin-left:auto;font-weight:700">{money2(LAMP_PACK4, lang)}</div></div></div>')
+    elif _can_buy and p["additional_price_cents"]:
+        _two = p["price_cents"] + p["additional_price_cents"]
+        _fs = ""
+        if _two >= 5000:
+            _fs = ('<div class="small" style="color:var(--amber)">'
+                   + ("Livraison gratuite au Canada débloquée" if lang == "fr"
+                      else "Free Canada shipping unlocked") + "</div>")
+        qty_cards = (
+            '<div class="radio-cards" id="qtyCards">'
+            f'<div class="radio-card sel" data-qty="1"><input type="radio" name="qtycard" checked>'
+            f'<div><strong>1</strong></div><div style="margin-left:auto;font-weight:700">{money2(p["price_cents"], lang)}</div></div>'
+            f'<div class="radio-card" data-qty="2"><input type="radio" name="qtycard">'
+            f'<div><strong>2</strong>{_fs}</div>'
+            f'<div style="margin-left:auto;font-weight:700">{money2(_two, lang)}</div></div></div>')
+    if qty_cards:
+        tier_note = ""  # the cards replace the prose tier sentence (Claudia)
+        qty_cards_js = """<script>
+(function(){
+  var q = document.getElementById('qty'); if(!q) return;
+  var cards = document.querySelectorAll('#qtyCards .radio-card');
+  function sel(){ cards.forEach(function(c){
+    var on = parseInt(c.getAttribute('data-qty'),10) === (parseInt(q.value,10)||1);
+    c.classList.toggle('sel', on); var r = c.querySelector('input'); if(r) r.checked = on; }); }
+  cards.forEach(function(c){ c.addEventListener('click', function(){
+    q.value = c.getAttribute('data-qty'); q.dispatchEvent(new Event('change')); sel(); }); });
+  q.addEventListener('change', sel); sel();
+})();
+</script>"""
+    gift_fields = ""
+    gift_js = ""
+    if _can_buy:
+        gift_fields = (
+            f'<div class="field"><label class="checkline"><input type="checkbox" id="giftMsgToggle"> '
+            f'{h(st("giftmsg_label", lang))}</label>'
+            f'<textarea id="giftMsgText" rows="2" maxlength="300" style="display:none;margin-top:6px"></textarea>'
+            f'<label class="checkline"><input type="checkbox" id="giftWrapToggle"> '
+            f'{h(st("giftwrap_label", lang))} · +{money2(gift_wrap_cents(), lang)}</label>'
+            f'<p class="small muted" style="margin:4px 0 0">{h(st("giftwrap_note", lang))}</p></div>')
+        gift_js = """<script>
+(function(){ var t = document.getElementById('giftMsgToggle'), x = document.getElementById('giftMsgText');
+  if(t && x) t.addEventListener('change', function(){ x.style.display = t.checked ? '' : 'none'; if(t.checked) x.focus(); }); })();
+</script>"""
+    _order_line = st("order_by_christmas_ca", lang).replace(
+        "{date}", "11 décembre" if lang == "fr" else "December 11")
+    _rows = []
+    if _order_line:
+        _rows.append(_order_line)
+    if st("returns_line", lang):
+        _rows.append(st("returns_line", lang))
+    _rows.append("Fait à la main à Montréal" if lang == "fr" else "Hand crafted in Montreal")
+    infobox = ('<div class="infobox">' + "".join(f'<div class="row">{h(r)}</div>' for r in _rows)
+               + "</div>") if _can_buy else ""
+    coupon_note = ('<p class="small muted" style="margin-top:10px">'
+                   + ("Un code promo? Ajoutez l'article au panier : le champ code est à la caisse."
+                      if lang == "fr" else
+                      "Have a promo code? Add the item to the cart: the code field is at checkout.")
+                   + "</p>") if _can_buy else ""
+    sticky = ""
+    if _can_buy:
+        sticky = (f'<div class="stickybar"><img src="{h(photos[0]["photo"] if photos else (p["photo"] or ""))}" alt="">'
+                  f'<div><div class="nm">{h(name)}</div><div class="pr">{money2(p["price_cents"], lang)}</div></div>'
+                  f'<button class="btn btn-gold" type="button" '
+                  f'onclick="var b=document.getElementById(\'addCartBtn\'); if(b){{b.click();}}">'
+                  f'{h(t(lang, "add_to_cart"))}</button></div>')
+    cross = ""
+    _siblings = [x for x in ("carlo-lamp", "nativity", "padre-pio-lamp", "sheen-lamp",
+                             "memorial-lamp", "mini-bust") if x != pid]
+    for _sid in _siblings:
+        _sp = _prod(_sid)
+        if _sp and _sp["active"] and _sp["purchasable"]:
+            cross = (f'<section class="section"><h2 style="font-size:28px">'
+                     f'{"Se marie bien avec" if lang == "fr" else "Pairs well with"}</h2>'
+                     f'<div style="max-width:420px">{_pcard(_sp, lang)}</div></section>')
+            break
     body = f"""
-<div class="wrap"><div class="product-detail">
+<div class="pd">
 <div>{gallery}</div>
 <div>
-<div class="buy-box">
-<p class="kicker">ADN Creations</p>
-<h1 style="font-size:2rem">{h(name)}</h1>
-<div class="dept-tags" style="margin-bottom:12px">{tags} {product_badges(p, lang)}</div>
-<p class="price" id="priceTotal">{money(p["price_cents"])}</p>
+<p class="eyebrow">{h(eyebrow)}</p>
+<h1>{h(name)}</h1>
+<div class="dept-tags" style="margin-bottom:10px">{tags} {product_badges(p, lang)}</div>
+<p class="price" id="priceTotal">{money2(p["price_cents"], lang)}</p>
 <p class="small muted" id="priceUsd" style="margin-top:2px">{usd_note(p["price_cents"], lang)}</p>
+{stockline}
 <p class="muted">{h(desc)}</p>
 {tier_note}
 {preorder_note}
-<div class="field"><label for="qty">{t(lang, "qty")}</label>
-<input type="number" id="qty" value="1" min="1" max="{qty_max}"></div>
-<div class="field"><label for="coupon">{t(lang, "coupon_label")}</label>
-<input type="text" id="coupon" maxlength="32" placeholder="{h(t(lang, "coupon_ph"))}" style="text-transform:uppercase">
-<div id="couponMsg" class="small" style="margin-top:6px"></div></div>
+{qty_cards}
 {engraving_field}
 {option_field}
 {initials_field}
 {color_field}
+<div class="field"><label for="qty">{t(lang, "qty")}</label>
+<input type="number" id="qty" value="1" min="1" max="{qty_max}"></div>
+{gift_fields}
 <div class="field"><label for="shipCountry">{t(lang, "ship_country")}</label>
 <select id="shipCountry">
 <option value="CA">{t(lang, "ship_ca")}</option>
@@ -2800,14 +2932,16 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 <option value="INT">{t(lang, "ship_intl")}</option>
 </select></div>
 {buy_html}{custom}
+{coupon_note}
 <div id="buyMsg" style="margin-top:12px"></div>
-</div>
+{infobox}
 </div>
 </div>
 {story_html}
 {reviews_section(pid, lang)}
-</div>
-{gal_js}{buy_js}{design_js}{notify_js}{initials_js}"""
+{cross}
+{sticky}
+{gal_js}{buy_js}{design_js}{notify_js}{initials_js}{qty_cards_js}{gift_js}"""
     # Product structured data (rich results): offers + aggregate rating when reviews exist.
     rconn = db()
     rrow = rconn.execute(
@@ -2838,9 +2972,9 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
             "reviewCount": rrow[0],
         }
     body = '<script type="application/ld+json">' + json.dumps(_pjson) + "</script>" + body
-    html = shell(name, desc[:160], body, active="shop",
-                 og_image=abs_url(photos[0]["photo"] if photos else p["photo"]),
-                 og_url=f"{SITE_URL}/product/{pid}", lang=lang)
+    html = sacred_shell(name, desc[:160], body, lang=lang, theme="sacred",
+                        path=f"/product/{pid}", legacy_css=True,
+                        og_image=abs_url(photos[0]["photo"] if photos else p["photo"]))
     return lang_response(html, lang)
 
 
@@ -3023,6 +3157,12 @@ def api_checkout():
     # client only ever sends the letters, never a price.
     if initials:
         amount += INITIALS_ADDON_CENTS
+    # Gift options (2026-10-24): wrap is priced server-side from Site text;
+    # the message is free text carried to the seller with the order.
+    gift_wrap = 1 if data.get("gift_wrap") else 0
+    gift_message = (data.get("gift_message") or "").strip()[:300]
+    if gift_wrap:
+        amount += gift_wrap_cents()
     # Discount coupon (percent off the total, e.g. creator codes).
     pct_off, coupon_code = get_coupon(data.get("coupon"))
     if pct_off:
@@ -3032,11 +3172,12 @@ def api_checkout():
     conn = db()
     conn.execute(
         "INSERT INTO orders (id, created, product_id, product_name, amount_cents, qty, "
-        "engraving_text, preorder, preorder_ship_date, paid, coupon, color) "
-        "VALUES (?,?,?,?,?,?,?,?,?,0,?,?)",
+        "engraving_text, preorder, preorder_ship_date, paid, coupon, color, "
+        "gift_wrap, gift_message) "
+        "VALUES (?,?,?,?,?,?,?,?,?,0,?,?,?,?)",
         (oid, now_iso(), pid, name, amount, qty, engraving,
          p["preorder"], p["preorder_ship_date"], coupon_code,
-         color if _pool else ""))
+         color if _pool else "", gift_wrap, gift_message))
     conn.commit()
     conn.close()
     label = name + (f" x{qty}" if qty > 1 else "")
@@ -3193,6 +3334,12 @@ def api_cart_checkout():
             _seen_initials.add(l["initials"])
             l["amount"] += INITIALS_ADDON_CENTS
     amount = sum(l["amount"] for l in lines)
+    # Gift options (2026-10-24): order-level, priced server-side like buy-now.
+    gift_wrap = 1 if data.get("gift_wrap") else 0
+    gift_message = (data.get("gift_message") or "").strip()[:300]
+    wrap_cents = gift_wrap_cents() if gift_wrap else 0
+    if wrap_cents:
+        amount += wrap_cents
     pct_off, coupon_code = get_coupon(data.get("coupon"))
     if pct_off:
         amount = amount - round(amount * pct_off / 100)
@@ -3212,9 +3359,10 @@ def api_cart_checkout():
     conn = db()
     conn.execute(
         "INSERT INTO orders (id, created, product_id, product_name, amount_cents, qty, "
-        "engraving_text, preorder, preorder_ship_date, paid, coupon) VALUES (?,?,?,?,?,?,?,?,?,0,?)",
+        "engraving_text, preorder, preorder_ship_date, paid, coupon, gift_wrap, "
+        "gift_message) VALUES (?,?,?,?,?,?,?,?,?,0,?,?,?)",
         (oid, now_iso(), "cart", summary, amount, total_qty, "",
-         preorder, preorder_date, coupon_code))
+         preorder, preorder_date, coupon_code, gift_wrap, gift_message))
     for l in lines:
         conn.execute(
             "INSERT INTO order_items (order_id, product_id, product_name, qty, "
@@ -3267,6 +3415,11 @@ def api_cart_checkout():
             line_items.append({"price_data": {
                 "currency": "cad", "unit_amount": l["amount"],
                 "product_data": {"name": nm}}, "quantity": 1})
+    if wrap_cents and not pct_off:
+        line_items.append({"price_data": {
+            "currency": "cad", "unit_amount": wrap_cents,
+            "product_data": {"name": "Emballage cadeau" if lang == "fr" else "Gift wrap"}},
+            "quantity": 1})
     sess = stripe.checkout.Session.create(
         payment_method_types=["card"],
         locale="fr" if lang == "fr" else "en",
@@ -3446,6 +3599,10 @@ def notify_seller_new_order(kind, oid):
         "Ship to:",
         d.get("ship_address") or "-",
     ]
+    if d.get("gift_wrap"):
+        lines.append("Gift wrap: YES")
+    if d.get("gift_message"):
+        lines.append('Gift message: "%s"' % d["gift_message"])
     send_email(SUPPORT_EMAIL,
                "New order %s — %s" % (oid, money(d.get("amount_cents") or 0)),
                "\n".join(lines))

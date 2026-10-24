@@ -194,6 +194,24 @@ body.italia .btn-gold:hover{background:#3c7a4c;color:#fff}
 body.italia .initials-band{background:#22201b;color:#f6f1e7;border-radius:8px;padding:26px}
 body.italia .initials-band h2{color:#f6f1e7}
 
+/* product gallery inside sacred pages (existing gallery markup) */
+body.sacred .product-gallery #galMainWrap img,body.sacred .product-gallery #galMainWrap video{
+  width:100%;height:520px;object-fit:cover;border-radius:6px;display:block;border:1px solid var(--line)}
+body.sacred .pd .field{margin:12px 0}
+body.sacred .pd .field label{display:block;font-size:13.5px;color:var(--ink2);margin-bottom:5px}
+body.sacred .pd input[type=number],body.sacred .pd input[type=text],body.sacred .pd textarea{
+  background:var(--raised);color:var(--ink);border:1px solid var(--line2);border-radius:8px;padding:11px;width:100%}
+body.sacred .pd input[type=checkbox]{width:19px;height:19px;accent-color:var(--gold)}
+body.sacred .design-thumbs img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:2px solid var(--line);cursor:pointer}
+body.sacred .design-thumbs img.on{border-color:var(--gold)}
+body.sacred .design-preview img{max-height:300px;border-radius:6px;border:1px solid var(--line)}
+body.sacred .dept-tag{border:1px solid var(--line2);border-radius:999px;padding:3px 10px;font-size:12.5px;color:var(--ink2)}
+body.sacred .review{border:1px solid var(--line);background:var(--raised);border-radius:8px;padding:16px;margin:10px 0}
+body.sacred .review-stars{color:var(--gold)}
+@media (max-width:700px){
+  body.sacred .product-gallery #galMainWrap img,body.sacred .product-gallery #galMainWrap video{height:400px}
+}
+
 /* ---------- responsive ---------- */
 @media (max-width:1024px){
   .hero h1{font-size:52px}
