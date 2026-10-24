@@ -468,6 +468,26 @@ def db():
             conn.execute(ddl)
         except sqlite3.OperationalError:
             pass
+    # Rebuild data fixes (2026-10-24, Claudia's browser pass): memorial
+    # copy sheds its price prose, dept tags corrected, nativity gallery
+    # leads with the studio shot. Defensive: never block a boot.
+    for stmt in (
+        "UPDATE products SET description='Your photos or our saint illustrations on four glowing faces. "
+        "Use the lamp designer to compose your four sides.', "
+        "description_fr='Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
+        "Utilisez l''outil de création pour composer vos quatre faces.' "
+        "WHERE id='memorial-lamp' AND description LIKE '%4-pack for $99.99%'",
+        "UPDATE products SET depts='[\"electronic\"]' WHERE id IN ('custom-lighter','mug') "
+        "AND depts IN ('[]', '[\"gag\"]')",
+        "UPDATE products SET depts='[\"italian\", \"gag\"]' WHERE id='universal-gift-card' "
+        "AND depts='[\"gag\"]'",
+        "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
+        "AND photo LIKE '%/nativity-pro.jpg'",
+    ):
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
     conn.execute(
         "CREATE TABLE IF NOT EXISTS product_photos "
         "(id TEXT PRIMARY KEY, product_id TEXT, photo TEXT DEFAULT '', "
@@ -4181,25 +4201,6 @@ def seed_site_text():
         conn.execute(
             "INSERT OR IGNORE INTO site_text (key, fr, en, fr_draft, en_draft, updated) "
             "VALUES (?,?,?,?,?,?)", (key, fr, en, fr, en, now_iso()))
-    # Rebuild hotfixes (2026-10-24, Claudia's browser pass): memorial copy
-    # sheds its price prose (the quantity cards carry pricing now), dept
-    # tags corrected so the engraved lighter / mug stop landing in
-    # Religious, and the nativity gallery leads with the studio shot.
-    conn.execute(
-        "UPDATE products SET description='Your photos or our saint illustrations on four glowing faces. "
-        "Use the lamp designer to compose your four sides.', "
-        "description_fr='Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
-        "Utilisez l''outil de création pour composer vos quatre faces.' "
-        "WHERE id='memorial-lamp' AND description LIKE '%4-pack for $99.99%'")
-    conn.execute(
-        "UPDATE products SET depts='[\"electronic\"]' WHERE id IN ('custom-lighter','mug') "
-        "AND depts IN ('[]', '[\"gag\"]')")
-    conn.execute(
-        "UPDATE products SET depts='[\"italian\", \"gag\"]' WHERE id='universal-gift-card' "
-        "AND depts='[\"gag\"]'")
-    conn.execute(
-        "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
-        "AND photo LIKE '%/nativity-pro.jpg'")
     conn.commit()
     conn.close()
 
