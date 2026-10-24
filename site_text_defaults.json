@@ -44,13 +44,8 @@
   "fr": "Se renseigner sur cette pièce"
  },
  "bust_text": {
-<<<<<<< HEAD
-  "en": "A 32 cm hand painted bust on a dark stained wood base with a gold plate bearing his signature. Each piece is hand crafted in Montreal, in small numbers.",
-  "fr": "Un buste de 32 cm peint à la main, sur une base en bois teint foncé avec une plaque dorée portant sa signature. Chaque pièce est faite à la main à Montréal, en petits nombres."
-=======
   "fr": "La statue mesure 32 cm, 39 cm avec sa base en bois teint foncé et sa plaque dorée portant sa signature. Chaque pièce est faite à la main à Montréal.",
   "en": "The statue itself is 32 cm, 39 cm with its dark stained wood base and gold plate bearing his signature. Each piece is hand crafted in Montreal."
->>>>>>> redesign
  },
  "bust_title": {
   "en": "The Frère André bust, a collector's piece",
@@ -145,13 +140,8 @@
   "fr": "Voir l'ensemble de Noël"
  },
  "hero_fineprint": {
-<<<<<<< HEAD
-  "en": "Order by {date} to receive your lamps in time for Christmas. Returns accepted.",
-  "fr": "Commandez avant le {date} pour recevoir vos lampes à temps pour Noël. Retours acceptés."
-=======
   "fr": "Commandez avant le {date} pour recevoir vos lampes à temps pour Noël. Retours acceptés sous 1 semaine.",
   "en": "Order by {date} to receive your lamps in time for Christmas. Returns accepted within 1 week."
->>>>>>> redesign
  },
  "hero_sub": {
   "en": "Our prayer lamps are hand crafted in LaSalle, Montreal, from plant-based plastic. Lit, they glow softly and bring the holy images to life.",
@@ -254,21 +244,12 @@
   "fr": "Demander un prix de groupe"
  },
  "parish_text": {
-<<<<<<< HEAD
-  "en": "Planning a gift for a parish group, a catechism class or a church event? Write to us for packs of 12 and wholesale pricing.",
-  "fr": "Vous préparez un cadeau pour un groupe de paroisse, une classe de catéchèse ou un événement d'église? Écrivez-nous pour les formats de 12 et les prix de gros."
- },
- "parish_title": {
-  "en": "Parish packs of 12",
-  "fr": "Packs paroissiaux de 12"
-=======
   "fr": "Une paroisse, une école ou une institution? Contactez-nous pour les commandes en gros. Délai de 1 à 3 semaines pour les grosses commandes, confirmé par courriel.",
   "en": "A parish, a school or an institution? Contact us for bulk orders. Lead time for large orders is 1 to 3 weeks, confirmed by email."
  },
  "parish_title": {
   "fr": "Paroisses et institutions",
   "en": "Parishes and institutions"
->>>>>>> redesign
  },
  "process_1_t": {
   "en": "Model",
@@ -307,13 +288,8 @@
   "fr": "Comment une lampe est faite"
  },
  "returns_line": {
-<<<<<<< HEAD
-  "en": "Returns accepted. Write to us and we will sort it out with you.",
-  "fr": "Retours acceptés. Écrivez-nous et nous nous en occupons avec vous."
-=======
   "fr": "Retours acceptés sous 1 semaine. Écrivez-nous et nous nous en occupons avec vous.",
   "en": "Returns accepted within 1 week. Write to us and we will sort it out with you."
->>>>>>> redesign
  },
  "set_items": {
   "en": "Nativity lamp, Carlo Acutis lamp and Padre Pio lamp",
@@ -352,13 +328,8 @@
   "fr": "Expédition sous 1 à 2 semaines"
  },
  "trust_4": {
-<<<<<<< HEAD
-  "en": "Returns accepted",
-  "fr": "Retours acceptés"
-=======
   "fr": "Retours (1 semaine)",
   "en": "Returns (1 week)"
->>>>>>> redesign
  },
  "work_1_t": {
   "en": "Custom design",

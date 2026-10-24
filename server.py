@@ -483,8 +483,6 @@ def db():
         "AND depts='[\"gag\"]'",
         "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
         "AND photo LIKE '%/nativity-pro.jpg'",
-<<<<<<< HEAD
-=======
         # Antonio's answers 2026-10-24: the collector statue is 32 cm,
         # 39 cm with its base (both numbers were already on the site,
         # each presented as the whole size).
@@ -493,14 +491,11 @@ def db():
         "story='A collector''s piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.', "
         "story_fr='Une pièce de collection pour l''époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.' "
         "WHERE id='bust-collector' AND description LIKE 'One of one. 39 cm%'",
->>>>>>> redesign
     ):
         try:
             conn.execute(stmt)
         except sqlite3.OperationalError:
             pass
-<<<<<<< HEAD
-=======
     # Site text touch-ups from Antonio's 2026-10-24 answers (statue size,
     # 1-week returns, parish lead time). Compare-and-set on the previous
     # defaults so his own admin edits are never overwritten.
@@ -552,7 +547,6 @@ def db():
                     (_phpid, "christmas-set", _ph, _s, 0, now_iso()))
         except sqlite3.OperationalError:
             pass
->>>>>>> redesign
     conn.execute(
         "CREATE TABLE IF NOT EXISTS product_photos "
         "(id TEXT PRIMARY KEY, product_id TEXT, photo TEXT DEFAULT '', "
@@ -2021,10 +2015,6 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<<<<<<< HEAD
-<meta name="google-site-verification" content="4oXfVvgugvPXdVvBYMFDHD01MTuAhf7qDfVm8YA1pmY">
-=======
->>>>>>> redesign
 <title>{h(title)}</title>
 <meta name="description" content="{h(description)}">
 <link rel="canonical" href="{canonical}">
@@ -2166,12 +2156,6 @@ def home_page(lang):
     if loved:
         parts.append(f'<section class="section"><h2>{h(st("beloved_title", lang))}</h2>'
                      f'<div class="cards3">' + "".join(_pcard(p, lang) for p in loved) + "</div></section>")
-<<<<<<< HEAD
-    # christmas set
-    if nat and carlo and pio:
-        total = nat["price_cents"] + carlo["price_cents"] + pio["price_cents"]
-        note = st("set_note", lang).replace("{price}", money2(total, lang))
-=======
     # christmas set (a real bundle product since 2026-10-24: the three
     # lamps at one set price; the separate total stays as a factual line)
     if nat and carlo and pio:
@@ -2191,27 +2175,18 @@ def home_page(lang):
                          for p in (nat, carlo, pio)]
             set_label = ("Ajouter les 3 au panier" if lang == "fr"
                          else "Add all 3 to cart")
->>>>>>> redesign
         parts.append(f"""
 <section class="section" id="ensemble"><div class="setbox">
 <div><p class="eyebrow">{h(st('set_title', lang))}</p>
 <h2>{h(st('set_items', lang))}</h2>
 <p class="muted">{h(note)}</p></div>
 <div style="text-align:right">
-<<<<<<< HEAD
-<button class="btn btn-gold" id="setAdd">{'Ajouter les 3 au panier' if lang == 'fr' else 'Add all 3 to cart'}</button>
-</div></div></section>
-<script>
-document.getElementById('setAdd').addEventListener('click', function(){{
-  var items = {json.dumps([{"pid": p["id"], "name": pick(p, lang, "name"), "img": p["photo"] or "", "price": p["price_cents"]} for p in (nat, carlo, pio)])};
-=======
 {set_price}
 <button class="btn btn-gold" id="setAdd">{set_label}</button>
 </div></div></section>
 <script>
 document.getElementById('setAdd').addEventListener('click', function(){{
   var items = {json.dumps(set_items)};
->>>>>>> redesign
   items.forEach(function(it){{ window.adnCart && window.adnCart.add({{pid: it.pid, name: it.name, img: it.img, qty: 1, unit_cents: it.price, add_cents: 0, design: "", saint: "", size: "", color: "", initials: "", engraving: ""}}); }});
   window.adnCart && window.adnCart.open();
 }});
