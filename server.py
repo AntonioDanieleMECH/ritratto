@@ -926,6 +926,21 @@ def seed():
                  p.get("stock"), 0, "", p.get("engravable", 0),
                  p.get("purchasable", 1), p.get("custom_link", ""), 1,
                  p.get("sort", 0), now_iso()))
+    # New product 2026-10-24: the Christmas set bundle (only if missing).
+    if not conn.execute("SELECT id FROM products WHERE id='christmas-set'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("christmas-set", "Christmas Set, All 3 Lamps",
+             "Coffret de Noël, les 3 lampes", 6999,
+             "/img/products/nativity-pro.jpg",
+             "The whole Christmas corner in one box: the Nativity scene lamp, the Carlo Acutis prayer lamp and the Padre Pio prayer lamp. Bought separately they come to $79.97. Each lamp is hand crafted in Montreal from plant-based bioplastic, with a warm LED light.",
+             "Le coin de Noël complet dans une seule boîte : la lampe scène de la Nativité, la lampe de prière Carlo Acutis et la lampe de prière Padre Pio. Achetées séparément, elles reviennent à 79,97 $. Chaque lampe est faite à la main à Montréal en bioplastique d'origine végétale, avec une lumière DEL chaude.",
+             "Three lamps, one quiet corner of light for Christmas: the Nativity, Carlo Acutis and Padre Pio. They are the three lamps families ask for together most, so they travel in one box at one set price.",
+             "Trois lampes, un coin de lumière tranquille pour Noël : la Nativité, Carlo Acutis et Padre Pio. Ce sont les trois lampes que les familles demandent le plus souvent ensemble, alors elles voyagent dans une seule boîte à un prix d'ensemble.",
+             json.dumps(["religious"]), None, 0, "", 0, 1, "", 1, 2, now_iso()))
     # New product 2026-10-18: custom lighter listing (only if missing).
     if not conn.execute("SELECT id FROM products WHERE id='custom-lighter'").fetchone():
         conn.execute(
