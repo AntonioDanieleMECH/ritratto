@@ -560,6 +560,19 @@ def db():
         "(code TEXT PRIMARY KEY, percent_off INTEGER DEFAULT 0, "
         " active INTEGER DEFAULT 1, note TEXT DEFAULT '', created TEXT)"
     )
+    # Site text (2026-10-24, rebuild): every public word lives here, FR + EN,
+    # edited in /admin/site-text as drafts and promoted live on Publish.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS site_text "
+        "(key TEXT PRIMARY KEY, fr TEXT DEFAULT '', en TEXT DEFAULT '', "
+        " fr_draft TEXT DEFAULT '', en_draft TEXT DEFAULT '', updated TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS email_signups "
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, "
+        " phone TEXT DEFAULT '', lang TEXT DEFAULT 'fr', source TEXT DEFAULT '', "
+        " created TEXT)"
+    )
     # Shared variant stock pools (2026-10-22): products that draw from the
     # same physical blanks (the two lighter listings share one pool of
     # chrome/blue/black blanks) read and decrement THESE rows, keyed by
@@ -1831,6 +1844,363 @@ def product_media(p, cls="card-media"):
     return f'<div class="{cls}"><div class="photo-placeholder">Photo coming soon</div></div>'
 
 
+# ---------- sacred design system (rebuild 2026-10-24) ----------
+def money2(cents, lang="fr"):
+    """Display price in the reader's convention: FR '29,99 $ CAD', EN '$29.99 CAD'."""
+    v = (cents or 0) / 100.0
+    if lang == "fr":
+        return f"{v:,.2f}".replace(",", " ").replace(".", ",") + " $ CAD"
+    return f"${v:,.2f} CAD"
+
+
+def advent_sunday(year):
+    """First Sunday of Advent: the Sunday closest to Nov 30."""
+    from datetime import date, timedelta
+    nov30 = date(year, 11, 30)
+    sunday_after = nov30 + timedelta(days=(6 - nov30.weekday()) % 7)
+    sunday_before = sunday_after - timedelta(days=7)
+    return sunday_after if (sunday_after - nov30) <= (nov30 - sunday_before) else sunday_before
+
+
+def sundays_before_advent():
+    """Whole Sundays left before Advent starts; -1 once Advent has begun."""
+    from datetime import date, timedelta
+    today = date.today()
+    adv = advent_sunday(today.year)
+    if today >= adv:
+        return -1
+    n, d = 0, today + timedelta(days=1)
+    while d < adv:
+        if d.weekday() == 6:
+            n += 1
+        d += timedelta(days=1)
+    return n
+
+
+def sacred_shell(title, description, body, lang="fr", theme="sacred", active="", path="/"):
+    other = "en" if lang == "fr" else "fr"
+    canonical = CANONICAL_URL + path
+    banner = ""
+    if theme in ("sacred", "italia"):
+        msgs = [st("banner_msg_1", lang), st("banner_msg_2", lang), st("banner_msg_3", lang)]
+        banner = ('<div class="s-banner">' + "".join(f"<span>{h(m)}</span>" for m in msgs if m)
+                  + "</div>")
+    if theme == "atelier":
+        brand = ('<a class="s-brand mono" href="/workshop" style="font-family:\'IBM Plex Mono\',monospace;'
+                 'font-size:19px">ADN CREATIONS / L\'ATELIER</a>')
+        nav_items = [("#process", "Processus" if lang == "fr" else "Process", ""),
+                     ("#bench", "Sur l'établi" if lang == "fr" else "On the bench", ""),
+                     ("#work", "Sur mesure" if lang == "fr" else "Custom work", ""),
+                     ("/", "Boutique" if lang == "fr" else "Shop", "")]
+        top = '<div class="wrap" style="padding-top:10px"><a href="/">&larr; ' + \
+              ("Retour à la boutique" if lang == "fr" else "Back to the shop") + "</a></div>"
+    elif theme == "italia":
+        brand = '<a class="s-brand" href="/italia">ADN Creations <em>Italia</em></a>'
+        nav_items = [("/product/card-case", "Étuis à cartes" if lang == "fr" else "Card cases", ""),
+                     ("/product/card-case", "Initiales" if lang == "fr" else "Initials", ""),
+                     ("#cadeaux", "Cadeaux" if lang == "fr" else "Gifts", ""),
+                     ("#histoire", "Notre histoire" if lang == "fr" else "Our story", "")]
+        top = '<div class="tricolour"></div>'
+    else:
+        brand = '<a class="s-brand" href="/">ADN <span>Creations</span></a>'
+        nav_items = [("/shop.html", "Lampes" if lang == "fr" else "Lamps", ""),
+                     ("/#saints", "Par saint" if lang == "fr" else "By saint", ""),
+                     ("/#cadeaux", "Cadeaux" if lang == "fr" else "Gifts", ""),
+                     ("/product/memorial-lamp", "Lampe commémorative" if lang == "fr" else "Memorial lamp", ""),
+                     ("/workshop", "L'Atelier" if lang == "fr" else "The Workshop", "dim")]
+        top = ""
+    nav = "".join(f'<a href="{u}" class="{c}">{h(lbl)}</a>' for u, lbl, c in nav_items)
+    ribbon = ('<div style="background:#B3261E;color:#fff;text-align:center;padding:8px 12px;'
+              'font:600 13px/1.4 system-ui;letter-spacing:.08em">STAGING — COPIE DE TEST / TEST COPY</div>'
+              ) if STAGING_MODE else ""
+    foot_tag = ("Lampes de prière et cadeaux faits à la main à Montréal, en plastique d'origine végétale."
+                if lang == "fr" else
+                "Prayer lamps and gifts hand crafted in Montreal, from plant-based plastic.")
+    gift_lbl = "Carte-cadeau" if lang == "fr" else "Gift card"
+    contact_lbl = "Contact"
+    reviews_lbl = "Avis" if lang == "fr" else "Reviews"
+    return f"""<!doctype html>
+<html lang="{lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{h(title)}</title>
+<meta name="description" content="{h(description)}">
+<link rel="canonical" href="{canonical}">
+<link rel="alternate" hreflang="fr" href="{canonical}?lang=fr">
+<link rel="alternate" hreflang="en" href="{canonical}?lang=en">
+<link rel="alternate" hreflang="x-default" href="{canonical}">
+<meta property="og:title" content="{h(title)}">
+<meta property="og:description" content="{h(description)}">
+<meta property="og:url" content="{canonical}">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#14110d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Instrument+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/sacred.css">
+</head>
+<body class="{theme}">
+{ribbon}{top}{banner}
+<header class="s-header"><div class="wrap header-inner">
+{brand}
+<nav class="s-nav">{nav}</nav>
+<div class="lang-toggle" role="group" aria-label="Language / Langue">
+<a href="?lang=fr" class="{'on' if lang == 'fr' else ''}">FR</a><a href="?lang=en" class="{'on' if lang == 'en' else ''}">EN</a>
+</div>
+</div></header>
+<main class="wrap">
+{body}
+</main>
+<footer class="s-footer"><div class="wrap">
+<div style="margin-bottom:8px"><strong style="color:var(--ink);font-family:var(--serif);font-size:20px">ADN Creations</strong></div>
+<p style="margin:0 0 6px">{foot_tag}</p>
+<p style="margin:0 0 6px">
+<a href="/shop.html">{'Boutique' if lang == 'fr' else 'Shop'}</a> ·
+<a href="/product/universal-gift-card">{gift_lbl}</a> ·
+<a href="/reviews.html">{reviews_lbl}</a> ·
+<a href="/contact.html">{contact_lbl}</a> ·
+<a href="/privacy.html">{'Confidentialité' if lang == 'fr' else 'Privacy'}</a> ·
+<a href="/terms.html">{'Conditions' if lang == 'fr' else 'Terms'}</a>
+</p>
+<a class="social-btn" href="{FB_PAGE_URL}" target="_blank" rel="noopener">Facebook — Making Stuff</a>
+<a class="social-btn" href="{IG_PAGE_URL}" target="_blank" rel="noopener">Instagram</a>
+<p style="margin-top:14px">© 2026 ADN Creations · LaSalle, Montréal, Québec</p>
+</div></footer>
+<script src="/cart.js" defer></script>
+</body>
+</html>"""
+
+
+def _prod(pid):
+    conn = db()
+    row = conn.execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()
+    conn.close()
+    return row
+
+
+def _pcard(p, lang, occ=""):
+    name = pick(p, lang, "name")
+    return (f'<a class="pcard" href="/product/{p["id"]}">'
+            f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
+            f'<div class="pc-body"><h3>{h(name)}</h3>'
+            f'<p class="occ">{h(occ)}</p>' if occ else
+            f'<a class="pcard" href="/product/{p["id"]}">'
+            f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
+            f'<div class="pc-body"><h3>{h(name)}</h3>') + \
+           f'<p class="price">{money2(p["price_cents"], lang)}</p></div></a>'
+
+
+def home_page(lang):
+    nat = _prod("nativity")
+    carlo = _prod("carlo-lamp")
+    pio = _prod("padre-pio-lamp")
+    mem = _prod("memorial-lamp")
+    bust = _prod("bust-collector")
+    mini = _prod("mini-bust")
+    sheen = _prod("sheen-lamp")
+    parts = []
+    # hero
+    n_sun = sundays_before_advent()
+    tag = st("hero_tag", lang)
+    if tag and n_sun >= 0:
+        tag_html = f'<span class="hero-tag">{h(tag.replace("{sundays}", str(n_sun)))}</span>'
+    elif tag and n_sun < 0:
+        tag_html = f'<span class="hero-tag">{h(tag.replace("{sundays}", "0"))}</span>'
+    else:
+        tag_html = ""
+    order_date = "11 décembre" if lang == "fr" else "December 11"
+    fine = st("hero_fineprint", lang).replace("{date}", order_date)
+    nat_price = money2(nat["price_cents"], lang) if nat else ""
+    nat_name = pick(nat, lang, "name") if nat else ""
+    parts.append(f"""
+<section class="hero">
+<div>{tag_html}
+<h1>{h(st('hero_title', lang))}</h1>
+<p>{h(st('hero_sub', lang))}</p>
+<div class="hero-ctas">
+<a class="btn btn-gold" href="/product/nativity">{h(nat_name)} · {nat_price}</a>
+<a class="btn btn-line" href="#ensemble">{h(st('hero_cta_set', lang))}</a>
+</div>
+<p class="fineprint">{h(fine)}</p>
+</div>
+<div class="hero-img"><img src="{h(nat['photo'] if nat else '')}" alt="{h(nat_name)}"></div>
+</section>""")
+    # trust row
+    trusts = [st(f"trust_{i}", lang) for i in range(1, 5)]
+    if any(trusts):
+        parts.append('<section class="trust">' + "".join(
+            f"<div>{h(x)}</div>" for x in trusts if x) + "</section>")
+    # by saint
+    saints = [(carlo, "Carlo Acutis"), (mini, "Frère André"), (pio, "Padre Pio"),
+              (sheen, "Fulton Sheen"), (nat, "Sainte Famille" if lang == "fr" else "Holy Family")]
+    circles = "".join(
+        f'<a class="saint" href="/product/{p["id"]}"><img src="{h(p["photo"] or "")}" '
+        f'alt="{h(lbl)}" loading="lazy"><span>{h(lbl)}</span></a>'
+        for p, lbl in saints if p)
+    parts.append(f'<section class="section" id="saints"><h2>{h(st("bysaint_title", lang))}</h2>'
+                 f'<div class="saints">{circles}</div></section>')
+    # gift finder
+    occs = [(st("gift_occ_1", lang), "/product/nativity"), (st("gift_occ_2", lang), "/product/carlo-lamp"),
+            (st("gift_occ_3", lang), "/product/carlo-lamp"), (st("gift_occ_4", lang), "/product/memorial-lamp")]
+    gift_cards = "".join(f'<a class="gift-card" href="{u}"><h3>{h(t)}</h3></a>' for t, u in occs if t)
+    pills = [(st("gift_for_1", lang), "/product/carlo-lamp"), (st("gift_for_2", lang), "/product/nativity"),
+             (st("gift_for_3", lang), "/product/carlo-lamp"), (st("gift_for_4", lang), "/product/sheen-lamp"),
+             (st("gift_for_5", lang), "/shop.html")]
+    pill_html = "".join(f'<a href="{u}">{h(t)}</a>' for t, u in pills if t)
+    parts.append(f'<section class="section" id="cadeaux"><h2>{h(st("gift_title", lang))}</h2>'
+                 f'<div class="gift-grid">{gift_cards}</div><div class="pills">{pill_html}</div></section>')
+    # most loved (by real product views, then catalogue order)
+    conn = db()
+    loved = conn.execute(
+        "SELECT p.* FROM products p LEFT JOIN (SELECT product_id, COUNT(*) c FROM product_views "
+        "GROUP BY product_id) v ON v.product_id = p.id "
+        "WHERE p.active=1 AND p.purchasable=1 ORDER BY COALESCE(v.c,0) DESC, p.sort LIMIT 3").fetchall()
+    conn.close()
+    if loved:
+        parts.append(f'<section class="section"><h2>{h(st("beloved_title", lang))}</h2>'
+                     f'<div class="cards3">' + "".join(_pcard(p, lang) for p in loved) + "</div></section>")
+    # christmas set
+    if nat and carlo and pio:
+        total = nat["price_cents"] + carlo["price_cents"] + pio["price_cents"]
+        note = st("set_note", lang).replace("{price}", money2(total, lang))
+        parts.append(f"""
+<section class="section" id="ensemble"><div class="setbox">
+<div><p class="eyebrow">{h(st('set_title', lang))}</p>
+<h2>{h(st('set_items', lang))}</h2>
+<p class="muted">{h(note)}</p></div>
+<div style="text-align:right">
+<p class="big"><span class="old" style="color:var(--ink3);text-decoration:line-through;font-size:24px">{money2(total, lang)}</span></p>
+<button class="btn btn-gold" id="setAdd">{'Ajouter les 3 au panier' if lang == 'fr' else 'Add all 3 to cart'}</button>
+</div></div></section>
+<script>
+document.getElementById('setAdd').addEventListener('click', function(){{
+  var items = {json.dumps([{"pid": p["id"], "name": pick(p, lang, "name"), "img": p["photo"] or "", "price": p["price_cents"]} for p in (nat, carlo, pio)])};
+  items.forEach(function(it){{ window.adnCart && window.adnCart.add({{pid: it.pid, name: it.name, img: it.img, qty: 1, unit_cents: it.price, add_cents: 0, design: "", saint: "", size: "", color: "", initials: "", engraving: ""}}); }});
+  window.adnCart && window.adnCart.open();
+}});
+</script>""")
+    # church year strip
+    church = [st("church_1", lang), st("church_2", lang), st("church_3", lang)]
+    if any(church):
+        cells = ""
+        for c in church:
+            if not c:
+                continue
+            head, _, rest = c.partition(":")
+            if not rest:
+                head, _, rest = c.partition(" :")
+            cells += f'<div><p class="d">{h(head.strip())}</p><p>{h(rest.strip())}</p></div>'
+        parts.append(f'<section class="section"><div class="strip3">{cells}</div></section>')
+    # memorial
+    if mem:
+        parts.append(f"""
+<section class="section"><div class="split">
+<div><img src="{h(mem['photo'] or '')}" alt="{h(pick(mem, lang, 'name'))}" loading="lazy"></div>
+<div><p class="eyebrow">{h(st('memorial_eyebrow', lang))}</p>
+<h2>{h(st('memorial_title', lang))}</h2>
+<p class="muted">{h(st('memorial_text', lang))}</p>
+<div class="tiles2">
+<a class="tile" href="/product/memorial-lamp" style="text-decoration:none;color:var(--ink)"><div>1 {'lampe' if lang == 'fr' else 'lamp'}</div><div class="tp">{money2(mem['price_cents'], lang)}</div></a>
+<a class="tile sel" href="/product/memorial-lamp" style="text-decoration:none;color:var(--ink)"><div>4 {'lampes' if lang == 'fr' else 'lamps'}</div><div class="tp">{money2(9999, lang)}</div></a>
+</div>
+<a class="btn btn-gold" href="/product/memorial-lamp">{h(st('memorial_cta', lang))}</a>
+</div></div></section>""")
+    # reviews (server-rendered)
+    conn = db()
+    revs = conn.execute("SELECT * FROM reviews WHERE approved=1 ORDER BY created DESC LIMIT 3").fetchall()
+    conn.close()
+    if revs:
+        cards = ""
+        for r in revs:
+            stars = "★" * (r["rating"] or 5)
+            cards += (f'<div class="rev"><div class="stars">{stars}</div>'
+                      f'<blockquote>{h(r["text"])}</blockquote>'
+                      f'<p class="who">{h(r["name"])}</p></div>')
+        parts.append(f'<section class="section"><div class="reviews3">{cards}</div></section>')
+    # collector bust
+    if bust:
+        parts.append(f"""
+<section class="section"><div class="split">
+<div><p class="eyebrow">{h(st('bust_title', lang))}</p>
+<p class="muted">{h(st('bust_text', lang))}</p>
+<p class="price">{money2(bust['price_cents'], lang)}</p>
+<a class="btn btn-cream" href="/contact.html">{h(st('bust_cta', lang))}</a>
+<a href="/workshop" style="margin-left:12px">{'Son histoire' if lang == 'fr' else 'How it was made'}</a>
+</div>
+<div><img src="{h(bust['photo'] or '')}" alt="{h(pick(bust, lang, 'name'))}" loading="lazy"></div>
+</div></section>""")
+    # email band
+    parts.append(f"""
+<section class="section"><div class="emailband">
+<h2>{h(st('email_title', lang))}</h2>
+<p>{h(st('email_sub', lang))}</p>
+<form id="nlForm">
+<input type="email" id="nlEmail" required placeholder="votre@courriel.ca" aria-label="Email">
+<input type="tel" id="nlPhone" placeholder="{'Téléphone (optionnel)' if lang == 'fr' else 'Phone (optional)'}" aria-label="Phone">
+<button class="btn" type="submit">{h(st('email_button', lang))}</button>
+</form>
+<p class="fine" id="nlMsg">{h(st('email_fineprint', lang))}</p>
+</div></section>
+<script>
+document.getElementById('nlForm').addEventListener('submit', function(e){{
+  e.preventDefault();
+  var em = document.getElementById('nlEmail').value, ph = document.getElementById('nlPhone').value;
+  fetch('/api/newsletter', {{method: 'POST', headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{email: em, phone: ph, lang: '{lang}'}})}})
+  .then(function(r){{ return r.json(); }})
+  .then(function(j){{
+    document.getElementById('nlMsg').textContent = j.ok
+      ? ('{'Merci! Votre code : ' if lang == 'fr' else 'Thank you! Your code: '}' + j.code)
+      : ('{'Courriel invalide.' if lang == 'fr' else 'Invalid email.'}');
+  }});
+}});
+</script>""")
+    # parish + atelier cards
+    parts.append(f"""
+<section class="section"><div class="cards2">
+<a class="linkcard" href="/contact.html"><h3>{h(st('parish_title', lang))}</h3>
+<p>{h(st('parish_text', lang))}</p><p style="margin-top:8px">{h(st('parish_cta', lang))} →</p></a>
+<a class="linkcard" href="/workshop"><h3>{h(st('atelier_teaser_title', lang))}</h3>
+<p>{h(st('atelier_teaser_text', lang))}</p><p style="margin-top:8px">{h(st('atelier_teaser_cta', lang))} →</p></a>
+</div></section>""")
+    title = ("ADN Creations — Lampes de prière faites à la main à Montréal" if lang == "fr"
+             else "ADN Creations — Hand crafted prayer lamps, Montreal")
+    desc = st("hero_sub", lang)[:155]
+    return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/")
+
+
+@app.route("/api/newsletter", methods=["POST"])
+def api_newsletter():
+    data = request.get_json(force=True, silent=True) or {}
+    email = (data.get("email") or "").strip().lower()[:120]
+    phone = (data.get("phone") or "").strip()[:40]
+    lang = (data.get("lang") or "fr").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email or ""):
+        return jsonify({"error": "invalid email"}), 400
+    conn = db()
+    cur = conn.execute(
+        "INSERT OR IGNORE INTO email_signups (email, phone, lang, source, created) "
+        "VALUES (?,?,?,?,?)", (email, phone, lang, "site", now_iso()))
+    conn.commit()
+    conn.close()
+    if cur.rowcount:
+        subj = ("Votre code WELCOME10 — ADN Creations" if lang == "fr"
+                else "Your WELCOME10 code — ADN Creations")
+        body = (("Merci de vous être inscrit. Voici votre code de 10 % sur votre première "
+                 "commande : WELCOME10\n\nÀ utiliser sur adncreations.ca\n\nADN Creations, Montréal")
+                if lang == "fr" else
+                ("Thanks for signing up. Here is your 10% first-order code: WELCOME10\n\n"
+                 "Use it on adncreations.ca\n\nADN Creations, Montreal"))
+        try:
+            send_email(email, subj, body)
+        except Exception:  # noqa: BLE001
+            pass
+    return jsonify({"ok": True, "code": "WELCOME10"})
+
+
 # ---------- public pages ----------
 @app.route("/sitemap.xml")
 def sitemap_xml():
@@ -1868,7 +2238,8 @@ def robots_txt():
 @app.route("/")
 def index():
     track_visit("/")
-    return app.send_static_file("index.html")
+    lang = get_lang()
+    return lang_response(home_page(lang), lang)
 
 
 def stars_html(rating):
@@ -3255,6 +3626,130 @@ def admin_review_delete(rid):
     return jsonify({"ok": True})
 
 
+# ---------- site text (rebuild, 2026-10-24) ----------
+_ST_DEFAULTS = None
+_ST_CACHE = None
+
+
+def _site_text_defaults():
+    """Seed copy shipped with the code: site_text_defaults.json next to server.py.
+    Shape: {key: {"fr": "...", "en": "..."}}."""
+    global _ST_DEFAULTS
+    if _ST_DEFAULTS is None:
+        try:
+            with open(os.path.join(BASE, "site_text_defaults.json"), encoding="utf-8") as f:
+                _ST_DEFAULTS = json.load(f)
+        except Exception:  # noqa: BLE001
+            _ST_DEFAULTS = {}
+    return _ST_DEFAULTS
+
+
+def seed_site_text():
+    defaults = _site_text_defaults()
+    if not defaults:
+        return
+    conn = db()
+    for key, vals in defaults.items():
+        fr = (vals or {}).get("fr", "") or ""
+        en = (vals or {}).get("en", "") or ""
+        conn.execute(
+            "INSERT OR IGNORE INTO site_text (key, fr, en, fr_draft, en_draft, updated) "
+            "VALUES (?,?,?,?,?,?)", (key, fr, en, fr, en, now_iso()))
+    conn.commit()
+    conn.close()
+
+
+def _st_load():
+    global _ST_CACHE
+    if _ST_CACHE is None:
+        _ST_CACHE = {}
+        try:
+            conn = db()
+            for r in conn.execute("SELECT key, fr, en FROM site_text").fetchall():
+                _ST_CACHE[r["key"]] = (r["fr"] or "", r["en"] or "")
+            conn.close()
+        except Exception:  # noqa: BLE001
+            pass
+    return _ST_CACHE
+
+
+def st(key, lang="fr"):
+    """Live site text for key in lang; falls back to the shipped defaults,
+    then to empty (callers hide empty sections)."""
+    row = _st_load().get(key)
+    if row:
+        v = (row[0] if lang == "fr" else row[1]) or (row[1] if lang == "fr" else row[0])
+        if v:
+            return v
+    d = _site_text_defaults().get(key) or {}
+    return (d.get("fr") if lang == "fr" else d.get("en")) or d.get("en") or d.get("fr") or ""
+
+
+@app.route("/admin/site-text", methods=["GET", "POST"])
+def admin_site_text():
+    if not admin_ok():
+        return redirect("/admin/login")
+    global _ST_CACHE
+    conn = db()
+    if request.method == "POST":
+        action = (request.form.get("action") or "save").strip()
+        if action == "publish":
+            conn.execute("UPDATE site_text SET fr=fr_draft, en=en_draft, updated=?",
+                         (now_iso(),))
+            conn.commit()
+            _ST_CACHE = None
+        elif action == "reset":
+            conn.execute("UPDATE site_text SET fr_draft=fr, en_draft=en")
+            conn.commit()
+        else:
+            for key in [r["key"] for r in conn.execute("SELECT key FROM site_text").fetchall()]:
+                fr = (request.form.get(f"fr__{key}") or "").strip()
+                en = (request.form.get(f"en__{key}") or "").strip()
+                conn.execute("UPDATE site_text SET fr_draft=?, en_draft=? WHERE key=?",
+                             (fr, en, key))
+            conn.commit()
+        conn.close()
+        return redirect("/admin/site-text?done=" + action)
+    rows = conn.execute("SELECT * FROM site_text ORDER BY key").fetchall()
+    conn.close()
+    done = (request.args.get("done") or "").strip()
+    notice = {"save": "Drafts saved. Nothing is live until you publish.",
+              "publish": "Published. The live site now uses these texts.",
+              "reset": "Drafts discarded (reset to the live texts)."}.get(done, "")
+    fields = ""
+    for r in rows:
+        dirty = (r["fr_draft"] != r["fr"] or r["en_draft"] != r["en"])
+        fields += (
+            f'<div class="st-key"><h3>{h(r["key"])}{" <span class=st-dirty>modified</span>" if dirty else ""}</h3>'
+            f'<label>Français (défaut)<textarea name="fr__{h(r["key"])}" rows="2">{h(r["fr_draft"])}</textarea></label>'
+            f'<label>English<textarea name="en__{h(r["key"])}" rows="2">{h(r["en_draft"])}</textarea></label></div>')
+    body = f"""
+<div class="admin-wrap">
+<p class="kicker">ADN Creations</p>
+<h1>Site text</h1>
+<p class="muted">Every word on the public site. Edit the drafts, then Publish to put them live.
+Empty fields hide their section on the site. <a href="/admin/">Back to admin</a></p>
+{f'<p class="notice">{h(notice)}</p>' if notice else ''}
+<form method="post">
+{fields}
+<div class="st-actions">
+<button class="btn btn-primary" type="submit" name="action" value="save">Save drafts</button>
+<button class="btn" type="submit" name="action" value="publish" style="background:#1d7a3a;color:#fff">Publish drafts live</button>
+<button class="btn btn-outline" type="submit" name="action" value="reset">Discard changes</button>
+</div>
+</form>
+</div>
+<style>
+.st-key{{border:1px solid #ddd;border-radius:10px;padding:14px 16px;margin:0 0 14px;background:#fff}}
+.st-key h3{{margin:0 0 8px;font-size:15px}}
+.st-dirty{{color:#B3261E;font-size:12px}}
+.st-key label{{display:block;font-size:12px;color:#666;margin:8px 0 2px}}
+.st-key textarea{{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid #ccc;border-radius:6px}}
+.st-actions{{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 40px}}
+</style>"""
+    return shell("Site text — Admin", "Edit the site's public texts.", body, lang="en")
+
+
 @app.route("/api/admin/coupons", methods=["GET", "POST"])
 def admin_coupons():
     if not admin_ok():
@@ -3521,7 +4016,7 @@ def admin_page():
 <div class="admin-wrap">
 <p class="kicker">ADN Creations</p>
 <h1>Store admin</h1>
-<p class="muted">Manage products, preorders, announcements, work-in-progress updates, and orders. Changes go live immediately. <a href="/admin/analytics">Visitor analytics</a> · <a href="/admin/logout">Log out</a></p>
+<p class="muted">Manage products, preorders, announcements, work-in-progress updates, and orders. Changes go live immediately. <a href="/admin/analytics">Visitor analytics</a> · <a href="/admin/site-text">Site text</a> · <a href="/admin/logout">Log out</a></p>
 
 <div class="admin-card">
 <h2>Products</h2>
@@ -4380,6 +4875,7 @@ def cleanup_loop():
 threading.Thread(target=cleanup_loop, daemon=True).start()
 
 seed()
+seed_site_text()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
