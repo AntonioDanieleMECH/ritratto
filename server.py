@@ -710,9 +710,9 @@ SEED_PRODUCTS = [
     {"id": "memorial-lamp", "name": "Custom Memorial Lamp", "price_cents": 3999,
      "additional_price_cents": 2499,
      "photo": "/img/products/memorial-lamp.jpg",
-     "description": "Your photos or our saint illustrations on four glowing faces. $39.99 for the first lamp of a design, $24.99 for each additional copy of the same design, or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
+     "description": "Your photos or our saint illustrations on four glowing faces. Use the lamp designer to compose your four sides.",
      "name_fr": "Lampe commémorative personnalisée",
-     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. 39,99 $ pour la première lampe d'un modèle, 24,99 $ pour chaque exemplaire supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. Utilisez l'outil de création pour composer vos quatre faces.",
+     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. Utilisez l'outil de création pour composer vos quatre faces.",
      "story": "A lamp that keeps someone present. Four glowing faces carry your photos or our saint illustrations, printed as lithophanes that come alive in warm light. Each one is made to order in the workshop.",
      "story_fr": "Une lampe qui garde une présence vivante. Quatre faces lumineuses portent vos photos ou nos illustrations de saints, imprimées en lithophanes qui s'animent dans une lumière chaude. Chaque lampe est fabriquée sur commande à l'atelier.",
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
@@ -747,7 +747,7 @@ SEED_PRODUCTS = [
      "description_fr": "Votre logo, monogramme ou dessin, mis en page à la main et gravé au laser sur un briquet style Zippo dans son coffret cadeau. Décrivez votre motif à la caisse et je m'occupe de la mise en page.",
      "story": "The Aku lighter: a big serif A with the name set inside, engraved with the fiber laser. Send your own artwork or just an idea and it becomes a one-of-one object.",
      "story_fr": "Le briquet Aku : un grand A serif avec le nom à l'intérieur, gravé au laser à fibre. Envoyez votre propre dessin ou simplement une idée et il devient un objet unique.",
-     "depts": ["gag"], "stock": None, "engravable": 1, "sort": 7},
+     "depts": ["electronic"], "stock": None, "engravable": 1, "sort": 7},
     {"id": "mug", "name": "Engraved Contigo Travel Mug", "price_cents": 3399,
      "photo": "/img/products/mug.jpg",
      "description": "Contigo travel mug with your text laser engraved. Add your engraving text at checkout.",
@@ -755,7 +755,7 @@ SEED_PRODUCTS = [
      "description_fr": "Tasse de voyage Contigo avec votre texte gravé au laser. Ajoutez votre texte de gravure à la caisse.",
      "story": "Your everyday mug, made yours. Text laser engraved on a Contigo travel mug that keeps drinks hot for hours.",
      "story_fr": "Votre tasse de tous les jours, personnalisée. Texte gravé au laser sur une tasse de voyage Contigo qui garde les boissons chaudes pendant des heures.",
-     "depts": [], "stock": None, "engravable": 1, "sort": 7},
+     "depts": ["electronic"], "stock": None, "engravable": 1, "sort": 7},
     {"id": "card-case", "name": "Italian Playing-Card Case", "price_cents": 2499,
      "photo": "",
      "description": "Fitted case for Italian playing cards, Scopa and Briscola sizes. Hand crafted from plant-based bioplastic. Make it yours: add initials raised on the back for CA$5 more. The more letters, the smaller they are sized to fit.",
@@ -2063,7 +2063,8 @@ def home_page(lang):
     loved = conn.execute(
         "SELECT p.* FROM products p LEFT JOIN (SELECT product_id, COUNT(*) c FROM product_views "
         "GROUP BY product_id) v ON v.product_id = p.id "
-        "WHERE p.active=1 AND p.purchasable=1 ORDER BY COALESCE(v.c,0) DESC, p.sort LIMIT 3").fetchall()
+        "WHERE p.active=1 AND p.purchasable=1 AND p.depts LIKE '%\"religious\"%' "
+        "ORDER BY COALESCE(v.c,0) DESC, p.sort LIMIT 3").fetchall()
     conn.close()
     if loved:
         parts.append(f'<section class="section"><h2>{h(st("beloved_title", lang))}</h2>'
@@ -2162,7 +2163,7 @@ document.getElementById('nlForm').addEventListener('submit', function(e){{
   .then(function(res){{
     var msg = document.getElementById('nlMsg');
     if (res.body && res.body.ok) {{
-      msg.textContent = '{'Merci! Votre code : ' if lang == 'fr' else 'Thank you! Your code: '}' + res.body.code;
+      msg.textContent = '{'Merci ! Votre code : ' if lang == 'fr' else 'Thank you! Your code: '}' + res.body.code;
     }} else if (res.status === 400) {{
       msg.textContent = '{'Courriel invalide.' if lang == 'fr' else 'Invalid email.'}';
     }} else {{
@@ -2227,10 +2228,14 @@ def api_newsletter():
         subj = ("Votre code WELCOME10 — ADN Creations" if lang == "fr"
                 else "Your WELCOME10 code — ADN Creations")
         body = (("Merci de vous être inscrit. Voici votre code de 10 % sur votre première "
-                 "commande : WELCOME10\n\nÀ utiliser sur adncreations.ca\n\nADN Creations, Montréal")
+                 "commande : WELCOME10\n\nÀ utiliser sur adncreations.ca\n\nADN Creations, "
+                 "204 rue du Saint-Sacrement, bur. 300, Montréal (Québec) H2Y 1W8\n"
+                 "Pour ne plus recevoir nos courriels, répondez à celui-ci avec le mot DÉSINSCRIPTION.")
                 if lang == "fr" else
                 ("Thanks for signing up. Here is your 10% first-order code: WELCOME10\n\n"
-                 "Use it on adncreations.ca\n\nADN Creations, Montreal"))
+                 "Use it on adncreations.ca\n\nADN Creations, 204 Saint-Sacrement St., "
+                 "Suite 300, Montreal, QC H2Y 1W8\n"
+                 "To stop receiving our emails, reply to this one with UNSUBSCRIBE."))
         try:
             send_email(email, subj, body)
         except Exception:  # noqa: BLE001
@@ -3003,7 +3008,7 @@ def product_page(pid):
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money2(p["price_cents"], lang)}</button>'
                         f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
-                        f'<div style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2">'
+                        f'<div style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2;color:#33302A">'
                         f'<p style="margin:0 0 6px"><strong>{t(lang, "seller_trusted")}</strong></p>'
                         f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_ship")}</p>'
                         f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_returns")} {t(lang, "seller_contact")}</p>'
@@ -3099,10 +3104,11 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   }}
   function total(q){{
     var t;
-    if (addCents && q > 1) {{
-      var packs = Math.floor(q/4), rest = q % 4;
-      t = packs * 9999;
-      if (rest) t += priceCents + (rest-1) * addCents;
+    var packCents = {LAMP_PACK4 if pid == "memorial-lamp" else 0};
+    if (packCents && q >= 4) {{
+      t = Math.floor(q/4) * packCents + (q % 4) * addCents;
+    }} else if (addCents && q > 1) {{
+      t = priceCents + (q-1) * addCents;
     }} else {{
       t = unitCents() * q;
     }}
@@ -3331,7 +3337,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
             "reviewCount": rrow[0],
         }
     body = '<script type="application/ld+json">' + json.dumps(_pjson) + "</script>" + body
-    html = sacred_shell(name, desc[:160], body, lang=lang, theme="sacred",
+    html = sacred_shell(name + " | ADN Creations", desc[:160], body, lang=lang, theme="sacred",
                         path=f"/product/{pid}", legacy_css=True,
                         og_image=abs_url(photos[0]["photo"] if photos else p["photo"]))
     return lang_response(html, lang)
@@ -3502,13 +3508,14 @@ def api_checkout():
     # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
     if pid == "mini-bust":
         amount = (2999 if size == "Large" else 1999) * qty
-    # Tiered pricing (memorial lamps: $39.99 first, $29.99 per extra copy,
-    # $99.99 per 4-pack of the same design). 4-packs always win when they fit.
-    elif p["additional_price_cents"] and qty > 1:
+    # Tiered pricing ($39.99 first, $24.99 per extra copy). 4-pack pricing
+    # ($99.99) is memorial-only; lamps past a pack bill at the additional
+    # price, never as a new "first" lamp.
+    elif pid == "memorial-lamp" and qty >= 4 and p["additional_price_cents"]:
         packs, rest = divmod(qty, 4)
-        amount = packs * LAMP_PACK4
-        if rest:
-            amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
+        amount = packs * LAMP_PACK4 + rest * p["additional_price_cents"]
+    elif p["additional_price_cents"] and qty > 1:
+        amount = p["price_cents"] + (qty - 1) * p["additional_price_cents"]
     else:
         amount = p["price_cents"] * qty
     # Raised-initials add-on (card-case): +CA$5 when initials are given.
@@ -3647,11 +3654,11 @@ def api_cart_checkout():
         # Same pricing rules as /api/checkout.
         if pid == "mini-bust":
             line_amount = (2999 if size == "Large" else 1999) * qty
-        elif p["additional_price_cents"] and qty > 1:
+        elif pid == "memorial-lamp" and qty >= 4 and p["additional_price_cents"]:
             packs, rest = divmod(qty, 4)
-            line_amount = packs * LAMP_PACK4
-            if rest:
-                line_amount += p["price_cents"] + (rest - 1) * p["additional_price_cents"]
+            line_amount = packs * LAMP_PACK4 + rest * p["additional_price_cents"]
+        elif p["additional_price_cents"] and qty > 1:
+            line_amount = p["price_cents"] + (qty - 1) * p["additional_price_cents"]
         else:
             line_amount = p["price_cents"] * qty
         # The raised-initials add-on is NOT priced here: it is charged per
@@ -3862,11 +3869,14 @@ def api_order(oid):
                 d = dict(o)
         except Exception:
             pass
-    d["price"] = money(d["amount_cents"])
+    olang = request.args.get("lang") or request.cookies.get("adn_lang") or "fr"
+    if olang not in ("fr", "en"):
+        olang = "fr"
+    d["price"] = money2(d["amount_cents"], olang)
     if kind == "shop" and d.get("product_id") == "cart":
         d["items"] = order_items_list(oid)
         for i in d["items"]:
-            i["price"] = money(i["amount_cents"] or 0)
+            i["price"] = money2(i["amount_cents"] or 0, olang)
     return jsonify(d)
 
 
@@ -4171,6 +4181,25 @@ def seed_site_text():
         conn.execute(
             "INSERT OR IGNORE INTO site_text (key, fr, en, fr_draft, en_draft, updated) "
             "VALUES (?,?,?,?,?,?)", (key, fr, en, fr, en, now_iso()))
+    # Rebuild hotfixes (2026-10-24, Claudia's browser pass): memorial copy
+    # sheds its price prose (the quantity cards carry pricing now), dept
+    # tags corrected so the engraved lighter / mug stop landing in
+    # Religious, and the nativity gallery leads with the studio shot.
+    conn.execute(
+        "UPDATE products SET description='Your photos or our saint illustrations on four glowing faces. "
+        "Use the lamp designer to compose your four sides.', "
+        "description_fr='Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
+        "Utilisez l''outil de création pour composer vos quatre faces.' "
+        "WHERE id='memorial-lamp' AND description LIKE '%4-pack for $99.99%'")
+    conn.execute(
+        "UPDATE products SET depts='[\"electronic\"]' WHERE id IN ('custom-lighter','mug') "
+        "AND depts IN ('[]', '[\"gag\"]')")
+    conn.execute(
+        "UPDATE products SET depts='[\"italian\", \"gag\"]' WHERE id='universal-gift-card' "
+        "AND depts='[\"gag\"]'")
+    conn.execute(
+        "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
+        "AND photo LIKE '%/nativity-pro.jpg'")
     conn.commit()
     conn.close()
 
