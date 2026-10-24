@@ -133,7 +133,7 @@ STR = {
         "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. Livraison : 1 à 2 semaines. L'adresse de livraison est demandée au paiement.",
         "seller_trusted": "Fournisseur de confiance de l'Oratoire Saint-Joseph de Montréal",
         "seller_ship": "Expédition : 5 $ au Canada (gratuite dès 50 $), 10 $ aux États-Unis, 15 $ à l'international. Livraison : 1 à 2 semaines.",
-        "seller_returns": "Retours acceptés.",
+        "seller_returns": "Retours acceptés (sous 1 semaine).",
         "seller_contact": "Un problème ou une question ? N'hésitez pas à nous écrire, il nous fera plaisir de vous aider.",
         "seller_welcome": "Première commande ? 10 % de rabais avec le code WELCOME10.",
         "seller_secure": "Paiement sécurisé avec Stripe. L'adresse de livraison est demandée au paiement.",
@@ -220,7 +220,7 @@ STR = {
         "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Delivery: 1-2 weeks. Shipping address collected at checkout.",
         "seller_trusted": "Trusted supplier to Saint Joseph's Oratory in Montreal",
         "seller_ship": "Shipping: $5 in Canada (free on orders over $50), $10 to the US, $15 international. Delivery: 1-2 weeks.",
-        "seller_returns": "Returns accepted.",
+        "seller_returns": "Returns accepted (within 1 week).",
         "seller_contact": "Any problems or questions? Please feel free to reach out, we are happy to help.",
         "seller_welcome": "First order? Get 10% off with code WELCOME10.",
         "seller_secure": "Secure checkout with Stripe. Shipping address collected at checkout.",
@@ -483,11 +483,76 @@ def db():
         "AND depts='[\"gag\"]'",
         "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
         "AND photo LIKE '%/nativity-pro.jpg'",
+<<<<<<< HEAD
+=======
+        # Antonio's answers 2026-10-24: the collector statue is 32 cm,
+        # 39 cm with its base (both numbers were already on the site,
+        # each presented as the whole size).
+        "UPDATE products SET description='One of one. The statue itself is 32 cm, 39 cm with its dark stained wood base and a brass Fr. Andre name plate. Hand finished, heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. Free shipping.', "
+        "description_fr='Pièce unique. La statue mesure 32 cm, 39 cm avec son socle en bois teinté foncé et sa plaque de laiton au nom du Fr. André. Fini à la main, lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d''origine végétale et très peu de déchets. Expédition gratuite.', "
+        "story='A collector''s piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.', "
+        "story_fr='Une pièce de collection pour l''époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.' "
+        "WHERE id='bust-collector' AND description LIKE 'One of one. 39 cm%'",
+>>>>>>> redesign
     ):
         try:
             conn.execute(stmt)
         except sqlite3.OperationalError:
             pass
+<<<<<<< HEAD
+=======
+    # Site text touch-ups from Antonio's 2026-10-24 answers (statue size,
+    # 1-week returns, parish lead time). Compare-and-set on the previous
+    # defaults so his own admin edits are never overwritten.
+    _site_text_updates = [
+        ("bust_text",
+         "Un buste de 32 cm peint à la main, sur une base en bois teint foncé avec une plaque dorée portant sa signature. Chaque pièce est faite à la main à Montréal, en petits nombres.",
+         "La statue mesure 32 cm, 39 cm avec sa base en bois teint foncé et sa plaque dorée portant sa signature. Chaque pièce est faite à la main à Montréal.",
+         "The statue itself is 32 cm, 39 cm with its dark stained wood base and gold plate bearing his signature. Each piece is hand crafted in Montreal."),
+        ("parish_text",
+         "Vous préparez un cadeau pour un groupe de paroisse, une classe de catéchèse ou un événement d'église? Écrivez-nous pour les formats de 12 et les prix de gros.",
+         "Une paroisse, une école ou une institution? Contactez-nous pour les commandes en gros. Délai de 1 à 3 semaines pour les grosses commandes, confirmé par courriel.",
+         "A parish, a school or an institution? Contact us for bulk orders. Lead time for large orders is 1 to 3 weeks, confirmed by email."),
+        ("parish_title",
+         "Packs paroissiaux de 12",
+         "Paroisses et institutions",
+         "Parishes and institutions"),
+        ("returns_line",
+         "Retours acceptés. Écrivez-nous et nous nous en occupons avec vous.",
+         "Retours acceptés sous 1 semaine. Écrivez-nous et nous nous en occupons avec vous.",
+         "Returns accepted within 1 week. Write to us and we will sort it out with you."),
+        ("trust_4",
+         "Retours acceptés",
+         "Retours (1 semaine)",
+         "Returns (1 week)"),
+        ("hero_fineprint",
+         "Commandez avant le {date} pour recevoir vos lampes à temps pour Noël. Retours acceptés.",
+         "Commandez avant le {date} pour recevoir vos lampes à temps pour Noël. Retours acceptés sous 1 semaine.",
+         "Order by {date} to receive your lamps in time for Christmas. Returns accepted within 1 week."),
+    ]
+    for _key, _old_fr, _new_fr, _new_en in _site_text_updates:
+        try:
+            conn.execute(
+                "UPDATE site_text SET fr=?, en=?, fr_draft=?, en_draft=? "
+                "WHERE key=? AND fr=?",
+                (_new_fr, _new_en, _new_fr, _new_en, _key, _old_fr))
+        except sqlite3.OperationalError:
+            pass
+    # Christmas set gallery (2026-10-24): the three lamps it contains.
+    for _s, _ph in enumerate(("/img/products/nativity-pro.jpg",
+                                "/img/work/carlo-lamp-lit.jpg",
+                                "/img/products/padre-pio-lamp-2.jpg")):
+        _phpid = "php_christmasset_" + str(_s)
+        try:
+            if not conn.execute("SELECT id FROM product_photos WHERE id=?",
+                                (_phpid,)).fetchone():
+                conn.execute(
+                    "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (_phpid, "christmas-set", _ph, _s, 0, now_iso()))
+        except sqlite3.OperationalError:
+            pass
+>>>>>>> redesign
     conn.execute(
         "CREATE TABLE IF NOT EXISTS product_photos "
         "(id TEXT PRIMARY KEY, product_id TEXT, photo TEXT DEFAULT '', "
@@ -738,12 +803,20 @@ SEED_PRODUCTS = [
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
     {"id": "bust-collector", "name": "Saint Frere Andre Bust, Collector's Edition", "price_cents": 224999,
      "photo": "/img/products/bust-real-front.jpg",
-     "description": "One of one. 39 cm hand finished bust on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. Free shipping.",
+     "description": "One of one. The statue itself is 32 cm, 39 cm with its dark stained wood base and a brass Fr. Andre name plate. Hand finished, heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. Free shipping.",
      "name_fr": "Buste de saint Frère André, édition collectionneur",
-     "description_fr": "Pièce unique. Buste de 39 cm fini à la main sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d'origine végétale et très peu de déchets. Expédition gratuite.",
-     "story": "A collector's piece for the era of Saint Frère André. The 39 cm bust is printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.",
-     "story_fr": "Une pièce de collection pour l'époque de saint Frère André. Le buste de 39 cm est imprimé en fabrication additive grand format, puis fini à la main, et monté sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.",
+     "description_fr": "Pièce unique. La statue mesure 32 cm, 39 cm avec son socle en bois teinté foncé et sa plaque de laiton au nom du Fr. André. Fini à la main, lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d'origine végétale et très peu de déchets. Expédition gratuite.",
+     "story": "A collector's piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.",
+     "story_fr": "Une pièce de collection pour l'époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.",
      "depts": ["religious"], "stock": 1, "sort": 4},
+    {"id": "christmas-set", "name": "Christmas Set, All 3 Lamps", "price_cents": 6999,
+     "photo": "/img/products/nativity-pro.jpg",
+     "description": "The whole Christmas corner in one box: the Nativity scene lamp, the Carlo Acutis prayer lamp and the Padre Pio prayer lamp. Bought separately they come to $79.97. Each lamp is hand crafted in Montreal from plant-based bioplastic, with a warm LED light.",
+     "name_fr": "Coffret de Noël, les 3 lampes",
+     "description_fr": "Le coin de Noël complet dans une seule boîte : la lampe scène de la Nativité, la lampe de prière Carlo Acutis et la lampe de prière Padre Pio. Achetées séparément, elles reviennent à 79,97 $. Chaque lampe est faite à la main à Montréal en bioplastique d'origine végétale, avec une lumière DEL chaude.",
+     "story": "Three lamps, one quiet corner of light for Christmas: the Nativity, Carlo Acutis and Padre Pio. They are the three lamps families ask for together most, so they travel in one box at one set price.",
+     "story_fr": "Trois lampes, un coin de lumière tranquille pour Noël : la Nativité, Carlo Acutis et Padre Pio. Ce sont les trois lampes que les familles demandent le plus souvent ensemble, alors elles voyagent dans une seule boîte à un prix d'ensemble.",
+     "depts": ["religious"], "stock": None, "sort": 2},
     {"id": "nativity", "name": "Nativity Scene Lamp", "price_cents": 2999,
      "photo": "/img/products/nativity.jpg",
      "description": "The Nativity rendered as a glowing lithophane lamp. Warm LED light. Hand crafted in Montreal from plant-based bioplastic.",
@@ -1948,7 +2021,10 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<<<<<<< HEAD
 <meta name="google-site-verification" content="4oXfVvgugvPXdVvBYMFDHD01MTuAhf7qDfVm8YA1pmY">
+=======
+>>>>>>> redesign
 <title>{h(title)}</title>
 <meta name="description" content="{h(description)}">
 <link rel="canonical" href="{canonical}">
@@ -2090,21 +2166,52 @@ def home_page(lang):
     if loved:
         parts.append(f'<section class="section"><h2>{h(st("beloved_title", lang))}</h2>'
                      f'<div class="cards3">' + "".join(_pcard(p, lang) for p in loved) + "</div></section>")
+<<<<<<< HEAD
     # christmas set
     if nat and carlo and pio:
         total = nat["price_cents"] + carlo["price_cents"] + pio["price_cents"]
         note = st("set_note", lang).replace("{price}", money2(total, lang))
+=======
+    # christmas set (a real bundle product since 2026-10-24: the three
+    # lamps at one set price; the separate total stays as a factual line)
+    if nat and carlo and pio:
+        total = nat["price_cents"] + carlo["price_cents"] + pio["price_cents"]
+        note = st("set_note", lang).replace("{price}", money2(total, lang))
+        cset = _prod("christmas-set")
+        if cset:
+            set_price = f'<p class="big">{money2(cset["price_cents"], lang)}</p>'
+            set_items = [{"pid": cset["id"], "name": pick(cset, lang, "name"),
+                          "img": cset["photo"] or "", "price": cset["price_cents"]}]
+            set_label = ("Ajouter le coffret au panier" if lang == "fr"
+                         else "Add the set to cart")
+        else:
+            set_price = ""
+            set_items = [{"pid": p["id"], "name": pick(p, lang, "name"),
+                          "img": p["photo"] or "", "price": p["price_cents"]}
+                         for p in (nat, carlo, pio)]
+            set_label = ("Ajouter les 3 au panier" if lang == "fr"
+                         else "Add all 3 to cart")
+>>>>>>> redesign
         parts.append(f"""
 <section class="section" id="ensemble"><div class="setbox">
 <div><p class="eyebrow">{h(st('set_title', lang))}</p>
 <h2>{h(st('set_items', lang))}</h2>
 <p class="muted">{h(note)}</p></div>
 <div style="text-align:right">
+<<<<<<< HEAD
 <button class="btn btn-gold" id="setAdd">{'Ajouter les 3 au panier' if lang == 'fr' else 'Add all 3 to cart'}</button>
 </div></div></section>
 <script>
 document.getElementById('setAdd').addEventListener('click', function(){{
   var items = {json.dumps([{"pid": p["id"], "name": pick(p, lang, "name"), "img": p["photo"] or "", "price": p["price_cents"]} for p in (nat, carlo, pio)])};
+=======
+{set_price}
+<button class="btn btn-gold" id="setAdd">{set_label}</button>
+</div></div></section>
+<script>
+document.getElementById('setAdd').addEventListener('click', function(){{
+  var items = {json.dumps(set_items)};
+>>>>>>> redesign
   items.forEach(function(it){{ window.adnCart && window.adnCart.add({{pid: it.pid, name: it.name, img: it.img, qty: 1, unit_cents: it.price, add_cents: 0, design: "", saint: "", size: "", color: "", initials: "", engraving: ""}}); }});
   window.adnCart && window.adnCart.open();
 }});
