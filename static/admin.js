@@ -742,6 +742,49 @@
     }
   }
 
+  async function loadSaintSuggestions() {
+    var list = $("ssList");
+    if (!list) return;
+    clearNotice(list);
+    try {
+      var data = await call("/api/admin/saint-suggestions");
+      var items = data.suggestions || [];
+      if (!items.length) {
+        list.innerHTML = '<p class="muted">No saint suggestions yet.</p>';
+        return;
+      }
+      var counts = {};
+      items.forEach(function (r) {
+        var k = (r.saint || "").trim().toLowerCase();
+        if (k) counts[k] = (counts[k] || 0) + 1;
+      });
+      var rows = items.map(function (r) {
+        var n = counts[(r.saint || "").trim().toLowerCase()] || 1;
+        var from = esc(r.name || "");
+        if (r.email) from += (from ? "<br>" : "") + '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + "</a>";
+        return "<tr>" +
+          "<td>" + esc(fmtDate(r.created)) + "</td>" +
+          "<td><strong>" + esc(r.saint) + "</strong>" + (n > 1 ? ' <span class="small muted">× ' + n + " asked</span>" : "") + "</td>" +
+          "<td>" + from + "</td>" +
+          "<td>" + esc(r.note || "") + "</td>" +
+          '<td><button class="btn btn-outline" data-ss-delete="' + esc(r.id) + '">Delete</button></td></tr>';
+      }).join("");
+      list.innerHTML = tableWrap(
+        '<table class="admin-table"><thead><tr><th>Date</th><th>Saint</th><th>From</th>' +
+        "<th>Note</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>");
+      list.querySelectorAll("[data-ss-delete]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          if (!confirm("Delete this saint suggestion?")) return;
+          await call("/api/admin/saint-suggestions/" + encodeURIComponent(b.getAttribute("data-ss-delete")), { method: "DELETE" });
+          loadSaintSuggestions();
+        });
+      });
+    } catch (err) {
+      list.innerHTML = "";
+      showErr(list, "Could not load saint suggestions: " + err.message);
+    }
+  }
+
   async function loadNotifyMe() {
     var list = $("ntfList");
     clearNotice(list);
@@ -910,6 +953,7 @@
     loadEngraving();
     loadPortraitIdeas();
     loadSuggestions();
+    loadSaintSuggestions();
     loadNotifyMe();
     loadReviews();
     loadCoupons();

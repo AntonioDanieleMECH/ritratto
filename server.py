@@ -587,6 +587,11 @@ def db():
         " title TEXT, description TEXT, category TEXT DEFAULT 'other')"
     )
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS saint_suggestions "
+        "(id TEXT PRIMARY KEY, created TEXT, saint TEXT, name TEXT DEFAULT '', "
+        " email TEXT DEFAULT '', note TEXT DEFAULT '')"
+    )
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS orders "
         "(id TEXT PRIMARY KEY, created TEXT, product_id TEXT, product_name TEXT, "
         " amount_cents INTEGER, qty INTEGER DEFAULT 1, engraving_text TEXT DEFAULT '', "
@@ -2198,6 +2203,62 @@ def _pcard(p, lang, occ=""):
            f'<p class="price">{money2(p["price_cents"], lang)}</p></div></a>'
 
 
+def _saint_suggest_section(lang):
+    """'Suggest a saint' band (homepage + shop): visitors propose the next
+    4-face lamp saint. Posts to /api/saint-suggest (Antonio, 2026-10-24)."""
+    if lang == "fr":
+        title = "Un saint que vous aimeriez voir en lampe?"
+        sub = ("Nos lampes à 4 faces grandissent avec vous. Dites-nous quel saint "
+               "devrait être le prochain : les plus demandés sont créés en premier.")
+        ph_saint, ph_name = "Nom du saint", "Votre nom (optionnel)"
+        ph_email, ph_note = "Courriel (optionnel)", "Pourquoi ce saint? (optionnel)"
+        btn, ok_msg = "Suggérer ce saint", "Merci! Votre suggestion est bien notée."
+        err_msg = "Indiquez au moins le nom du saint."
+        net_msg = "Petit souci de connexion. Réessayez dans un moment."
+    else:
+        title = "A saint you would love to see as a lamp?"
+        sub = ("Our 4-face lamps grow with you. Tell us which saint should be next: "
+               "the most requested are made first.")
+        ph_saint, ph_name = "Saint's name", "Your name (optional)"
+        ph_email, ph_note = "Email (optional)", "Why this saint? (optional)"
+        btn, ok_msg = "Suggest this saint", "Thank you! Your suggestion is noted."
+        err_msg = "Please name the saint at least."
+        net_msg = "Connection hiccup. Please try again in a moment."
+    return f"""
+<section class="section"><div class="emailband">
+<h2>{h(title)}</h2>
+<p>{h(sub)}</p>
+<form id="ssForm">
+<input type="text" id="ssSaint" required maxlength="120" placeholder="{h(ph_saint)}" aria-label="Saint">
+<input type="text" id="ssName" maxlength="120" placeholder="{h(ph_name)}" aria-label="Name">
+<input type="email" id="ssEmail" maxlength="160" placeholder="{h(ph_email)}" aria-label="Email">
+<input type="text" id="ssNote" maxlength="1000" placeholder="{h(ph_note)}" aria-label="Note">
+<button class="btn" type="submit">{h(btn)}</button>
+</form>
+<p class="fine" id="ssMsg"></p>
+</div></section>
+<script>
+document.getElementById('ssForm').addEventListener('submit', function(e){{
+  e.preventDefault();
+  var saint = document.getElementById('ssSaint').value.trim();
+  var msg = document.getElementById('ssMsg');
+  if (!saint) {{ msg.textContent = '{err_msg}'; return; }}
+  fetch('/api/saint-suggest', {{method: 'POST', headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{saint: saint,
+      name: document.getElementById('ssName').value,
+      email: document.getElementById('ssEmail').value,
+      note: document.getElementById('ssNote').value, lang: '{lang}'}})}})
+  .then(function(r){{ return r.json().then(function(j){{ return {{status: r.status, body: j}}; }}); }})
+  .then(function(res){{
+    if (res.body && res.body.ok) {{ document.getElementById('ssForm').reset(); msg.textContent = '{ok_msg}'; }}
+    else if (res.status === 400) {{ msg.textContent = '{err_msg}'; }}
+    else {{ msg.textContent = '{net_msg}'; }}
+  }})
+  .catch(function(){{ msg.textContent = '{net_msg}'; }});
+}});
+</script>"""
+
+
 def home_page(lang):
     nat = _prod("nativity")
     carlo = _prod("carlo-lamp")
@@ -2218,26 +2279,43 @@ def home_page(lang):
         tag_html = ""
     order_date = "11 décembre" if lang == "fr" else "December 11"
     fine = st("hero_fineprint", lang).replace("{date}", order_date)
-    nat_price = money2(nat["price_cents"], lang) if nat else ""
-    nat_name = pick(nat, lang, "name") if nat else ""
+    # Hero = the flagship Carlo lamp (Antonio, 2026-10-24: the store leads
+    # with the lamps, Carlo Acutis first). Falls back to the nativity lamp.
+    hero_p = carlo or nat
+    hero_price = money2(hero_p["price_cents"], lang) if hero_p else ""
+    hero_name = pick(hero_p, lang, "name") if hero_p else ""
+    hero_img = "/img/work/carlo-lamp-lit.jpg" if carlo else "/img/products/nativity-pro.jpg"
     parts.append(f"""
 <section class="hero">
 <div>{tag_html}
 <h1>{h(st('hero_title', lang))}</h1>
 <p>{h(st('hero_sub', lang))}</p>
 <div class="hero-ctas">
-<a class="btn btn-gold" href="/product/nativity">{h(nat_name)} · {nat_price}</a>
+<a class="btn btn-gold" href="/product/{hero_p["id"] if hero_p else ''}">{h(hero_name)} · {hero_price}</a>
 <a class="btn btn-line" href="#ensemble">{h(st('hero_cta_set', lang))}</a>
 </div>
 <p class="fineprint">{h(fine)}</p>
 </div>
-<div class="hero-img"><img src="/img/products/nativity-pro.jpg" alt="{h(nat_name)}"></div>
+<div class="hero-img"><img src="{hero_img}" alt="{h(hero_name)}"></div>
 </section>""")
     # trust row
     trusts = [st(f"trust_{i}", lang) for i in range(1, 5)]
     if any(trusts):
         parts.append('<section class="trust">' + "".join(
             f"<div>{h(x)}</div>" for x in trusts if x) + "</section>")
+    # 4-face saint lamps lead the catalogue (Antonio, 2026-10-24): Carlo
+    # first as the flagship, then Padre Pio and Fulton Sheen.
+    four = [p for p in (carlo, pio, sheen) if p]
+    if four:
+        f4_title = "Lampes de saints à 4 faces" if lang == "fr" else "4-Face Saint Lamps"
+        f4_sub = ("Quatre images saintes autour d'une même lumière. Tournez la lampe, changez de face."
+                  if lang == "fr" else
+                  "Four holy images around one light. Turn the lamp, change the face.")
+        parts.append(f'<section class="section" id="lampes"><h2>{h(f4_title)}</h2>'
+                     f'<p class="sub">{h(f4_sub)}</p><div class="cards3">'
+                     + "".join(_pcard(p, lang) for p in four) + "</div></section>")
+    # suggest the next saint
+    parts.append(_saint_suggest_section(lang))
     # by saint
     saints = [(carlo, "Carlo Acutis"), (mini, "Frère André"), (pio, "Padre Pio"),
               (sheen, "Fulton Sheen"), (nat, "Sainte Famille" if lang == "fr" else "Holy Family")]
@@ -2663,9 +2741,19 @@ def shop_page(lang):
     prods = conn.execute(
         "SELECT * FROM products WHERE active=1 ORDER BY sort, name").fetchall()
     conn.close()
+    # The lamps lead the shop (Antonio, 2026-10-24), Carlo first: they get
+    # their own first group in this fixed order, whatever their dept is.
+    lamp_order = ["carlo-lamp", "padre-pio-lamp", "sheen-lamp", "nativity",
+                  "memorial-lamp", "christmas-set"]
+    _by_id = {p["id"]: p for p in prods}
+    lamp_prods = [_by_id[i] for i in lamp_order
+                  if i in _by_id and not _by_id[i]["in_works"]]
+    lamp_ids = {p["id"] for p in lamp_prods}
     by_group = {g: [] for g, _, _ in _SHOP_GROUPS}
     works = []
     for p in prods:
+        if p["id"] in lamp_ids:
+            continue
         if p["in_works"]:
             works.append(p)
             continue
@@ -2703,6 +2791,10 @@ def shop_page(lang):
 <input type="search" id="shopSearch" placeholder="{'Rechercher…' if lang == 'fr' else 'Search…'}" aria-label="Search"
  style="width:100%;max-width:420px;padding:12px 16px;border-radius:999px;border:1px solid var(--line2);background:var(--raised);color:var(--ink)">
 </section>"""]
+    if lamp_prods:
+        lamp_lbl = "Lampes de prière" if lang == "fr" else "Prayer lamps"
+        parts.append(f'<section class="section shop-group"><h2>{h(lamp_lbl)}</h2>'
+                     f'<div class="cards3">' + "".join(card(p) for p in lamp_prods) + "</div></section>")
     for g, fr_lbl, en_lbl in _SHOP_GROUPS:
         items = by_group[g]
         if not items:
@@ -2713,6 +2805,7 @@ def shop_page(lang):
         lbl = "En préparation à l'atelier" if lang == "fr" else "In the works"
         parts.append(f'<section class="section shop-group"><h2>{h(lbl)}</h2>'
                      f'<div class="cards3">' + "".join(card(p) for p in works) + "</div></section>")
+    parts.append(_saint_suggest_section(lang))
     parts.append("""<p id="shopNone" class="muted" style="display:none">∅</p>
 <script>
 (function(){
@@ -4898,6 +4991,12 @@ def admin_page():
 </div>
 
 <div class="admin-card">
+<h2>Saint suggestions</h2>
+<p class="small muted">Saints visitors asked to see as the next 4-face lamp, from the homepage and shop forms.</p>
+<div id="ssList"><p class="muted">Loading...</p></div>
+</div>
+
+<div class="admin-card">
 <h2>Notify-me list</h2>
 <div id="ntfList"><p class="muted">Loading...</p></div>
 </div>
@@ -5119,6 +5218,52 @@ def admin_suggestions():
     rows = conn.execute("SELECT * FROM project_suggestions ORDER BY created DESC").fetchall()
     conn.close()
     return jsonify({"suggestions": [dict(r) for r in rows]})
+
+
+@app.route("/api/saint-suggest", methods=["POST"])
+def api_saint_suggest():
+    data = request.get_json(force=True) or {}
+    lang = (data.get("lang") or "").strip().lower()
+    if lang not in ("fr", "en"):
+        lang = "fr"
+    saint = (data.get("saint") or "").strip()[:120]
+    name = (data.get("name") or "").strip()[:120]
+    email = (data.get("email") or "").strip()[:160]
+    note = (data.get("note") or "").strip()[:1000]
+    if not saint or (email and "@" not in email):
+        return jsonify({"error": t(lang, "err_request")}), 400
+    sid = "ss_" + uuid.uuid4().hex[:10]
+    conn = db()
+    conn.execute(
+        "INSERT INTO saint_suggestions (id, created, saint, name, email, note) "
+        "VALUES (?,?,?,?,?,?)", (sid, now_iso(), saint, name, email, note))
+    conn.commit()
+    conn.close()
+    ok, _ = send_email(
+        SUPPORT_EMAIL, f"Saint suggestion: {saint}",
+        f"Saint: {saint}\nFrom: {name}\nEmail: {email}\nNote: {note}\n")
+    return jsonify({"ok": True, "emailed": ok})
+
+
+@app.route("/api/admin/saint-suggestions")
+def admin_saint_suggestions():
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    rows = conn.execute("SELECT * FROM saint_suggestions ORDER BY created DESC").fetchall()
+    conn.close()
+    return jsonify({"suggestions": [dict(r) for r in rows]})
+
+
+@app.route("/api/admin/saint-suggestions/<sid>", methods=["DELETE"])
+def admin_saint_suggestion_delete(sid):
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    conn.execute("DELETE FROM saint_suggestions WHERE id=?", (sid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/admin/products", methods=["GET", "POST"])
