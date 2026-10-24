@@ -87,6 +87,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
 FB_PAGE_ID = "1274653932393890"
 FB_PAGE_URL = "https://www.facebook.com/61592937237761"
+IG_PAGE_URL = "https://www.instagram.com/adn_making_stuff"
 FB_PAGE_TOKEN = os.environ.get("FB_PAGE_TOKEN", "")
 
 DEPTS = ["religious", "electronic", "gag"]
@@ -118,6 +119,7 @@ STR = {
         "nav_portraits": "Portraits", "nav_progress": "En cours", "nav_about": "À propos",
         "nav_contact": "Contact", "nav_suggest": "Idées", "nav_reviews": "Avis", "nav_cta": "Magasiner", "menu": "Menu",
         "follow_ms": "Suivez nos créations sur Making Stuff",
+        "follow_ig": "Suivez nos créations sur Instagram",
         "footer_tag": "Entreprise de design en ingénierie. Fabrication additive faite à la main à Montréal, avec des matériaux d'origine végétale.",
         "footer_explore": "Explorer", "footer_contact": "Contact",
         "footer_rights": "Tous droits réservés.",
@@ -204,6 +206,7 @@ STR = {
         "nav_portraits": "Portraits", "nav_progress": "Progress", "nav_about": "About",
         "nav_contact": "Contact", "nav_suggest": "Ideas", "nav_reviews": "Reviews", "nav_cta": "Shop now", "menu": "Menu",
         "follow_ms": "Follow our builds on Making Stuff",
+        "follow_ig": "Follow our builds on Instagram",
         "footer_tag": "Engineering design company. Hand crafted additive manufacturing in Montreal, from plant-based materials.",
         "footer_explore": "Explore", "footer_contact": "Contact",
         "footer_rights": "All rights reserved.",
@@ -1631,6 +1634,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 <div class="footer-brand">ADN <span>Creations</span></div>
 <p class="small" style="color:#B9AE97">{s["footer_tag"]}</p>
 <a class="social-btn" href="{FB_PAGE_URL}" target="_blank" rel="noopener">{s["follow_ms"]}</a>
+<a class="social-btn" href="{IG_PAGE_URL}" target="_blank" rel="noopener">{s["follow_ig"]}</a>
 </div>
 <div><h4>{s["footer_explore"]}</h4><ul class="footer-links">
 <li><a href="/work.html">{s["nav_work"]}</a></li><li><a href="/shop.html">{s["nav_shop"]}</a></li>
