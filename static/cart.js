@@ -9,6 +9,7 @@
   var KEY = "adn_cart_v1";
   var SHIP_KEY = "adn_ship_country";
   var SHIP_CENTS = { CA: 500, US: 1000, INT: 1500 };
+  var GW_CENTS = 499; /* gift wrap; refreshed from /api/site-config at mount */
   var PACK4 = 9999;
   var INITIALS_CENTS = 500; /* raised-initials add-on (card-case): CA$5 per
     UNIQUE initials string across the cart — the same initials on several
@@ -24,8 +25,11 @@
       ship_to: "Pays de livraison",
       ship_ca: "Canada — 5 $ CAD", ship_us: "États-Unis — 10 $ CAD",
       ship_intl: "International — 15 $ CAD",
-      added: "Ajouté ✓", failed: "Le paiement a échoué. Réessayez.",
-      preparing: "Préparation..."
+      added: "Ajouté ✓", failed: "Le paiement a échoué. Réessayez, ou écrivez-nous : antonio.learningisfun@gmail.com",
+      preparing: "Préparation...",
+      gift_wrap: "Emballage cadeau", gift_msg: "Message cadeau (gratuit)",
+      gift_msg_ph: "Votre message pour la personne qui reçoit le cadeau",
+      ship_free: "Gratuite"
     },
     en: {
       cart: "Cart", empty: "Your cart is empty.",
@@ -35,8 +39,11 @@
       ship_to: "Shipping country",
       ship_ca: "Canada — $5 CAD", ship_us: "United States — $10 CAD",
       ship_intl: "International — $15 CAD",
-      added: "Added ✓", failed: "Checkout failed. Please try again.",
-      preparing: "Preparing..."
+      added: "Added ✓", failed: "Checkout failed. Please try again, or email us: antonio.learningisfun@gmail.com",
+      preparing: "Preparing...",
+      gift_wrap: "Gift wrap", gift_msg: "Gift message (free)",
+      gift_msg_ph: "Your message for the person receiving the gift",
+      ship_free: "Free"
     }
   };
 
@@ -172,6 +179,13 @@
     '<option value="CA"></option><option value="US"></option><option value="INT"></option>' +
     "</select>" +
     '<div class="cart-row"><span id="cartShipAmtL"></span><span id="cartShipAmt"></span></div>' +
+    '<div class="cart-row"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">' +
+    '<input type="checkbox" id="cartGiftWrap" style="width:17px;height:17px">' +
+    '<span id="cartGiftWrapL"></span></label><span id="cartGiftWrapAmt"></span></div>' +
+    '<div class="cart-row"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">' +
+    '<input type="checkbox" id="cartGiftMsgT" style="width:17px;height:17px">' +
+    '<span id="cartGiftMsgL"></span></label></div>' +
+    '<textarea id="cartGiftMsg" rows="2" maxlength="300" style="display:none;width:100%"></textarea>' +
     '<input type="text" id="cartCoupon" maxlength="32" style="text-transform:uppercase">' +
     '<div class="cart-row total"><span id="cartTotalL"></span><span id="cartTotal"></span></div>' +
     '<button type="button" class="btn btn-brass" id="cartCheckoutBtn"></button>' +
@@ -205,6 +219,15 @@
       clearTimeout(cpTimer);
       cpTimer = setTimeout(function () { validateCoupon(cp.value); }, 500);
     });
+    var gwT = document.getElementById("cartGiftWrap");
+    if (gwT) gwT.addEventListener("change", render);
+    var gmT = document.getElementById("cartGiftMsgT");
+    if (gmT) gmT.addEventListener("change", function () {
+      document.getElementById("cartGiftMsg").style.display = gmT.checked ? "" : "none";
+    });
+    fetch("/api/site-config").then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.gift_wrap_cents) { GW_CENTS = j.gift_wrap_cents; render(); }
+    }).catch(function () {});
     document.getElementById("cartCheckoutBtn").addEventListener("click", checkout);
     drawer.addEventListener("click", function (e) {
       var b = e.target.closest("[data-act]");
@@ -295,8 +318,13 @@
         "</div></div>";
     }).join("");
     var sub = items.reduce(function (s, it) { return s + lt(it); }, 0);
-    var disc = pctOff ? Math.round(sub * pctOff / 100) : 0;
-    var ship = SHIP_CENTS[shipCountry()];
+    var gwEl = document.getElementById("cartGiftWrap");
+    var wrap = (gwEl && gwEl.checked) ? GW_CENTS : 0;
+    var disc = pctOff ? Math.round((sub + wrap) * pctOff / 100) : 0;
+    /* Mirror the server: free Canada shipping once the discounted
+       merchandise total reaches $50 (the drawer used to always show $5). */
+    var ship = (shipCountry() === "CA" && (sub + wrap - disc) >= 5000)
+      ? 0 : SHIP_CENTS[shipCountry()];
     document.getElementById("cartSubL").textContent = T("subtotal");
     document.getElementById("cartSub").textContent = money(sub);
     var drow = document.getElementById("cartDiscRow");
@@ -311,10 +339,14 @@
     sel.options[1].textContent = T("ship_us");
     sel.options[2].textContent = T("ship_intl");
     document.getElementById("cartShipAmtL").textContent = T("shipping");
-    document.getElementById("cartShipAmt").textContent = money(ship);
+    document.getElementById("cartShipAmt").textContent = ship ? money(ship) : T("ship_free");
+    document.getElementById("cartGiftWrapL").textContent = T("gift_wrap");
+    document.getElementById("cartGiftWrapAmt").textContent = money(GW_CENTS);
+    document.getElementById("cartGiftMsgL").textContent = T("gift_msg");
+    document.getElementById("cartGiftMsg").setAttribute("placeholder", T("gift_msg_ph"));
     document.getElementById("cartCoupon").setAttribute("placeholder", T("coupon_ph"));
     document.getElementById("cartTotalL").textContent = T("total");
-    document.getElementById("cartTotal").textContent = money(sub - disc + ship);
+    document.getElementById("cartTotal").textContent = money(sub + wrap - disc + ship);
     document.getElementById("cartCheckoutBtn").textContent = T("checkout");
   }
 
@@ -379,6 +411,9 @@
         };
       }),
       coupon: document.getElementById("cartCoupon").value.trim(),
+      gift_wrap: !!(document.getElementById("cartGiftWrap") || {}).checked,
+      gift_message: ((document.getElementById("cartGiftMsgT") || {}).checked
+        ? (document.getElementById("cartGiftMsg").value || "").trim() : ""),
       ship_country: shipCountry(),
       lang: lang()
     };
