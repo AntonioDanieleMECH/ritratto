@@ -53,7 +53,10 @@
     return l === "en" ? "en" : "fr";
   }
   function T(k) { return (S[lang()] || S.fr)[k] || k; }
-  function money(c) { return "$" + (c / 100).toFixed(2) + " CAD"; }
+  function money(c) {
+    if (lang() === "fr") return (c / 100).toFixed(2).replace(".", ",") + " $ CAD";
+    return "$" + (c / 100).toFixed(2) + " CAD";
+  }
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -83,10 +86,11 @@
   function lineTotal(it, withIni) {
     var q = it.qty || 1;
     var t;
-    if (it.add_cents && q > 1) {
+    if (it.pid === "memorial-lamp" && q >= 4 && it.add_cents) {
       var packs = Math.floor(q / 4), rest = q % 4;
-      t = packs * PACK4;
-      if (rest) t += it.unit_cents + (rest - 1) * it.add_cents;
+      t = packs * PACK4 + rest * it.add_cents;
+    } else if (it.add_cents && q > 1) {
+      t = it.unit_cents + (q - 1) * it.add_cents;
     } else {
       t = (it.unit_cents || 0) * q;
     }
@@ -128,9 +132,13 @@
     "pointer-events:none;transition:opacity .2s;z-index:1200}" +
     "#cartOverlay.open{opacity:1;pointer-events:auto}" +
     "#cartDrawer{position:fixed;top:0;right:0;height:100dvh;width:min(420px,94vw);" +
-    "background:#FFFDF8;z-index:1201;transform:translateX(102%);transition:transform .25s;" +
+    "background:#FFFDF8;color:#2A251C;z-index:1201;transform:translateX(102%);" +
+    "visibility:hidden;transition:transform .25s,visibility 0s .25s;" +
     "display:flex;flex-direction:column;box-shadow:-8px 0 28px rgba(0,0,0,.18)}" +
-    "#cartDrawer.open{transform:none}" +
+    "#cartDrawer.open{transform:none;visibility:visible;transition:transform .25s}" +
+    "#cartCheckoutBtn{width:100%;background:#A67C2E;color:#FFF8EA;border:none;" +
+    "border-radius:999px;padding:13px 18px;font:inherit;font-weight:700;cursor:pointer}" +
+    ".cart-x{color:#2A251C}" +
     ".cart-head{display:flex;justify-content:space-between;align-items:center;" +
     "padding:16px 18px;border-bottom:1px solid #E8E0CF}" +
     ".cart-head strong{font-size:1.15rem}" +

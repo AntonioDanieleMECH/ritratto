@@ -66,7 +66,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){retur
     fail(window.adnT("thanks.notfound"));
     return;
   }
-  fetch("/api/order/"+id).then(function(r){
+  fetch("/api/order/"+id+"?lang="+((document.documentElement.lang||"fr").indexOf("en")===0?"en":"fr")).then(function(r){
     if(!r.ok)throw new Error("not found");
     return r.json();
   }).then(function(o){
