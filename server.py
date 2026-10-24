@@ -468,6 +468,26 @@ def db():
             conn.execute(ddl)
         except sqlite3.OperationalError:
             pass
+    # Rebuild data fixes (2026-10-24, Claudia's browser pass): memorial
+    # copy sheds its price prose, dept tags corrected, nativity gallery
+    # leads with the studio shot. Defensive: never block a boot.
+    for stmt in (
+        "UPDATE products SET description='Your photos or our saint illustrations on four glowing faces. "
+        "Use the lamp designer to compose your four sides.', "
+        "description_fr='Vos photos ou nos illustrations de saints sur quatre faces lumineuses. "
+        "Utilisez l''outil de création pour composer vos quatre faces.' "
+        "WHERE id='memorial-lamp' AND description LIKE '%4-pack for $99.99%'",
+        "UPDATE products SET depts='[\"electronic\"]' WHERE id IN ('custom-lighter','mug') "
+        "AND depts IN ('[]', '[\"gag\"]')",
+        "UPDATE products SET depts='[\"italian\", \"gag\"]' WHERE id='universal-gift-card' "
+        "AND depts='[\"gag\"]'",
+        "UPDATE product_photos SET sort=-10 WHERE product_id='nativity' "
+        "AND photo LIKE '%/nativity-pro.jpg'",
+    ):
+        try:
+            conn.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
     conn.execute(
         "CREATE TABLE IF NOT EXISTS product_photos "
         "(id TEXT PRIMARY KEY, product_id TEXT, photo TEXT DEFAULT '', "
@@ -710,9 +730,9 @@ SEED_PRODUCTS = [
     {"id": "memorial-lamp", "name": "Custom Memorial Lamp", "price_cents": 3999,
      "additional_price_cents": 2499,
      "photo": "/img/products/memorial-lamp.jpg",
-     "description": "Your photos or our saint illustrations on four glowing faces. $39.99 for the first lamp of a design, $24.99 for each additional copy of the same design, or a 4-pack for $99.99. Use the lamp designer to compose your four sides.",
+     "description": "Your photos or our saint illustrations on four glowing faces. Use the lamp designer to compose your four sides.",
      "name_fr": "Lampe commémorative personnalisée",
-     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. 39,99 $ pour la première lampe d'un modèle, 24,99 $ pour chaque exemplaire supplémentaire du même modèle, ou un paquet de 4 pour 99,99 $. Utilisez l'outil de création pour composer vos quatre faces.",
+     "description_fr": "Vos photos ou nos illustrations de saints sur quatre faces lumineuses. Utilisez l'outil de création pour composer vos quatre faces.",
      "story": "A lamp that keeps someone present. Four glowing faces carry your photos or our saint illustrations, printed as lithophanes that come alive in warm light. Each one is made to order in the workshop.",
      "story_fr": "Une lampe qui garde une présence vivante. Quatre faces lumineuses portent vos photos ou nos illustrations de saints, imprimées en lithophanes qui s'animent dans une lumière chaude. Chaque lampe est fabriquée sur commande à l'atelier.",
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
@@ -747,7 +767,7 @@ SEED_PRODUCTS = [
      "description_fr": "Votre logo, monogramme ou dessin, mis en page à la main et gravé au laser sur un briquet style Zippo dans son coffret cadeau. Décrivez votre motif à la caisse et je m'occupe de la mise en page.",
      "story": "The Aku lighter: a big serif A with the name set inside, engraved with the fiber laser. Send your own artwork or just an idea and it becomes a one-of-one object.",
      "story_fr": "Le briquet Aku : un grand A serif avec le nom à l'intérieur, gravé au laser à fibre. Envoyez votre propre dessin ou simplement une idée et il devient un objet unique.",
-     "depts": ["gag"], "stock": None, "engravable": 1, "sort": 7},
+     "depts": ["electronic"], "stock": None, "engravable": 1, "sort": 7},
     {"id": "mug", "name": "Engraved Contigo Travel Mug", "price_cents": 3399,
      "photo": "/img/products/mug.jpg",
      "description": "Contigo travel mug with your text laser engraved. Add your engraving text at checkout.",
