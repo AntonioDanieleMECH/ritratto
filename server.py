@@ -369,6 +369,7 @@ def _country_for(ip, ip_hash):
         if row:
             conn.close()
             return row[0] or ""
+        conn.close()  # never hold a connection across the HTTP lookup
         country = ""
         if ip and not ip.startswith(("10.", "192.168.", "172.16.", "172.17.",
                                       "172.18.", "172.19.", "172.2", "172.30.",
@@ -381,6 +382,7 @@ def _country_for(ip, ip_hash):
                 country = r.read().decode("utf-8", "ignore").strip()[:60]
                 if country.lower() in ("undefined", "none", "reserved"):
                     country = ""
+        conn = db()
         conn.execute("INSERT OR REPLACE INTO geo_cache (ip_hash, country, created) "
                      "VALUES (?,?,?)", (ip_hash, country, now_iso()))
         conn.commit()
@@ -446,8 +448,14 @@ def api_track():
 
 # ---------- db ----------
 def db():
-    conn = sqlite3.connect(DB)
+    conn = sqlite3.connect(DB, timeout=30)
     conn.row_factory = sqlite3.Row
+    # WAL: readers never block behind a writer, and writers queue on the
+    # busy timeout instead of failing with "database is locked" (the
+    # 2026-10-24 outage: every dynamic page 500'd after ~5s stalls).
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS products "
         "(id TEXT PRIMARY KEY, name TEXT, price_cents INTEGER DEFAULT 0, "
@@ -728,6 +736,13 @@ def db():
             conn.execute(ddl)
         except sqlite3.OperationalError:
             pass
+    # Commit the schema/migration suite NOW. The statements above are
+    # idempotent setup; leaving their transaction open would hold the
+    # write lock for the caller's whole lifetime, so one slow caller
+    # (e.g. an analytics geo lookup) blocked every other request until
+    # its busy timeout and the store 500'd (2026-10-24). Callers still
+    # commit their own writes as before.
+    conn.commit()
     return conn
 
 
