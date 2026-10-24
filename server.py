@@ -2138,7 +2138,7 @@ document.getElementById('setAdd').addEventListener('click', function(){{
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
 <img src="{h(bust['photo'] or '')}" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
-<img src="/img/products/bust-real-34.jpg" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
+<img src="/img/products/bust-otherside.webp" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
 </div>
 </div></section>""")
     # email band
@@ -2386,7 +2386,7 @@ def italia_page(lang):
 <a class="btn btn-gold" href="/product/card-case">{'Voir l\'étui' if lang == 'fr' else 'See the case'} · {case_price}</a>
 <a class="btn btn-line" href="/product/card-case">{h(st('italia_initials_cta', lang))}</a>
 </div></div>
-<div class="hero-img"><img src="{h(case['photo'] if case else '')}" alt="Scopa / Briscola" style="height:440px"></div>
+<div class="hero-img"><img src="/img/products/briscola-case-2.webp" alt="Scopa / Briscola" style="height:440px"></div>
 </section>
 <section class="section" id="jeux"><h2>{h(st('italia_games_title', lang))}</h2>
 <div class="cards3">
@@ -2418,6 +2418,99 @@ def italia_page(lang):
     title = ("Italia — ADN Creations" if lang == "fr" else "Italia — ADN Creations")
     return sacred_shell(title, st("italia_hero_text", lang)[:155], body, lang=lang,
                         theme="italia", path="/italia")
+
+
+_SHOP_GROUPS = [
+    ("religious", "Articles religieux", "Religious items"),
+    ("italian", "Produits italiens", "Italian goods"),
+    ("gag", "Cadeaux gag", "Gag gifts"),
+    ("electronic", "Gravure et quotidien", "Engraving & everyday"),
+]
+
+
+def shop_page(lang):
+    conn = db()
+    prods = conn.execute(
+        "SELECT * FROM products WHERE active=1 ORDER BY sort, name").fetchall()
+    conn.close()
+    by_group = {g: [] for g, _, _ in _SHOP_GROUPS}
+    works = []
+    for p in prods:
+        if p["in_works"]:
+            works.append(p)
+            continue
+        try:
+            depts = json.loads(p["depts"] or "[]")
+        except Exception:  # noqa: BLE001
+            depts = []
+        g = depts[0] if depts and depts[0] in by_group else "religious"
+        by_group[g].append(p)
+
+    def card(p):
+        name = pick(p, lang, "name")
+        simple = (p["purchasable"] and not p["in_works"] and not product_pool(p)
+                  and p["id"] not in ("mini-bust", "card-case", "bust-collector")
+                  and not p["engravable"]
+                  and not p["custom_link"]
+                  and not (p["stock"] is not None and p["stock"] <= 0))
+        qa = ""
+        if simple:
+            qa = (f'<button type="button" class="btn btn-gold" style="margin:0 16px 16px" '
+                  f'data-addcart data-pid="{h(p["id"])}" data-name="{h(name)}" '
+                  f'data-img="{h(p["photo"] or "")}" data-price="{p["price_cents"]}" '
+                  f'data-add="{p["additional_price_cents"] or 0}">'
+                  f'{h(t(lang, "add_to_cart"))}</button>')
+        badges = product_badges(p, lang)
+        return (f'<div class="pcard" data-name="{h((p["name"] + " " + (p["name_fr"] or "")).lower())}">'
+                f'<a href="/product/{p["id"]}" style="text-decoration:none;color:var(--ink);display:block">'
+                f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
+                f'<div class="pc-body"><h3>{h(name)}</h3>{badges}'
+                f'<p class="price">{money2(p["price_cents"], lang)}</p></div></a>{qa}</div>')
+
+    parts = [f"""
+<section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Boutique' if lang == 'fr' else 'Shop'}</h1>
+<p class="sub">{'Tout est fait à la main à Montréal, en petits lots.' if lang == 'fr' else 'Everything is hand crafted in Montreal, in small batches.'}</p>
+<input type="search" id="shopSearch" placeholder="{'Rechercher…' if lang == 'fr' else 'Search…'}" aria-label="Search"
+ style="width:100%;max-width:420px;padding:12px 16px;border-radius:999px;border:1px solid var(--line2);background:var(--raised);color:var(--ink)">
+</section>"""]
+    for g, fr_lbl, en_lbl in _SHOP_GROUPS:
+        items = by_group[g]
+        if not items:
+            continue
+        parts.append(f'<section class="section shop-group"><h2>{h(fr_lbl if lang == "fr" else en_lbl)}</h2>'
+                     f'<div class="cards3">' + "".join(card(p) for p in items) + "</div></section>")
+    if works:
+        lbl = "En préparation à l'atelier" if lang == "fr" else "In the works"
+        parts.append(f'<section class="section shop-group"><h2>{h(lbl)}</h2>'
+                     f'<div class="cards3">' + "".join(card(p) for p in works) + "</div></section>")
+    parts.append("""<p id="shopNone" class="muted" style="display:none">∅</p>
+<script>
+(function(){
+  var inp = document.getElementById('shopSearch'); if(!inp) return;
+  inp.addEventListener('input', function(){
+    var q = inp.value.trim().toLowerCase();
+    document.querySelectorAll('.shop-group').forEach(function(sec){
+      var any = false;
+      sec.querySelectorAll('.pcard').forEach(function(c){
+        var show = !q || (c.getAttribute('data-name') || '').indexOf(q) >= 0;
+        c.style.display = show ? '' : 'none'; if(show) any = true;
+      });
+      sec.style.display = any ? '' : 'none';
+    });
+  });
+})();
+</script>""")
+    title = ("Boutique — ADN Creations" if lang == "fr" else "Shop — ADN Creations")
+    desc = ("Lampes de prière, étuis à cartes et cadeaux faits à la main à Montréal."
+            if lang == "fr" else "Prayer lamps, card cases and gifts hand crafted in Montreal.")
+    return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/shop.html")
+
+
+@app.route("/shop.html")
+def shop():
+    track_visit("/shop.html")
+    lang = get_lang()
+    return lang_response(shop_page(lang), lang)
 
 
 @app.route("/workshop")
