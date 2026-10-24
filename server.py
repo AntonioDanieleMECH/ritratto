@@ -2078,7 +2078,6 @@ def home_page(lang):
 <h2>{h(st('set_items', lang))}</h2>
 <p class="muted">{h(note)}</p></div>
 <div style="text-align:right">
-<p class="big"><span class="old" style="color:var(--ink3);text-decoration:line-through;font-size:24px">{money2(total, lang)}</span></p>
 <button class="btn btn-gold" id="setAdd">{'Ajouter les 3 au panier' if lang == 'fr' else 'Add all 3 to cart'}</button>
 </div></div></section>
 <script>
@@ -2159,11 +2158,19 @@ document.getElementById('nlForm').addEventListener('submit', function(e){{
   var em = document.getElementById('nlEmail').value, ph = document.getElementById('nlPhone').value;
   fetch('/api/newsletter', {{method: 'POST', headers: {{'Content-Type': 'application/json'}},
     body: JSON.stringify({{email: em, phone: ph, lang: '{lang}'}})}})
-  .then(function(r){{ return r.json(); }})
-  .then(function(j){{
-    document.getElementById('nlMsg').textContent = j.ok
-      ? ('{'Merci! Votre code : ' if lang == 'fr' else 'Thank you! Your code: '}' + j.code)
-      : ('{'Courriel invalide.' if lang == 'fr' else 'Invalid email.'}');
+  .then(function(r){{ return r.json().then(function(j){{ return {{status: r.status, body: j}}; }}); }})
+  .then(function(res){{
+    var msg = document.getElementById('nlMsg');
+    if (res.body && res.body.ok) {{
+      msg.textContent = '{'Merci! Votre code : ' if lang == 'fr' else 'Thank you! Your code: '}' + res.body.code;
+    }} else if (res.status === 400) {{
+      msg.textContent = '{'Courriel invalide.' if lang == 'fr' else 'Invalid email.'}';
+    }} else {{
+      msg.textContent = '{'Petit souci de connexion. Réessayez dans un moment.' if lang == 'fr' else 'Connection hiccup. Please try again in a moment.'}';
+    }}
+  }})
+  .catch(function(){{
+    document.getElementById('nlMsg').textContent = '{'Petit souci de connexion. Réessayez dans un moment.' if lang == 'fr' else 'Connection hiccup. Please try again in a moment.'}';
   }});
 }});
 </script>""")
@@ -2384,7 +2391,7 @@ def italia_page(lang):
 <p>{h(st('italia_hero_text', lang))}</p>
 <div class="hero-ctas">
 <a class="btn btn-gold" href="/product/card-case">{'Voir l\'étui' if lang == 'fr' else 'See the case'} · {case_price}</a>
-<a class="btn btn-line" href="/product/card-case">{h(st('italia_initials_cta', lang))}</a>
+<a class="btn btn-line" href="/product/card-case#initials">{h(st('italia_initials_cta', lang))}</a>
 </div></div>
 <div class="hero-img"><img src="/img/products/briscola-case-2.webp" alt="Scopa / Briscola" style="height:440px"></div>
 </section>
@@ -2401,7 +2408,7 @@ def italia_page(lang):
 <div><img src="/img/products/scopa-case-2.webp" alt="Initiales en relief" loading="lazy" style="height:300px"></div>
 <div><h2>{h(st('italia_initials_title', lang))}</h2>
 <p style="color:#cfc4ad">{h(st('italia_initials_text', lang))}</p>
-<a class="btn btn-cream" href="/product/card-case">{h(st('italia_initials_cta', lang))}</a>
+<a class="btn btn-cream" href="/product/card-case#initials">{h(st('italia_initials_cta', lang))}</a>
 </div></div></div></section>
 <section class="section" id="cadeaux"><h2>{h(st('italia_gift_title', lang))}</h2>
 <div class="cards3">
@@ -2944,7 +2951,7 @@ def product_page(pid):
     initials_js = ""
     if p["id"] == "card-case":
         initials_field = (
-            f'<div class="field"><label><input type="checkbox" id="initialsToggle"> '
+            f'<div class="field" id="initialsAnchor"><label><input type="checkbox" id="initialsToggle"> '
             f'{t(lang, "initials_label")}</label>'
             f'<div id="initialsWrap" style="display:none;margin-top:8px">'
             f'<input type="text" id="initialsText" maxlength="6" '
@@ -2967,6 +2974,11 @@ def product_page(pid):
     if(v !== tx.value) tx.value = v;
     bump();
   });
+  if(window.location.hash === '#initials'){
+    tg.checked = true; wrap.style.display = ''; bump();
+    var anchor = document.getElementById('initialsAnchor');
+    if(anchor) setTimeout(function(){ anchor.scrollIntoView({behavior: 'smooth', block: 'center'}); }, 350);
+  }
 })();
 </script>"""
     preorder_note = ""
@@ -3046,8 +3058,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     var r = await fetch('/api/checkout', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(payload) }});
     var j = await r.json();
     if (j.url) window.location = j.url;
-    else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || {json.dumps(t(lang, "checkout_failed"))}) + '</div>'; btn.disabled = false; }}
-  }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '</div>'; btn.disabled = false; }}
+    else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || {json.dumps(t(lang, "checkout_failed"))}) + '<br>{("Écrivez-nous : " if lang == "fr" else "Email us: ") + SUPPORT_EMAIL}</div>'; btn.disabled = false; }}
+  }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '<br>{("Écrivez-nous : " if lang == "fr" else "Email us: ") + SUPPORT_EMAIL}</div>'; btn.disabled = false; }}
 }});
 /* auto-detect the visitor's country for the shipping tier; the dropdown
    stays for manual override (e.g. shipping to a different country) */
