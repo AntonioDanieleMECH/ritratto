@@ -1478,6 +1478,12 @@ def seed():
         conn.execute(
             "UPDATE products SET photo='/img/products/bust-real-front.jpg' "
             "WHERE id='bust-collector'")
+    # 2026-10-24 (Antonio): the 39 cm collector bust is represented ONLY
+    # by his three real photos, everywhere on the site, including the
+    # work-in-progress project card for the bust.
+    conn.execute(
+        "UPDATE wip_projects SET photo='/img/products/bust-real-front2.jpg' "
+        "WHERE id='bust' AND photo='/img/work/bust-front.jpg'")
     # The gift-card case finally has a real photo: use it as the product photo too.
     conn.execute(
         "UPDATE products SET photo='/img/products/giftcard-case.jpg' "
@@ -1516,7 +1522,7 @@ def seed():
             "INSERT INTO wip_projects (id, project, project_fr, status, status_fr, photo, sort, created) VALUES (?,?,?,?,?,?,?,?)",
             ("bust", "Saint Frere Andre Collector's Edition Bust",
              "Buste de saint Frère André, édition collectionneur",
-             "In finishing", "En finition", "/img/work/bust-front.jpg", 2, now_iso()))
+             "In finishing", "En finition", "/img/products/bust-real-front2.jpg", 2, now_iso()))
         conn.execute(
             "INSERT INTO wip_updates (id, project_id, created, text, text_fr) VALUES (?,?,?,?,?)",
             ("b1", "bust", "2026-10-18T09:00:00",
@@ -2350,7 +2356,7 @@ document.getElementById('setAdd').addEventListener('click', function(){{
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
 <img src="{h(bust['photo'] or '')}" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
-<img src="/img/products/bust-otherside.webp" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
+<img src="/img/products/bust-real-34.jpg" alt="{h(pick(bust, lang, 'name'))}" loading="lazy" style="height:380px;width:100%;object-fit:cover;border-radius:6px">
 </div>
 </div></section>""")
     # email band
@@ -2523,12 +2529,12 @@ def workshop_page(lang):
 <div><p class="mono" style="color:var(--gold)">ADN Creations / {'Atelier' if lang == 'fr' else 'Workshop'}</p>
 <h1>{h(st('atelier_title', lang))}</h1>
 <p>{h(st('atelier_story', lang))}</p></div>
-<div class="hero-img"><img src="/img/products/bust-workshop.webp" alt="Atelier ADN Creations"></div>
+<div class="hero-img"><img src="/img/products/bust-real-front.jpg" alt="Atelier ADN Creations"></div>
 </section>
 <section class="section" id="process"><h2>{h(st('process_title', lang))}</h2>
 <div class="steps4">{steps}</div></section>
 <section class="section"><div class="split" style="background:var(--raised)">
-<div><img src="/img/products/bust-threequarter.webp" alt="{h(st('bust_title', lang))}"></div>
+<div><img src="/img/products/bust-real-front2.jpg" alt="{h(st('bust_title', lang))}"></div>
 <div><p class="eyebrow">{h(st('bust_title', lang))}</p>
 <p class="muted">{h(st('bust_text', lang))}</p>
 <a class="btn btn-gold" href="/product/bust-collector">{'Voir la pièce' if lang == 'fr' else 'See the piece'}</a>
