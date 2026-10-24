@@ -2193,15 +2193,29 @@ def _prod(pid):
 
 def _pcard(p, lang, occ=""):
     name = pick(p, lang, "name")
-    return (f'<a class="pcard" href="/product/{p["id"]}">'
+    # Same card anatomy as the shop: the photo/body links to the product
+    # page (with a visible View pill), and simple products also get the
+    # gold quick add-to-cart button under it (Antonio, 2026-10-24).
+    simple = (p["purchasable"] and not p["in_works"] and not product_pool(p)
+              and p["id"] not in ("mini-bust", "card-case", "bust-collector")
+              and not p["engravable"]
+              and not p["custom_link"]
+              and not (p["stock"] is not None and p["stock"] <= 0))
+    qa = ""
+    if simple:
+        qa = (f'<button type="button" class="btn btn-gold" style="margin:0 16px 16px" '
+              f'data-addcart data-pid="{h(p["id"])}" data-name="{h(name)}" '
+              f'data-img="{h(p["photo"] or "")}" data-price="{p["price_cents"]}" '
+              f'data-add="{p["additional_price_cents"] or 0}">'
+              f'{h(t(lang, "add_to_cart"))}</button>')
+    occ_html = f'<p class="occ">{h(occ)}</p>' if occ else ""
+    return (f'<div class="pcard">'
+            f'<a href="/product/{p["id"]}" style="text-decoration:none;color:var(--ink);display:block">'
             f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
-            f'<div class="pc-body"><h3>{h(name)}</h3>'
-            f'<p class="occ">{h(occ)}</p>' if occ else
-            f'<a class="pcard" href="/product/{p["id"]}">'
-            f'<img src="{h(p["photo"] or "")}" alt="{h(name)}" loading="lazy">'
-            f'<div class="pc-body"><h3>{h(name)}</h3>') + \
-           f'<p class="price">{money2(p["price_cents"], lang)}</p>' + \
-           f'<span class="btn btn-line" style="margin-top:10px">{"Voir" if lang == "fr" else "View"}</span></div></a>'
+            f'<div class="pc-body"><h3>{h(name)}</h3>{occ_html}'
+            f'<p class="price">{money2(p["price_cents"], lang)}</p>'
+            f'<span class="btn btn-line" style="margin-top:10px">{"Voir" if lang == "fr" else "View"}</span>'
+            f'</div></a>{qa}</div>')
 
 
 def _saint_suggest_section(lang):
