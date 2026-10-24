@@ -82,6 +82,7 @@ OLD_HOSTS_URLS = ("https://ritratto.onrender.com", "http://ritratto.onrender.com
 USD_RATE = 0.73
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 DEMO_MODE = os.environ.get("DEMO_MODE", "false").lower() == "true"
+STAGING_MODE = os.environ.get("STAGING_MODE", "false").lower() == "true"
 ADMIN_USER = os.environ.get("ADMIN_USER", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 SUPPORT_EMAIL = "antonio.learningisfun@gmail.com"
@@ -313,6 +314,9 @@ def canonical_domain():
 def inject_analytics(response):
     """Add the first-party analytics beacon to every public HTML page
     (static and server-rendered alike) without editing each template."""
+    if STAGING_MODE:
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
     try:
         if request.method == "GET" and response.status_code == 200 \
                 and not request.path.startswith(("/api/", "/admin")) \
@@ -620,6 +624,8 @@ def db():
 
 
 def track_visit(path):
+    if STAGING_MODE:
+        return
     try:
         day = datetime.utcnow().strftime("%Y-%m-%d")
         conn = db()
@@ -635,6 +641,8 @@ def track_visit(path):
 
 def track_product_view(pid):
     """Count one view per visitor IP per product per day (refreshes don't inflate)."""
+    if STAGING_MODE:
+        return
     try:
         fwd = request.headers.get("X-Forwarded-For", "")
         ip = (fwd.split(",")[0].strip() if fwd else "") or (request.remote_addr or "")
@@ -1619,6 +1627,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 {og}
 </head>
 <body>
+{('<div style="background:#B3261E;color:#fff;text-align:center;padding:8px 12px;font:600 13px/1.4 system-ui;letter-spacing:.08em">STAGING — COPIE DE TEST / TEST COPY</div>') if STAGING_MODE else ''}
 <header class="site-header"><div class="wrap header-inner">
 <a class="brand" href="/">ADN <span>Creations</span></a>
 <nav class="nav-links" id="navLinks">{nav}</nav>
@@ -1823,6 +1832,39 @@ def product_media(p, cls="card-media"):
 
 
 # ---------- public pages ----------
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    """Generated from the live catalogue so it can never drift from the shop."""
+    pages = [("/", "weekly", "1.0"), ("/shop.html", "daily", "0.9"),
+             ("/work.html", "weekly", "0.9"), ("/engraving.html", "monthly", "0.8"),
+             ("/portraits.html", "monthly", "0.8"), ("/progress.html", "weekly", "0.8"),
+             ("/custom-lamp.html", "monthly", "0.8"), ("/about.html", "monthly", "0.7"),
+             ("/reviews.html", "weekly", "0.7"), ("/suggest.html", "monthly", "0.7"),
+             ("/contact.html", "monthly", "0.7"), ("/privacy.html", "yearly", "0.3"),
+             ("/terms.html", "yearly", "0.3")]
+    conn = db()
+    ids = [r["id"] for r in conn.execute(
+        "SELECT id FROM products WHERE active=1 ORDER BY sort, name").fetchall()]
+    conn.close()
+    out = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for path, freq, prio in pages:
+        out.append(f"  <url><loc>{SITE_URL}{path}</loc><changefreq>{freq}</changefreq>"
+                   f"<priority>{prio}</priority></url>")
+    for pid in ids:
+        out.append(f"  <url><loc>{SITE_URL}/product/{pid}</loc>"
+                   f"<changefreq>weekly</changefreq><priority>0.8</priority></url>")
+    out.append("</urlset>")
+    return app.response_class("\n".join(out) + "\n", mimetype="application/xml")
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    if STAGING_MODE:
+        return app.response_class("User-agent: *\nDisallow: /\n", mimetype="text/plain")
+    return app.send_static_file("robots.txt")
+
+
 @app.route("/")
 def index():
     track_visit("/")
