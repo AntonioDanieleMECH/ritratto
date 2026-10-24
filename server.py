@@ -154,6 +154,7 @@ STR = {
         "design_upload": "Téléverser mon propre dessin",
         "saint_title": "Choisissez votre saint",
         "size_title": "Grandeur",
+        "base_title": "Base",
         "preorder_note": "Ceci est une précommande. Expédition prévue : {date}. Vous serez facturé aujourd'hui.",
         "design_yours": "Créez le vôtre",
         "photo_soon": "Photo à venir",
@@ -241,6 +242,7 @@ STR = {
         "design_upload": "Upload my own artwork",
         "saint_title": "Choose your saint",
         "size_title": "Size",
+        "base_title": "Base",
         "preorder_note": "This is a preorder. Expected to ship {date}. You will be charged today.",
         "design_yours": "Design yours",
         "photo_soon": "Photo coming soon",
@@ -814,6 +816,22 @@ SEED_PRODUCTS = [
      "story": "A collector's piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.",
      "story_fr": "Une pièce de collection pour l'époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.",
      "depts": ["religious"], "stock": 1, "sort": 4},
+    {"id": "andre-stone-statue", "name": "Saint Frere Andre Hydrostone Statue", "price_cents": 47500,
+     "photo": "/img/products/andre-stone-front.jpg",
+     "description": "Real stone, cast by hand in hydrostone. Saint Frere Andre stands 16 cm tall (the statue alone, without the base) with a matte stone finish, on the included black base with his signature. Prefer wood? Choose the wood base instead, +$75. Hand crafted in Montreal.",
+     "name_fr": "Statue en hydrostone de saint Frère André",
+     "description_fr": "Vraie pierre, coulée à la main en hydrostone. Saint Frère André mesure 16 cm de haut (la statue seule, sans la base), fini pierre mat, sur la base noire incluse portant sa signature. Vous préférez le bois? Choisissez la base en bois, +75 $. Fait à la main à Montréal.",
+     "story": "Frere Andre, the porter of Saint Joseph's Oratory, welcomed the sick and the sorrowful at the door for decades. This statue is cast by hand in hydrostone, a real stone casting material with a matte finish and real weight to it. The statue alone is 16 cm tall, without the base.",
+     "story_fr": "Frère André, le portier de l'Oratoire Saint-Joseph, a accueilli les malades et les affligés à la porte pendant des décennies. Cette statue est coulée à la main en hydrostone, un matériau de coulée en vraie pierre au fini mat, avec un vrai poids. La statue seule mesure 16 cm de haut, sans la base.",
+     "depts": ["religious"], "stock": None, "sort": 3},
+    {"id": "carlo-stone-statue", "name": "Saint Carlo Acutis Hydrostone Statue", "price_cents": 47500,
+     "photo": "/img/products/carlo-stone-front.jpg",
+     "description": "Real stone, cast by hand in hydrostone. Saint Carlo Acutis stands 14 cm tall (the statue alone, without the base) with a matte stone finish, on the included bronze-finish base with a gold Saint Carlo Acutis name plate. Prefer wood? Choose the wood base instead, +$75. Hand crafted in Montreal.",
+     "name_fr": "Statue en hydrostone de saint Carlo Acutis",
+     "description_fr": "Vraie pierre, coulée à la main en hydrostone. Saint Carlo Acutis mesure 14 cm de haut (la statue seule, sans la base), fini pierre mat, sur la base incluse au fini bronze avec une plaque dorée Saint Carlo Acutis. Vous préférez le bois? Choisissez la base en bois, +75 $. Fait à la main à Montréal.",
+     "story": "Carlo Acutis, the teenager who catalogued Eucharistic miracles online and was canonized in 2025, sculpted in his polo shirt and curls. Cast by hand in hydrostone, a real stone casting material with a matte finish and real weight. The statue alone is 14 cm tall, without the base.",
+     "story_fr": "Carlo Acutis, l'adolescent qui a catalogué les miracles eucharistiques en ligne et qui a été canonisé en 2025, sculpté avec son polo et ses boucles. Coulée à la main en hydrostone, un matériau de coulée en vraie pierre au fini mat, avec un vrai poids. La statue seule mesure 14 cm de haut, sans la base.",
+     "depts": ["religious"], "stock": None, "sort": 3},
     {"id": "christmas-set", "name": "Christmas Set, All 3 Lamps", "price_cents": 6999,
      "photo": "/img/products/nativity-pro.jpg",
      "description": "The whole Christmas corner in one box: the Nativity scene lamp, the Carlo Acutis prayer lamp and the Padre Pio prayer lamp. Bought separately they come to $79.97. Each lamp is hand crafted in Montreal from plant-based bioplastic, with a warm LED light.",
@@ -926,6 +944,10 @@ SEED_PHOTOS_EXTRA = [
     ("sheen-lamp", "/img/products/sheen-lit-adoration.jpg"),
     ("sheen-lamp", "/img/products/sheen-lit-quote.jpg"),
     ("sheen-lamp", "/img/products/sheen-lit-profile.jpg"),
+    # 2026-10-24: hydrostone statues (Antonio's photos, studio-edited).
+    ("andre-stone-statue", "/img/products/andre-stone-front.jpg"),
+    ("carlo-stone-statue", "/img/products/carlo-stone-front.jpg"),
+    ("carlo-stone-statue", "/img/products/carlo-stone-side.jpg"),
 ]
 
 
@@ -962,6 +984,38 @@ def seed():
              "Three lamps, one quiet corner of light for Christmas: the Nativity, Carlo Acutis and Padre Pio. They are the three lamps families ask for together most, so they travel in one box at one set price.",
              "Trois lampes, un coin de lumière tranquille pour Noël : la Nativité, Carlo Acutis et Padre Pio. Ce sont les trois lampes que les familles demandent le plus souvent ensemble, alors elles voyagent dans une seule boîte à un prix d'ensemble.",
              json.dumps(["religious"]), None, 0, "", 0, 1, "", 1, 2, now_iso()))
+    # New products 2026-10-24: hydrostone statues, $475 each (only if
+    # missing). Heights are the statue alone, without the base (Antonio:
+    # Andre 16 cm, Carlo 14 cm). Wood base instead of the included base
+    # is a +$75 option priced server-side (see WOOD_BASE_CENTS).
+    if not conn.execute("SELECT id FROM products WHERE id='andre-stone-statue'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("andre-stone-statue", "Saint Frere Andre Hydrostone Statue",
+             "Statue en hydrostone de saint Frère André", 47500,
+             "/img/products/andre-stone-front.jpg",
+             "Real stone, cast by hand in hydrostone. Saint Frere Andre stands 16 cm tall (the statue alone, without the base) with a matte stone finish, on the included black base with his signature. Prefer wood? Choose the wood base instead, +$75. Hand crafted in Montreal.",
+             "Vraie pierre, coulée à la main en hydrostone. Saint Frère André mesure 16 cm de haut (la statue seule, sans la base), fini pierre mat, sur la base noire incluse portant sa signature. Vous préférez le bois? Choisissez la base en bois, +75 $. Fait à la main à Montréal.",
+             "Frere Andre, the porter of Saint Joseph's Oratory, welcomed the sick and the sorrowful at the door for decades. This statue is cast by hand in hydrostone, a real stone casting material with a matte finish and real weight to it. The statue alone is 16 cm tall, without the base.",
+             "Frère André, le portier de l'Oratoire Saint-Joseph, a accueilli les malades et les affligés à la porte pendant des décennies. Cette statue est coulée à la main en hydrostone, un matériau de coulée en vraie pierre au fini mat, avec un vrai poids. La statue seule mesure 16 cm de haut, sans la base.",
+             json.dumps(["religious"]), None, 0, "", 0, 1, "", 1, 3, now_iso()))
+    if not conn.execute("SELECT id FROM products WHERE id='carlo-stone-statue'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("carlo-stone-statue", "Saint Carlo Acutis Hydrostone Statue",
+             "Statue en hydrostone de saint Carlo Acutis", 47500,
+             "/img/products/carlo-stone-front.jpg",
+             "Real stone, cast by hand in hydrostone. Saint Carlo Acutis stands 14 cm tall (the statue alone, without the base) with a matte stone finish, on the included bronze-finish base with a gold Saint Carlo Acutis name plate. Prefer wood? Choose the wood base instead, +$75. Hand crafted in Montreal.",
+             "Vraie pierre, coulée à la main en hydrostone. Saint Carlo Acutis mesure 14 cm de haut (la statue seule, sans la base), fini pierre mat, sur la base incluse au fini bronze avec une plaque dorée Saint Carlo Acutis. Vous préférez le bois? Choisissez la base en bois, +75 $. Fait à la main à Montréal.",
+             "Carlo Acutis, the teenager who catalogued Eucharistic miracles online and was canonized in 2025, sculpted in his polo shirt and curls. Cast by hand in hydrostone, a real stone casting material with a matte finish and real weight. The statue alone is 14 cm tall, without the base.",
+             "Carlo Acutis, l'adolescent qui a catalogué les miracles eucharistiques en ligne et qui a été canonisé en 2025, sculpté avec son polo et ses boucles. Coulée à la main en hydrostone, un matériau de coulée en vraie pierre au fini mat, avec un vrai poids. La statue seule mesure 14 cm de haut, sans la base.",
+             json.dumps(["religious"]), None, 0, "", 0, 1, "", 1, 3, now_iso()))
     # New product 2026-10-18: custom lighter listing (only if missing).
     if not conn.execute("SELECT id FROM products WHERE id='custom-lighter'").fetchone():
         conn.execute(
@@ -2995,6 +3049,16 @@ def product_page(pid):
             f'<div class="field"><label for="saintSelect">{t(lang, "saint_title")}</label>'
             f'<select id="saintSelect"><option value="Saint Fr\u00e8re Andr\u00e9">Saint Fr\u00e8re Andr\u00e9</option>'
             f'<option value="Carlo Acutis">Carlo Acutis</option></select></div>')
+    elif p["id"] in STONE_STATUE_IDS:
+        if lang == "fr":
+            _bs_opts = ('<option value="Included" data-price="47500">Base incluse \u2014 475,00 $ CAD</option>'
+                        '<option value="Wood" data-price="55000">Base en bois \u2014 550,00 $ CAD (+75 $)</option>')
+        else:
+            _bs_opts = ('<option value="Included" data-price="47500">Included base \u2014 $475.00 CAD</option>'
+                        '<option value="Wood" data-price="55000">Wood base \u2014 $550.00 CAD (+$75)</option>')
+        option_field = (
+            f'<div class="field"><label for="baseSelect">{t(lang, "base_title")}</label>'
+            f'<select id="baseSelect">{_bs_opts}</select></div>')
     design_js = ""
     if p["id"] == "custom-lighter":
         design_js = """<script>
@@ -3186,6 +3250,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   if (ss) payload.saint = ss.value;
   var sz2 = document.getElementById('sizeSelect');
   if (sz2) payload.size = sz2.value;
+  var bs = document.getElementById('baseSelect');
+  if (bs) payload.base = bs.value;
   var co = document.getElementById('colorSelect');
   if (co) payload.color = co.value;
   var iniT = document.getElementById('initialsText'), iniC = document.getElementById('initialsToggle');
@@ -3239,6 +3305,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   function unitCents(){{
     var s = document.getElementById('sizeSelect');
     if (s) {{ var dp = s.options[s.selectedIndex].getAttribute('data-price'); if (dp) return parseInt(dp, 10); }}
+    var b = document.getElementById('baseSelect');
+    if (b) {{ var bp = b.options[b.selectedIndex].getAttribute('data-price'); if (bp) return parseInt(bp, 10); }}
     return priceCents;
   }}
   function total(q){{
@@ -3267,6 +3335,8 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
   qtyEl.addEventListener('change', refresh);
   var szEl = document.getElementById('sizeSelect');
   if (szEl) szEl.addEventListener('change', refresh);
+  var bsEl = document.getElementById('baseSelect');
+  if (bsEl) bsEl.addEventListener('change', refresh);
   var cpTimer = null;
   function checkCoupon(){{
     var code = cpEl.value.trim().toUpperCase();
@@ -3594,6 +3664,12 @@ def api_coupon_validate():
 
 INITIALS_ADDON_CENTS = 500   # CA$5 raised-initials add-on (card-case only)
 
+# Hydrostone statues (2026-10-24): $475 each with the included base; a
+# wood base instead is +CA$75 per statue. The client sends base="Wood";
+# the price is always re-derived here from the product id.
+STONE_STATUE_IDS = ("andre-stone-statue", "carlo-stone-statue")
+WOOD_BASE_CENTS = 7500
+
 
 def clean_initials(raw):
     """Sanitize the raised-initials add-on text: letters and spaces only,
@@ -3616,6 +3692,7 @@ def api_checkout():
     design = (data.get("design") or "").strip()[:60]
     saint = (data.get("saint") or "").strip()[:40]
     size = (data.get("size") or "").strip()[:20]
+    base = "Wood" if (data.get("base") or "").strip() == "Wood" else ""
     color = (data.get("color") or "").strip().lower()[:20]
     initials = clean_initials(data.get("initials")) if pid == "card-case" else ""
     _parts = []
@@ -3625,6 +3702,8 @@ def api_checkout():
         _parts.append("Saint: " + saint)
     if size:
         _parts.append("Size: " + size)
+    if base:
+        _parts.append("Base: Wood")
     if color in LIGHTER_COLORS:
         _parts.append("Color: " + color_label(color))
     if initials:
@@ -3662,6 +3741,10 @@ def api_checkout():
     # client only ever sends the letters, never a price.
     if initials:
         amount += INITIALS_ADDON_CENTS
+    # Wood-base upgrade (stone statues): +CA$75 per statue when the wood
+    # base is chosen instead of the included base.
+    if base and pid in STONE_STATUE_IDS:
+        amount += WOOD_BASE_CENTS * qty
     # Gift options (2026-10-24): wrap is priced server-side from Site text;
     # the message is free text carried to the seller with the order.
     gift_wrap = 1 if data.get("gift_wrap") else 0
@@ -3768,6 +3851,7 @@ def api_cart_checkout():
         design = (it.get("design") or "").strip()[:60]
         saint = (it.get("saint") or "").strip()[:40]
         size = (it.get("size") or "").strip()[:20]
+        base = "Wood" if (it.get("base") or "").strip() == "Wood" else ""
         color = (it.get("color") or "").strip().lower()[:20]
         initials = clean_initials(it.get("initials")) if pid == "card-case" else ""
         _parts = []
@@ -3777,6 +3861,8 @@ def api_cart_checkout():
             _parts.append("Saint: " + saint)
         if size:
             _parts.append("Size: " + size)
+        if base:
+            _parts.append("Base: Wood")
         if color in LIGHTER_COLORS:
             _parts.append("Color: " + color_label(color))
         if initials:
@@ -3800,6 +3886,10 @@ def api_cart_checkout():
             line_amount = p["price_cents"] + (qty - 1) * p["additional_price_cents"]
         else:
             line_amount = p["price_cents"] * qty
+        # Wood-base upgrade (stone statues): +CA$75 per statue, priced
+        # server-side like buy-now.
+        if base and pid in STONE_STATUE_IDS:
+            line_amount += WOOD_BASE_CENTS * qty
         # The raised-initials add-on is NOT priced here: it is charged per
         # unique initials string across the whole cart (see below), not
         # per line, so this loop only records the sanitized text.

@@ -81,7 +81,8 @@
   }
   function keyOf(it) {
     return [it.pid, it.design || "", it.saint || "", it.size || "",
-            it.color || "", it.initials || "", it.engraving || ""].join("|");
+            it.color || "", it.initials || "", it.engraving || "",
+            it.base || ""].join("|");
   }
   function lineTotal(it, withIni) {
     var q = it.qty || 1;
@@ -105,6 +106,7 @@
     if (it.design) parts.push(it.design);
     if (it.saint) parts.push("Saint: " + it.saint);
     if (it.size) parts.push("Size: " + it.size);
+    if (it.base) parts.push("Base: " + (lang() === "fr" && it.base === "Wood" ? "Bois" : it.base));
     if (it.color) parts.push((lang() === "fr" ? "Couleur" : "Color") + ": " + colorName(it.color));
     if (it.initials) parts.push("Initials: " + it.initials);
     if (it.engraving) parts.push(it.engraving);
@@ -415,7 +417,7 @@
           product_id: it.pid, qty: it.qty || 1,
           engraving_text: it.engraving || "", design: it.design || "",
           saint: it.saint || "", size: it.size || "", color: it.color || "",
-          initials: it.initials || ""
+          initials: it.initials || "", base: it.base || ""
         };
       }),
       coupon: document.getElementById("cartCoupon").value.trim(),
@@ -472,6 +474,13 @@
       }
       var ss = document.getElementById("saintSelect");
       if (ss) saint = ss.value;
+      var base = "";
+      var bs = document.getElementById("baseSelect");
+      if (bs) {
+        base = bs.value === "Wood" ? "Wood" : "";
+        var bp = bs.options[bs.selectedIndex].getAttribute("data-price");
+        if (bp) unit = parseInt(bp, 10);
+      }
       var initials = "";
       var iniT = document.getElementById("initialsText"),
         iniC = document.getElementById("initialsToggle");
@@ -501,7 +510,7 @@
         pid: pid, name: name, img: img, qty: qty,
         unit_cents: unit, add_cents: p.additional_price_cents || 0,
         design: design, saint: saint, size: size, color: color,
-        initials: initials, engraving: engraving
+        initials: initials, engraving: engraving, base: base
       });
       if (addBtn) {
         var orig = addBtn.textContent;
