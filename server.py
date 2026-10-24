@@ -1948,6 +1948,7 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google-site-verification" content="4oXfVvgugvPXdVvBYMFDHD01MTuAhf7qDfVm8YA1pmY">
 <title>{h(title)}</title>
 <meta name="description" content="{h(description)}">
 <link rel="canonical" href="{canonical}">
