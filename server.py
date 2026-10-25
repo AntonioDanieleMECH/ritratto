@@ -512,6 +512,14 @@ def db():
         "story='A collector''s piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.', "
         "story_fr='Une pièce de collection pour l''époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.' "
         "WHERE id='bust-collector' AND description LIKE 'One of one. 39 cm%'",
+        # Antonio 2026-10-25: NOT one of one — a limited edition of 25
+        # (only one exists today, which is why stock stays 1); one will
+        # soon be on display at Saint Joseph's Oratory.
+        "UPDATE products SET description='Limited edition of 25. The statue itself is 32 cm, 39 cm with its dark stained wood base and a brass Fr. Andre name plate. Hand finished, heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. One will soon be on display at Saint Joseph''s Oratory. Free shipping.', "
+        "description_fr='Édition limitée de 25 exemplaires. La statue mesure 32 cm, 39 cm avec son socle en bois teinté foncé et sa plaque de laiton au nom du Fr. André. Fini à la main, lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d''origine végétale et très peu de déchets. Un exemplaire sera bientôt exposé à l''Oratoire Saint-Joseph. Expédition gratuite.', "
+        "story='A collector''s piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, from a limited edition of 25 — one will soon be on display at Saint Joseph''s Oratory.', "
+        "story_fr='Une pièce de collection pour l''époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, d''une édition limitée de 25 exemplaires — un exemplaire sera bientôt exposé à l''Oratoire Saint-Joseph.' "
+        "WHERE id='bust-collector' AND description LIKE 'One of one. The statue itself%'",
     ):
         try:
             conn.execute(stmt)
@@ -830,11 +838,11 @@ SEED_PRODUCTS = [
      "depts": ["religious", "electronic"], "stock": None, "custom_link": "/custom-lamp.html", "sort": 3},
     {"id": "bust-collector", "name": "Saint Frere Andre Bust, Collector's Edition", "price_cents": 224999,
      "photo": "/img/products/bust-real-front.jpg",
-     "description": "One of one. The statue itself is 32 cm, 39 cm with its dark stained wood base and a brass Fr. Andre name plate. Hand finished, heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. Free shipping.",
+     "description": "Limited edition of 25. The statue itself is 32 cm, 39 cm with its dark stained wood base and a brass Fr. Andre name plate. Hand finished, heavy, highly detailed, made with additive manufacturing and plant-based materials with very little waste. One will soon be on display at Saint Joseph's Oratory. Free shipping.",
      "name_fr": "Buste de saint Frère André, édition collectionneur",
-     "description_fr": "Pièce unique. La statue mesure 32 cm, 39 cm avec son socle en bois teinté foncé et sa plaque de laiton au nom du Fr. André. Fini à la main, lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d'origine végétale et très peu de déchets. Expédition gratuite.",
-     "story": "A collector's piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, one of one.",
-     "story_fr": "Une pièce de collection pour l'époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, pièce unique.",
+     "description_fr": "Édition limitée de 25 exemplaires. La statue mesure 32 cm, 39 cm avec son socle en bois teinté foncé et sa plaque de laiton au nom du Fr. André. Fini à la main, lourd, très détaillé, fabriqué par fabrication additive avec des matériaux d'origine végétale et très peu de déchets. Un exemplaire sera bientôt exposé à l'Oratoire Saint-Joseph. Expédition gratuite.",
+     "story": "A collector's piece for the era of Saint Frère André. The statue itself is 32 cm (39 cm with the base), printed in large-format additive manufacturing, then finished by hand, and mounted on a dark stained wood base with a brass Fr. Andre name plate. Heavy, highly detailed, from a limited edition of 25 — one will soon be on display at Saint Joseph's Oratory.",
+     "story_fr": "Une pièce de collection pour l'époque de saint Frère André. La statue mesure 32 cm (39 cm avec le socle), imprimée en fabrication additive grand format, puis finie à la main, et montée sur un socle en bois teinté foncé avec une plaque de laiton au nom du Fr. André. Lourd, très détaillé, d'une édition limitée de 25 exemplaires — un exemplaire sera bientôt exposé à l'Oratoire Saint-Joseph.",
      "depts": ["religious"], "stock": 1, "sort": 4},
     {"id": "andre-stone-statue", "name": "Saint Frere Andre Hydrostone Statue", "price_cents": 47500,
      "photo": "/img/products/andre-stone-front.jpg",
