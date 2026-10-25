@@ -3323,6 +3323,160 @@ def product_page(pid):
   }
 })();
 </script>"""
+    # Memorial lamp 4-side builder (2026-10-24, Antonio): to make the lamp
+    # he needs, per side, a chosen gallery design OR an uploaded photo OR
+    # a floral text panel (name / years / message). The builder keeps a
+    # hidden #memorialSidesData input filled with the sides JSON once all
+    # 4 sides are complete; buy-now and the cart both gate on it, and the
+    # server re-validates (validate_sides) so no order lands without them.
+    sides_field = ""
+    sides_js = ""
+    if p["id"] == "memorial-lamp" and p["purchasable"] and not p["in_works"] \
+            and not (p["stock"] is not None and p["stock"] <= 0):
+        _fr = lang == "fr"
+        _gal = [{"id": k, "name": (v["name_fr"] if _fr else v["name"]),
+                 "image": v["image"]} for k, v in GALLERY.items()]
+        _boxes = ""
+        for _i in range(4):
+            _thumbs = "".join(
+                f'<button type="button" class="sideg" data-gid="{h(g["id"])}" '
+                f'style="padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:none;cursor:pointer">'
+                f'<img src="{h(g["image"])}" alt="{h(g["name"])}" loading="lazy" '
+                f'style="width:100%;height:64px;object-fit:cover;display:block">'
+                f'<span class="small" style="display:block;padding:4px 2px">{h(g["name"])}</span></button>'
+                for g in _gal)
+            _boxes += (
+                f'<div class="sidebox" data-side="{_i}" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center">'
+                f'<strong>{"Face" if _fr else "Side"} {_i + 1}</strong>'
+                f'<span class="small muted side-status">{"À choisir" if _fr else "To choose"}</span></div>'
+                f'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
+                f'<button type="button" class="btn btn-line side-kind" data-kind="gallery">{"Motif" if _fr else "Design"}</button>'
+                f'<button type="button" class="btn btn-line side-kind" data-kind="upload">{"Ma photo" if _fr else "My photo"}</button>'
+                f'<button type="button" class="btn btn-line side-kind" data-kind="text">{"Texte fleuri" if _fr else "Floral text"}</button></div>'
+                f'<div class="sidepane pane-gallery" style="display:none;margin-top:10px">'
+                f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">{_thumbs}</div></div>'
+                f'<div class="sidepane pane-upload" style="display:none;margin-top:10px">'
+                f'<input type="file" class="sidefile" accept="image/*">'
+                f'<img class="sidepreview" style="display:none;max-width:110px;border-radius:8px;margin-top:8px" alt="">'
+                f'<p class="small muted sideupmsg" style="margin-top:4px"></p></div>'
+                f'<div class="sidepane pane-text" style="display:none;margin-top:10px">'
+                f'<input type="text" class="tx-name" maxlength="60" placeholder="{("Nom — ex. Anthony Romero" if _fr else "Name — e.g. Anthony Romero")}">'
+                f'<input type="text" class="tx-years" maxlength="30" placeholder="{("Années — ex. 1980 - 2026" if _fr else "Years — e.g. 1980 - 2026")}" style="margin-top:6px">'
+                f'<textarea class="tx-msg" rows="2" maxlength="200" placeholder="{("Message — ex. Un époux, un père, un frère et un fils dévoué" if _fr else "Message — e.g. A devoted husband, father, brother and son")}" style="margin-top:6px"></textarea>'
+                f'<p class="small muted" style="margin:4px 0 0">{("Imprimé dans une fenêtre entourée de fleurs." if _fr else "Printed in a window framed with flowers.")}</p></div>'
+                f'</div>')
+        sides_field = (
+            f'<div class="field" id="sidesBuilder"><label><strong>'
+            f'{("Composez vos 4 faces" if _fr else "Compose your 4 sides")}</strong></label>'
+            f'<p class="small muted" style="margin:4px 0 0">'
+            f'{("Pour fabriquer votre lampe, choisissez chaque face : un motif, votre propre photo, ou un texte dans une fenêtre fleurie." if _fr else "To make your lamp, choose each side: a design, your own photo, or a text in a flower window.")}</p>'
+            f'{_boxes}'
+            f'<input type="hidden" id="memorialSidesData" value="">'
+            f'<p id="sidesError" class="small" style="color:#A33232;margin-top:6px"></p></div>')
+        _cfg = {
+            "todo": "À choisir" if _fr else "To choose",
+            "photo": "Photo téléversée" if _fr else "Photo uploaded",
+            "textlbl": "Texte fleuri" if _fr else "Floral text",
+            "err": ("Choisissez les 4 faces avant de continuer : un motif, une photo ou un texte fleuri pour chaque face."
+                    if _fr else
+                    "Choose all 4 sides before continuing: a design, a photo or a floral text for each side."),
+            "uploading": "Téléversement..." if _fr else "Uploading...",
+            "upload_err": ("Cette photo n'a pas pu être téléversée. Essayez une autre image."
+                           if _fr else "That photo could not be uploaded. Try another image."),
+        }
+        sides_js = ("<script>\n(function(){\n"
+                    f"  var GAL = {json.dumps(_gal)};\n"
+                    f"  var CFG = {json.dumps(_cfg)};\n"
+                    """  var hidden = document.getElementById('memorialSidesData');
+  var errEl = document.getElementById('sidesError');
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#sidesBuilder .sidebox'));
+  var state = [null, null, null, null];
+  function complete(i) {
+    var s = state[i]; if (!s) return false;
+    if (s.kind === 'gallery') return !!s.id;
+    if (s.kind === 'upload') return !!s.file;
+    if (s.kind === 'text') return !!(s.name || s.years || s.message);
+    return false;
+  }
+  function labelFor(s) {
+    if (s.kind === 'gallery') return s.name || '';
+    if (s.kind === 'upload') return CFG.photo;
+    return CFG.textlbl + (s.name ? ': ' + s.name : '');
+  }
+  function sync() {
+    var ok = state.every(function(_, i) { return complete(i); });
+    hidden.value = ok ? JSON.stringify(state) : '';
+    boxes.forEach(function(box, i) {
+      box.querySelector('.side-status').textContent =
+        complete(i) ? '\\u2713 ' + labelFor(state[i]) : CFG.todo;
+    });
+    if (ok) errEl.textContent = '';
+  }
+  boxes.forEach(function(box, i) {
+    var kinds = box.querySelectorAll('.side-kind');
+    kinds.forEach(function(btn) { btn.addEventListener('click', function() {
+      kinds.forEach(function(b) { b.classList.remove('btn-gold'); b.classList.add('btn-line'); });
+      btn.classList.remove('btn-line'); btn.classList.add('btn-gold');
+      box.querySelectorAll('.sidepane').forEach(function(p) { p.style.display = 'none'; });
+      var pane = box.querySelector('.pane-' + btn.getAttribute('data-kind'));
+      if (pane) pane.style.display = '';
+      var k = btn.getAttribute('data-kind');
+      if (k === 'gallery' && (!state[i] || state[i].kind !== 'gallery'))
+        state[i] = {kind: 'gallery', id: '', name: ''};
+      if (k === 'upload' && (!state[i] || state[i].kind !== 'upload'))
+        state[i] = {kind: 'upload', file: ''};
+      if (k === 'text' && (!state[i] || state[i].kind !== 'text'))
+        state[i] = {kind: 'text',
+          name: box.querySelector('.tx-name').value.trim(),
+          years: box.querySelector('.tx-years').value.trim(),
+          message: box.querySelector('.tx-msg').value.trim()};
+      sync();
+    }); });
+    box.querySelectorAll('.sideg').forEach(function(g) { g.addEventListener('click', function() {
+      box.querySelectorAll('.sideg').forEach(function(x) { x.style.borderColor = 'transparent'; });
+      g.style.borderColor = '#C9962E';
+      var gid = g.getAttribute('data-gid');
+      var item = GAL.filter(function(x) { return x.id === gid; })[0] || {name: ''};
+      state[i] = {kind: 'gallery', id: gid, name: item.name};
+      sync();
+    }); });
+    var file = box.querySelector('.sidefile');
+    file.addEventListener('change', async function() {
+      var f = file.files[0]; if (!f) return;
+      var msg = box.querySelector('.sideupmsg'); msg.textContent = CFG.uploading;
+      try {
+        var fd = new FormData(); fd.append('file', f);
+        var r = await fetch('/api/lamp-upload', {method: 'POST', body: fd});
+        var j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'upload failed');
+        state[i] = {kind: 'upload', file: j.file};
+        var pv = box.querySelector('.sidepreview'); pv.src = j.url; pv.style.display = '';
+        msg.textContent = '';
+      } catch(e) {
+        msg.textContent = CFG.upload_err;
+        state[i] = {kind: 'upload', file: ''};
+      }
+      sync();
+    });
+    ['tx-name', 'tx-years', 'tx-msg'].forEach(function(cls) {
+      box.querySelector('.' + cls).addEventListener('input', function() {
+        state[i] = {kind: 'text',
+          name: box.querySelector('.tx-name').value.trim(),
+          years: box.querySelector('.tx-years').value.trim(),
+          message: box.querySelector('.tx-msg').value.trim()};
+        sync();
+      });
+    });
+  });
+  window.adnMemorialSidesWarn = function() {
+    errEl.textContent = CFG.err;
+    var b = document.getElementById('sidesBuilder');
+    if (b) b.scrollIntoView({behavior: 'smooth', block: 'center'});
+  };
+  sync();
+})();
+</script>""")
     preorder_note = ""
     if p["preorder"]:
         preorder_note = (f'<div class="preorder-note">{t(lang, "preorder_note").format(date=h(p["preorder_ship_date"] or ("bientôt" if lang == "fr" else "soon")))}</div>')
@@ -3368,6 +3522,17 @@ def product_page(pid):
 document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventListener('click', async function() {{
   var btn = this; btn.disabled = true; btn.textContent = {json.dumps(t(lang, "preparing"))};
   var payload = {{ product_id: {json.dumps(p["id"])}, qty: parseInt(document.getElementById('qty').value) || 1, lang: {json.dumps(lang)} }};
+  if (document.getElementById('sidesBuilder')) {{
+    var msd = document.getElementById('memorialSidesData');
+    if (!msd || !msd.value) {{
+      document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps("Choisissez les 4 faces avant de continuer : un motif, une photo ou un texte fleuri pour chaque face." if lang == "fr" else "Choose all 4 sides before continuing: a design, a photo or a floral text for each side.")} + '</div>';
+      if (window.adnMemorialSidesWarn) window.adnMemorialSidesWarn();
+      btn.disabled = false;
+      var qEl2 = document.getElementById('qty'); if (qEl2) qEl2.dispatchEvent(new Event('change'));
+      return;
+    }}
+    try {{ payload.sides = JSON.parse(msd.value); }} catch(e) {{}}
+  }}
   var eng = document.getElementById('engraving');
   if (eng) payload.engraving_text = eng.value;
   var dmode = document.querySelector('input[name="designmode"]:checked');
@@ -3629,6 +3794,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {engraving_field}
 {option_field}
 {initials_field}
+{sides_field}
 {color_field}
 <div class="field"><label for="qty">{t(lang, "qty")}</label>
 <input type="number" id="qty" value="1" min="1" max="{qty_max}"></div>
@@ -3649,7 +3815,7 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
 {reviews_section(pid, lang)}
 {cross}
 {sticky}
-{gal_js}{buy_js}{design_js}{notify_js}{initials_js}{qty_cards_js}{gift_js}"""
+{gal_js}{buy_js}{design_js}{notify_js}{initials_js}{sides_js}{qty_cards_js}{gift_js}"""
     # Product structured data (rich results): offers + aggregate rating when reviews exist.
     rconn = db()
     rrow = rconn.execute(
@@ -3857,6 +4023,17 @@ def api_checkout():
             return jsonify({"error": t(lang, "err_stock")}), 400
     elif p["stock"] is not None and p["stock"] < qty:
         return jsonify({"error": t(lang, "err_stock")}), 400
+    # Memorial lamp (2026-10-24, Antonio): an order is useless to make
+    # without the 4 sides — a gallery design, an uploaded photo, or a
+    # floral text panel per side. Required server-side, not just in the
+    # page JS; the maker-readable summary rides in engraving_text so it
+    # shows in the admin dispatch list and the seller email.
+    if pid == "memorial-lamp":
+        try:
+            _clean_sides, _snames = validate_sides(data.get("sides"), lang)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        engraving = sides_summary(_clean_sides, lang)[:1500]
     # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
     if pid == "mini-bust":
         amount = (2999 if size == "Large" else 1999) * qty
@@ -4004,6 +4181,21 @@ def api_cart_checkout():
         if engraving:
             _parts.append("Text: " + engraving)
         options = "; ".join(_parts)[:200]
+        if pid == "memorial-lamp":
+            # Same rule as buy-now (2026-10-24): no sides, no order — the
+            # lamp cannot be made without them.
+            _raw_sides = it.get("sides")
+            if isinstance(_raw_sides, str):
+                try:
+                    _raw_sides = json.loads(_raw_sides)
+                except ValueError:
+                    _raw_sides = None
+            try:
+                _clean_sides, _snames = validate_sides(_raw_sides, lang)
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            _ssum = sides_summary(_clean_sides, lang)
+            options = (((options + "; ") if options else "") + _ssum)[:1500]
         p = get_product(pid)
         if not p or not p["purchasable"] or p["in_works"]:
             return jsonify({"error": t(lang, "err_unknown_product")}), 404
@@ -4767,9 +4959,40 @@ def validate_sides(sides, lang="fr"):
                 raise ValueError(t(lang, "err_unknown_product"))
             clean.append({"kind": "upload", "file": fname})
             names.append("votre photo" if lang == "fr" else "your photo")
+        elif kind == "text":
+            # Text in a flower window (Antonio, 2026-10-24): the memorial
+            # panel with the loved one's name, years and a short message
+            # inside a floral frame. At least one line must be filled.
+            nm = (s.get("name") or "").strip()[:60]
+            yrs = (s.get("years") or "").strip()[:30]
+            msg = (s.get("message") or "").strip()[:200]
+            if not (nm or yrs or msg):
+                raise ValueError(t(lang, "err_sides"))
+            clean.append({"kind": "text", "name": nm, "years": yrs,
+                          "message": msg})
+            lbl = "Texte fleuri" if lang == "fr" else "Floral text"
+            names.append(f"{lbl}: {nm}" if nm else lbl)
         else:
             raise ValueError(t(lang, "err_sides"))
     return clean, names
+
+
+def sides_summary(clean, lang="fr"):
+    """One maker-readable line describing all 4 sides of a custom lamp:
+    what Antonio needs in front of him to actually build the lamp."""
+    parts = []
+    for i, s in enumerate(clean, 1):
+        if s["kind"] == "gallery":
+            g = GALLERY[s["id"]]
+            d = g["name_fr"] if lang == "fr" else g["name"]
+            parts.append(f"{i}) " + ("Motif: " if lang == "fr" else "Design: ") + d)
+        elif s["kind"] == "upload":
+            parts.append(f"{i}) Photo: {s['file']}")
+        else:
+            lbl = "Texte fleuri" if lang == "fr" else "Floral text"
+            txt = " | ".join(x for x in (s["name"], s["years"], s["message"]) if x)
+            parts.append(f"{i}) {lbl}: «{txt}»")
+    return ("Faces — " if lang == "fr" else "Sides — ") + " · ".join(parts)
 
 
 @app.route("/api/lamp-checkout", methods=["POST"])
@@ -4840,7 +5063,7 @@ def lamp_checkout():
         phone_number_collection={"enabled": True},
         success_url=f"{SITE_URL}/thank-you.html?order={oid}",
         cancel_url=f"{SITE_URL}/custom-lamp.html?cancelled=1",
-        metadata={"order_id": oid, "kind": "lamp", "sides": side_summary[:400],
+        metadata={"order_id": oid, "kind": "lamp", "sides": sides_summary(sides, lang)[:400],
                   "ship_country": ship_country},
     )
     conn = db()

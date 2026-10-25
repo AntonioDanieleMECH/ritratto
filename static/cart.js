@@ -82,7 +82,7 @@
   function keyOf(it) {
     return [it.pid, it.design || "", it.saint || "", it.size || "",
             it.color || "", it.initials || "", it.engraving || "",
-            it.base || ""].join("|");
+            it.base || "", it.sides || ""].join("|");
   }
   function lineTotal(it, withIni) {
     var q = it.qty || 1;
@@ -110,6 +110,19 @@
     if (it.color) parts.push((lang() === "fr" ? "Couleur" : "Color") + ": " + colorName(it.color));
     if (it.initials) parts.push("Initials: " + it.initials);
     if (it.engraving) parts.push(it.engraving);
+    if (it.sides) {
+      try {
+        var sd = JSON.parse(it.sides), sp = [];
+        sd.forEach(function (s, i) {
+          if (s.kind === "gallery") sp.push((i + 1) + ") " + (s.name || "Design"));
+          else if (s.kind === "upload") sp.push((i + 1) + ") Photo");
+          else if (s.kind === "text") sp.push((i + 1) + ") " +
+            (lang() === "fr" ? "Texte fleuri" : "Floral text") +
+            (s.name ? ": " + s.name : ""));
+        });
+        if (sp.length) parts.push((lang() === "fr" ? "Faces — " : "Sides — ") + sp.join(" · "));
+      } catch (e) {}
+    }
     return parts.join(" · ");
   }
   function shipCountry() {
@@ -417,7 +430,8 @@
           product_id: it.pid, qty: it.qty || 1,
           engraving_text: it.engraving || "", design: it.design || "",
           saint: it.saint || "", size: it.size || "", color: it.color || "",
-          initials: it.initials || "", base: it.base || ""
+          initials: it.initials || "", base: it.base || "",
+          sides: it.sides || ""
         };
       }),
       coupon: document.getElementById("cartCoupon").value.trim(),
@@ -458,6 +472,17 @@
     var m = window.location.pathname.match(/\/product\/(.+)$/);
     if (!m) return;
     var pid = decodeURIComponent(m[1]);
+    /* Memorial lamp: the 4 sides are required to make it — block the add
+       until the on-page builder is complete (server re-validates too). */
+    var sidesData = "";
+    if (document.getElementById("sidesBuilder")) {
+      var msd = document.getElementById("memorialSidesData");
+      if (!msd || !msd.value) {
+        if (window.adnMemorialSidesWarn) window.adnMemorialSidesWarn();
+        return;
+      }
+      sidesData = msd.value;
+    }
     ensurePrices(function (map) {
       var p = map[pid] || {};
       var qtyEl = document.getElementById("qty");
@@ -510,7 +535,8 @@
         pid: pid, name: name, img: img, qty: qty,
         unit_cents: unit, add_cents: p.additional_price_cents || 0,
         design: design, saint: saint, size: size, color: color,
-        initials: initials, engraving: engraving, base: base
+        initials: initials, engraving: engraving, base: base,
+        sides: sidesData
       });
       if (addBtn) {
         var orig = addBtn.textContent;

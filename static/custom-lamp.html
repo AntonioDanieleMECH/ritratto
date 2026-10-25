@@ -46,6 +46,12 @@
 <div class="field" style="margin-top:18px"><label for="sideUpload" data-i18n="lamp.upload_l">Ou téléversez votre propre photo</label>
 <input type="file" id="sideUpload" accept="image/*">
 <p class="small muted" data-i18n="lamp.upload_p">Votre photo n'est conservée que pour fabriquer votre lampe.</p></div>
+<div class="field" style="margin-top:18px"><label data-i18n="lamp.text_l">Ou un texte dans une fenêtre fleurie</label>
+<input type="text" id="sideTextName" maxlength="60" data-i18n-attr="placeholder:lamp.text_name_ph" placeholder="Nom — ex. Anthony Romero">
+<input type="text" id="sideTextYears" maxlength="30" data-i18n-attr="placeholder:lamp.text_years_ph" placeholder="Années — ex. 1980 - 2026" style="margin-top:6px">
+<textarea id="sideTextMsg" rows="2" maxlength="200" data-i18n-attr="placeholder:lamp.text_msg_ph" placeholder="Message — ex. Un époux, un père, un frère et un fils dévoué" style="margin-top:6px"></textarea>
+<p class="small muted" data-i18n="lamp.text_p">Le texte est imprimé dans une fenêtre entourée de fleurs, comme sur la lampe commémorative.</p>
+<button class="btn btn-brass btn-block" id="sideTextUse" type="button" data-i18n="lamp.text_use">Utiliser ce texte pour cette face</button></div>
 <button class="btn btn-outline btn-block" id="pickerCancel" type="button" data-i18n="lamp.back">Retour à mes faces</button>
 <div id="pickerNotice" style="display:none;margin-top:12px"></div>
 </div>
@@ -113,7 +119,10 @@
     var html="";
     for(var i=0;i<4;i++){
       var s=state.sides[i];
-      var thumb=s?'<img src="'+esc(s.thumb)+'" alt="'+esc(T("lamp.side").replace("{n}",i+1))+'" loading="lazy">':'<div class="photo-placeholder">'+esc(T("lamp.notchosen"))+'</div>';
+      var thumb;
+      if(!s)thumb='<div class="photo-placeholder">'+esc(T("lamp.notchosen"))+'</div>';
+      else if(s.kind==="text")thumb='<div class="photo-placeholder" style="font-size:2rem">&#10048;<div style="font-size:.85rem;margin-top:4px">'+esc(s.tname||"")+'</div></div>';
+      else thumb='<img src="'+esc(s.thumb)+'" alt="'+esc(T("lamp.side").replace("{n}",i+1))+'" loading="lazy">';
       var label=s?esc(s.name):esc(T("lamp.nothing"));
       var btn=s?T("lamp.change").replace("{n}",i+1):T("lamp.choose").replace("{n}",i+1);
       html+='<div class="card"><div class="card-media">'+thumb+'</div>'+
@@ -139,6 +148,10 @@
     state.picking=i;
     pickerTitle.textContent=T("lamp.picker_t").replace("{n}",i+1);
     uploadEl.value="";
+    var cur=state.sides[i];
+    document.getElementById("sideTextName").value=(cur&&cur.kind==="text")?cur.tname:"";
+    document.getElementById("sideTextYears").value=(cur&&cur.kind==="text")?cur.years:"";
+    document.getElementById("sideTextMsg").value=(cur&&cur.kind==="text")?cur.message:"";
     show(pickerNoticeEl,null);
     pickerEl.style.display="block";
     pickerEl.scrollIntoView({behavior:"smooth",block:"start"});
@@ -154,6 +167,16 @@
     var g=state.gallery.filter(function(x){return x.id===card.getAttribute("data-gid");})[0];
     if(!g)return;
     state.sides[state.picking]={kind:"gallery",id:g.id,name:gname(g),thumb:g.image};
+    closePicker();renderSlots();show(noticeEl,null);
+  });
+  document.getElementById("sideTextUse").addEventListener("click",function(){
+    if(state.picking==null)return;
+    var nm=document.getElementById("sideTextName").value.trim(),
+        yr=document.getElementById("sideTextYears").value.trim(),
+        ms=document.getElementById("sideTextMsg").value.trim();
+    if(!nm&&!yr&&!ms){show(pickerNoticeEl,T("lamp.text_err"),true);return;}
+    state.sides[state.picking]={kind:"text",tname:nm,years:yr,message:ms,
+      name:T("lamp.yourtext")+(nm?": "+nm:"")};
     closePicker();renderSlots();show(noticeEl,null);
   });
   document.getElementById("pickerCancel").addEventListener("click",closePicker);
@@ -192,7 +215,9 @@
     show(noticeEl,T("lamp.preparing"));
     try{
       var sides=state.sides.map(function(s){
-        return s.kind==="gallery"?{kind:"gallery",id:s.id}:{kind:"upload",file:s.file};
+        if(s.kind==="gallery")return{kind:"gallery",id:s.id};
+        if(s.kind==="text")return{kind:"text",name:s.tname,years:s.years,message:s.message};
+        return{kind:"upload",file:s.file};
       });
       var scEl=document.getElementById("lampShipCountry");
       var r=await fetch("/api/lamp-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -222,14 +247,6 @@
       }).catch(function(){clearTimeout(to);});
     }catch(e){}
   })();
-      var data=await r.json().catch(function(){return{};});
-      if(!r.ok)throw new Error(data.error||"checkout failed");
-      window.location.href=data.url;
-    }catch(err){
-      show(noticeEl,T("lamp.start_err"),true);
-      btn.disabled=false;
-    }
-  });
 
   fetch("/api/gallery").then(function(r){return r.json();}).then(function(j){
     state.gallery=j.gallery||[];
