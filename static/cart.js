@@ -84,8 +84,17 @@
             it.color || "", it.initials || "", it.engraving || "",
             it.base || "", it.sides || ""].join("|");
   }
+  function kcUnitFor(n) { return n >= 10 ? 350 : n >= 3 ? 449 : 499; }
+  function kcCartCount() {
+    return load().reduce(function (s, x) {
+      return s + ((x.pid || "").indexOf("keychain-") === 0 ? (x.qty || 1) : 0);
+    }, 0);
+  }
   function lineTotal(it, withIni) {
     var q = it.qty || 1;
+    /* Saint keychains: one crew unit price set by the keychain count in
+       the whole cart (mirrors the server ladder). */
+    if ((it.pid || "").indexOf("keychain-") === 0) return kcUnitFor(kcCartCount()) * q;
     var t;
     if (it.pid === "memorial-lamp" && q >= 4 && it.add_cents) {
       var packs = Math.floor(q / 4), rest = q % 4;
@@ -346,8 +355,16 @@
     var disc = pctOff ? Math.round((sub + wrap) * pctOff / 100) : 0;
     /* Mirror the server: free Canada shipping once the discounted
        merchandise total reaches $50 (the drawer used to always show $5). */
-    var ship = (shipCountry() === "CA" && (sub + wrap - disc) >= 5000)
-      ? 0 : SHIP_CENTS[shipCountry()];
+    var allKc = items.length > 0 && items.every(function (x) {
+      return (x.pid || "").indexOf("keychain-") === 0; });
+    var ship;
+    if (shipCountry() === "CA" && allKc) {
+      /* Keychain-only orders (2026-11-07): $2.50 under $20, free at $20+. */
+      ship = (sub + wrap - disc) >= 2000 ? 0 : 250;
+    } else {
+      ship = (shipCountry() === "CA" && (sub + wrap - disc) >= 5000)
+        ? 0 : SHIP_CENTS[shipCountry()];
+    }
     document.getElementById("cartSubL").textContent = T("subtotal");
     document.getElementById("cartSub").textContent = money(sub);
     var drow = document.getElementById("cartDiscRow");
@@ -361,6 +378,7 @@
     sel.options[0].textContent = T("ship_ca");
     sel.options[1].textContent = T("ship_us");
     sel.options[2].textContent = T("ship_intl");
+    if (allKc) sel.options[0].textContent = lang() === "fr" ? "Canada — 2,50 $ CAD" : "Canada — $2.50 CAD";
     document.getElementById("cartShipAmtL").textContent = T("shipping");
     document.getElementById("cartShipAmt").textContent = ship ? money(ship) : T("ship_free");
     document.getElementById("cartGiftWrapL").textContent = T("gift_wrap");

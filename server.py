@@ -1001,6 +1001,69 @@ def seed():
                  p.get("stock"), 0, "", p.get("engravable", 0),
                  p.get("purchasable", 1), p.get("custom_link", ""), 1,
                  p.get("sort", 0), now_iso()))
+    # Saint keychains 2026-11-07 (only if missing): 19 saints, one
+    # product each, crew pricing applied in the checkout code.
+    _KC = [
+        ('keychain-carlo-acutis', 'Carlo Acutis', 'Carlo Acutis', 'wyd', 'A teenager from Milan who loved video games and built a website cataloguing Eucharistic miracles from around the world. After his death at 15, healings were attributed to his prayers, including a Brazilian boy whose pancreas was restored and a young woman who recovered after a terrible bike accident. He is the first millennial saint, proof that holiness is possible right now, at your age.', "Un adolescent comme les autres, jeux vidéo, ordinateurs et un meilleur ami nommé Jésus. Carlo a bâti un site web qui catalogue les miracles eucharistiques du monde entier, puis il est mort d'une leucémie à 15 ans, en 2006, en offrant ses souffrances pour l'Église. Canonisé en 2025, il est le premier saint millénial, la preuve que la sainteté porte un coton ouaté et des espadrilles."),
+        ('keychain-john-paul-ii', 'John Paul II', 'Jean-Paul II', 'wyd', "The pope who started World Youth Day and told young people everywhere: do not be afraid. Two healings led to his canonization, a French sister cured of Parkinson's disease and a Costa Rican mother whose brain aneurysm disappeared after she prayed to him. Millions of young Catholics called him their papa.", "Le pape qui a visité 129 pays et lancé les Journées mondiales de la jeunesse. Il a survécu à la balle d'un assassin en 1981 et est allé à la prison pardonner à l'homme qui avait essayé de le tuer. Les foules de jeunes chantaient « JP2, we love you », et il répondait : « JP2, he loves you. »"),
+        ('keychain-andre-kim', 'Andre Kim Taegon', 'André Kim Taegon', 'wyd', 'The first Korean-born Catholic priest, who studied in secret and crossed dangerous borders just to bring the faith home. He was martyred at only 25, writing to his people that his hour had come and asking them to stay strong. He is the patron of Korea, where the Church he died for now thrives.', 'Premier prêtre né en Corée, à une époque où être chrétien là-bas était un crime capital. André Kim a fait entrer des missionnaires en secret, célébré la messe en cachette, et il a été décapité à 25 ans plutôt que de renoncer à sa foi. Il mène la procession des 103 martyrs coréens.'),
+        ('keychain-cabrini', 'Mother Cabrini', 'Mère Cabrini', 'wyd', 'A small, fearless Italian sister who crossed the ocean 23 times to build orphanages, schools and hospitals for immigrants. The healing that made her a saint was a newborn baby in New York whose damaged eyes were fully restored after prayers to her. She is the patroness of immigrants everywhere.', "Une religieuse italienne frêle, à qui on a dit de rester en Italie, qui a plutôt traversé l'océan et bâti 67 écoles, orphelinats et hôpitaux sur trois continents pour les immigrants que personne d'autre ne voulait aider. Première citoyenne américaine canonisée, elle est la sainte patronne des immigrants."),
+        ('keychain-bakhita', 'Josephine Bakhita', 'Joséphine Bakhita', 'wyd', 'Kidnapped from her family in Sudan as a little girl and sold into slavery, she was beaten and scarred, yet she forgave everyone and chose to become a sister. The healing tied to her canonization was a Brazilian woman whose leg wounds, which doctors could not close, healed after prayers to Bakhita. She is proof that no suffering has the last word.', "Enlevée au Soudan à sept ans et vendue comme esclave cinq fois, torturée et marquée pour la vie. Amenée en Italie, elle a trouvé la liberté et le Christ, pardonné à ses ravisseurs et vécu comme une sœur douce et souriante jusqu'en 1947. Jean-Paul II l'a appelée notre sœur universelle."),
+        ('keychain-frere-andre', 'Frere Andre', 'Frère André', 'saint', "Montreal's own miracle worker. A humble door-keeper with almost no schooling, he told every sick person who came to him: go to Saint Joseph. Thousands were healed, and the walls of his little chapel filled with crutches left behind. He built Saint Joseph's Oratory on Mount Royal, the largest shrine to Saint Joseph in the world.", "Un humble portier de Montréal qui ouvrait les portes et priait avec les malades au collège Notre-Dame. Frère André disait à chacun : allez voir saint Joseph. Des milliers de guérisons ont été rapportées, béquilles et cannes laissées derrière, et le petit frère a bâti la grande basilique de l'Oratoire Saint-Joseph sur la montagne. Canonisé en 2010, il est le grand saint du Canada."),
+        ('keychain-joseph', 'Saint Joseph', 'Saint Joseph', 'saint', 'The quiet carpenter God trusted with His own Son, shown here holding the Child Jesus with his lilies, the sign of his purity. He never speaks one word in the Bible, he simply obeys, protects and provides. He is the patron of workers, of fathers, and of a happy death, and Pope Francis kept a statue of the sleeping Saint Joseph by his desk, slipping his worries underneath it at night.', "L'homme silencieux des Évangiles, qui n'a jamais prononcé un mot rapporté dans la Bible. Joseph a cru le songe d'un ange, conduit Marie et l'Enfant en Égypte pour échapper à Hérode, et élevé le Fils de Dieu dans un atelier de charpentier à Nazareth. Il est le saint patron du Canada et des travailleurs."),
+        ('keychain-joseph-carpentry', 'Saint Joseph and Jesus Carpentry', 'Saint Joseph et Jésus charpentiers', 'saint', "Before Jesus preached to crowds, he spent years in a small workshop in Nazareth learning a trade at Joseph's side, saws, squares and wood shavings. This keychain shows the two of them together in the shop, the master carpenter and his young apprentice. It is the one to gift to anyone who works with their hands.", "Avant les sermons sur les montagnes et les miracles devant les foules, il y avait un petit atelier à Nazareth, où saint Joseph a appris à Jésus à mesurer, à couper et à construire droit. L'apprentissage du Fils de Dieu auprès de son père terrestre : la sainte image du travail honnête fait avec amour."),
+        ('keychain-anthony', 'Saint Anthony', 'Saint Antoine', 'saint', 'The saint everyone calls when something precious is lost, and he has been finding lost things, and lost people, for 800 years. When a crowd refused to listen to his preaching, he preached to the fish, and they rose out of the water to hear him. The Child Jesus once appeared in his arms while he prayed.', "Le saint à qui tout le monde s'adresse quand quelque chose de précieux est perdu, et il retrouve les choses perdues, et les gens perdus, depuis 800 ans. Quand une foule refusait d'écouter sa prédication, il a prêché aux poissons, qui sont sortis de l'eau pour l'entendre. L'Enfant Jésus est apparu une fois dans ses bras pendant qu'il priait."),
+        ('keychain-francis', 'Saint Francis', "Saint François d'Assise", 'saint', 'The rich young man who gave away everything, even the clothes on his back, and found perfect joy in having nothing. He tamed the wolf that was terrorizing the town of Gubbio, preached to the birds, who gathered around him to listen, and near the end of his life received the wounds of Christ on Mount La Verna. He is the patron of animals and of nature.', 'Le jeune homme riche qui a tout donné, même les vêtements sur son dos, et trouvé une joie parfaite à ne rien posséder. Il a apprivoisé le loup qui terrifiait le village de Gubbio, prêché aux oiseaux, qui se sont rassemblés autour de lui pour écouter, et vers la fin de sa vie, il a reçu les plaies du Christ sur le mont Alverne. Il est le saint patron des animaux et de la nature.'),
+        ('keychain-padre-pio', 'Padre Pio', 'Padre Pio', 'saint', 'An Italian friar who bore the wounds of Christ in his own hands for 50 years and spent his days hearing confessions for hours on end. People reported seeing him in two places at once, and healings followed his prayers, including a young boy cured of deadly meningitis. His words still guide millions: pray, hope, and do not worry.', "Un frère italien qui a porté les plaies du Christ dans ses mains pendant 50 ans et passait ses journées à entendre les confessions des heures durant. Des gens ont rapporté l'avoir vu à deux endroits à la fois, et des guérisons ont suivi ses prières, dont celle d'un jeune garçon guéri d'une méningite mortelle, le miracle qui a mené à sa canonisation. Son conseil demeure : priez, espérez et ne vous inquiétez pas."),
+        ('keychain-michael', 'Saint Michael', 'Saint Michel', 'saint', 'The archangel who leads the armies of heaven and cast Satan out. For centuries the sick have travelled to his shrine at Monte Gargano in Italy, where he appeared in a cave that no bishop was allowed to consecrate because Michael said he had already blessed it himself. He is the protector of police officers, soldiers, and everyone fighting evil.', "Le prince des armées du ciel, l'archange qui a combattu Lucifer et ses anges rebelles et les a jetés hors du ciel. Son nom est un cri de guerre : « Qui est comme Dieu? » Depuis toujours, les chrétiens l'invoquent pour être protégés du mal, et on le montre avec son épée et sa balance, pesant les âmes."),
+        ('keychain-therese', 'Saint Therese', 'Sainte Thérèse', 'saint', 'The Little Flower of Lisieux. She promised to spend her heaven doing good on earth, and ever since, people around the world report favours and roses arriving after asking her prayers. She never did anything famous in her short life, she simply did small things with great love, and she became the patroness of missions without ever leaving her convent.', "Une carmélite française qui est entrée au couvent à 15 ans et est morte à 24, sans que presque personne ne connaisse son nom. Sa petite voie, faire les plus petites choses avec un grand amour, est devenue l'une des plus grandes écoles de sainteté : son journal est parmi les livres spirituels les plus lus au monde, et elle a promis de faire tomber une pluie de roses du ciel."),
+        ('keychain-don-bosco', 'Saint John Bosco', 'Saint Jean Bosco', 'saint', "Turin's priest for street boys. At nine years old he dreamed of a lady who told him to win hearts with kindness, not blows, and he spent his life doing exactly that, gathering orphans with games, music and joy. His dreams often told the future, and more than once the food for his boys multiplied when there was not enough to go around.", 'Un prêtre de Turin qui a rassemblé des centaines de garçons des rues, orphelins et apprentis exploités, et bâti pour eux des écoles, des ateliers et des terrains de jeu. Don Bosco enseignait par la gentillesse, jamais par la punition, et gagnait leur confiance par les tours de jonglerie et de magie avant de les mener à Dieu. Il est le saint patron des jeunes et des apprentis.'),
+        ('keychain-ignatius', 'Saint Ignatius', 'Saint Ignace', 'saint', "A soldier whose leg was shattered by a cannonball. While he healed, he read the lives of the saints and traded his sword for a pilgrim's staff, founding the Jesuits and writing the Spiritual Exercises, which still teach millions to hear God's voice in their own lives. He is the patron of discernment, of soldiers, and of retreats.", 'Un soldat et un mondain dont la vie a basculé quand un boulet de canon lui a brisé la jambe au combat. Sur son lit de convalescence, ne trouvant que des vies de saints à lire, il a échangé ses rêves de gloire contre le Christ, fondé la Compagnie de Jésus et écrit les Exercices spirituels, une école de prière encore suivie dans le monde entier.'),
+        ('keychain-rocco', 'Saint Rocco', 'Saint Roch', 'saint', 'When the plague swept through Italy, young Rocco walked into the sick towns everyone else had fled, and the people he touched were healed. When he caught the plague himself and hid in the forest, a dog found him and brought him bread every day until he recovered. He is the patron against plagues and sickness, and his little dog never leaves his side.', "Un jeune noble qui a donné son héritage et marché jusqu'à Rome pour soigner les malades de la peste, guérissant beaucoup d'entre eux d'un signe de croix. Quand il a attrapé la peste à son tour, il s'est retiré dans les bois pour ne contaminer personne, et un chien lui apportait du pain chaque jour et léchait sa plaie jusqu'à ce qu'elle guérisse. Il est le saint patron des malades et des chiens."),
+        ('keychain-charbel', 'Saint Charbel', 'Saint Charbel', 'saint', 'A hermit monk from Lebanon who lived in silence and prayer, and whose tomb began to shine and give off a mysterious oil after his death. Thousands of healings are recorded at his monastery in Annaya, including a woman who rose from her wheelchair and walked after dreaming of him twice. People of every faith travel there to ask his prayers.', "Un moine et ermite libanais qui a vécu 23 ans dans le silence d'une petite cellule, ne mangeant qu'une fois par jour et dormant sur une planche. Après sa mort en 1898, une lumière vive a brillé au-dessus de sa tombe pendant des semaines, et son corps a été retrouvé intact. Des milliers de guérisons rapportées ont suivi la prière à son tombeau."),
+        ('keychain-solanus-casey', 'Blessed Solanus Casey', 'Bienheureux Solanus Casey', 'blessed', 'A humble Capuchin door-keeper in Detroit who became famous for the healings that followed his prayers. Crowds lined up at his door every day, and he told every person the same thing: thank God ahead of time. He is not a saint yet, he has been beatified, one step away, and the Church is still collecting the miracles attributed to him.', "Un frère portier doux du Michigan, jugé à peine assez brillant pour être prêtre, qui a accueilli les gens à la porte du monastère de Détroit pendant des décennies, les écoutant, les bénissant et leur disant de remercier Dieu d'avance. Des milliers de faveurs et de guérisons ont été rapportées par ceux qui ont frappé à sa porte. Il a été béatifié en 2017."),
+        ('keychain-our-lady', 'Our Lady', 'Notre-Dame', 'holy', "Mary, the mother of Jesus and the first disciple. Her appearances and miracles span the whole world, the image of Guadalupe printed on a peasant's cloak, the healings of Lourdes where she appeared to a poor girl in a grotto, the sun dancing at Fatima before tens of thousands. No one brings more people to her Son.", "La mère de Jésus et la première disciple. Ses apparitions et ses miracles couvrent le monde entier, de Guadalupe à Lourdes et Fatima, et partout, elle ne fait qu'une chose : mener les gens à son Fils. Sa couronne de douze étoiles vient du livre de l'Apocalypse."),
+    ]
+    _KC_PHOTOS = {
+        'keychain-carlo-acutis': ['/img/keychains/keychain-carlo-acutis-1.jpg', '/img/keychains/keychain-carlo-acutis-cartoon.jpg', '/img/keychains/keychain-carlo-acutis-uv1.jpg'],
+        'keychain-john-paul-ii': ['/img/keychains/keychain-john-paul-ii-1.jpg', '/img/keychains/keychain-john-paul-ii-cartoon.jpg', '/img/keychains/keychain-john-paul-ii-uv1.jpg'],
+        'keychain-andre-kim': ['/img/keychains/keychain-andre-kim-1.jpg', '/img/keychains/keychain-andre-kim-2.jpg', '/img/keychains/keychain-andre-kim-cartoon.jpg', '/img/keychains/keychain-andre-kim-uv1.jpg'],
+        'keychain-cabrini': ['/img/keychains/keychain-cabrini-1.jpg', '/img/keychains/keychain-cabrini-2.jpg', '/img/keychains/keychain-cabrini-cartoon.jpg', '/img/keychains/keychain-cabrini-uv1.jpg'],
+        'keychain-bakhita': ['/img/keychains/keychain-bakhita-1.jpg', '/img/keychains/keychain-bakhita-cartoon.jpg', '/img/keychains/keychain-bakhita-uv1.jpg'],
+        'keychain-frere-andre': ['/img/keychains/keychain-frere-andre-1.jpg', '/img/keychains/keychain-frere-andre-cartoon.jpg', '/img/keychains/keychain-frere-andre-uv1.jpg'],
+        'keychain-joseph': ['/img/keychains/keychain-joseph-1.jpg', '/img/keychains/keychain-joseph-cartoon.jpg', '/img/keychains/keychain-joseph-uv1.jpg'],
+        'keychain-joseph-carpentry': ['/img/keychains/keychain-joseph-carpentry-1.jpg', '/img/keychains/keychain-joseph-carpentry-2.jpg', '/img/keychains/keychain-joseph-carpentry-cartoon.jpg', '/img/keychains/keychain-joseph-carpentry-uv1.jpg'],
+        'keychain-anthony': ['/img/keychains/keychain-anthony-1.jpg', '/img/keychains/keychain-anthony-2.jpg', '/img/keychains/keychain-anthony-cartoon.jpg', '/img/keychains/keychain-anthony-uv1.jpg'],
+        'keychain-francis': ['/img/keychains/keychain-francis-1.jpg', '/img/keychains/keychain-francis-cartoon.jpg', '/img/keychains/keychain-francis-uv1.jpg'],
+        'keychain-padre-pio': ['/img/keychains/keychain-padre-pio-1.jpg', '/img/keychains/keychain-padre-pio-2.jpg', '/img/keychains/keychain-padre-pio-cartoon.jpg', '/img/keychains/keychain-padre-pio-uv1.jpg'],
+        'keychain-michael': ['/img/keychains/keychain-michael-1.jpg', '/img/keychains/keychain-michael-2.jpg', '/img/keychains/keychain-michael-cartoon.jpg', '/img/keychains/keychain-michael-uv1.jpg'],
+        'keychain-therese': ['/img/keychains/keychain-therese-1.jpg', '/img/keychains/keychain-therese-cartoon.jpg', '/img/keychains/keychain-therese-uv1.jpg'],
+        'keychain-don-bosco': ['/img/keychains/keychain-don-bosco-1.jpg', '/img/keychains/keychain-don-bosco-2.jpg', '/img/keychains/keychain-don-bosco-cartoon.jpg', '/img/keychains/keychain-don-bosco-uv1.jpg'],
+        'keychain-ignatius': ['/img/keychains/keychain-ignatius-1.jpg', '/img/keychains/keychain-ignatius-2.jpg', '/img/keychains/keychain-ignatius-cartoon.jpg', '/img/keychains/keychain-ignatius-uv1.jpg'],
+        'keychain-rocco': ['/img/keychains/keychain-rocco-1.jpg', '/img/keychains/keychain-rocco-2.jpg', '/img/keychains/keychain-rocco-cartoon.jpg', '/img/keychains/keychain-rocco-uv1.jpg'],
+        'keychain-charbel': ['/img/keychains/keychain-charbel-1.jpg', '/img/keychains/keychain-charbel-cartoon.jpg', '/img/keychains/keychain-charbel-uv1.jpg'],
+        'keychain-solanus-casey': ['/img/keychains/keychain-solanus-casey-1.jpg', '/img/keychains/keychain-solanus-casey-2.jpg', '/img/keychains/keychain-solanus-casey-cartoon.jpg', '/img/keychains/keychain-solanus-casey-uv1.jpg'],
+        'keychain-our-lady': ['/img/keychains/keychain-our-lady-1.jpg', '/img/keychains/keychain-our-lady-cartoon.jpg', '/img/keychains/keychain-our-lady-uv1.jpg'],
+    }
+    for _pid, _nen, _nfr, _cat, _sen, _sfr in _KC:
+        if conn.execute("SELECT id FROM products WHERE id=?", (_pid,)).fetchone():
+            continue
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (_pid, _nen, _nfr, 499, _KC_PHOTOS[_pid][0],
+             KC_DESC_EN.format(name=_nen), KC_DESC_FR.format(name=_nfr),
+             _sen, _sfr, json.dumps(["religious"]),
+             None, 0, "", 0, 1, "", 1, 60, now_iso()))
+        for _i, _ph in enumerate(_KC_PHOTOS[_pid]):
+            _phpid = "php_" + _pid.replace("-", "_") + "_" + str(_i)
+            if not conn.execute("SELECT id FROM product_photos WHERE id=?",
+                                (_phpid,)).fetchone():
+                conn.execute(
+                    "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
+                    "VALUES (?,?,?,?,?,?)", (_phpid, _pid, _ph, _i, 0, now_iso()))
     # New product 2026-10-24: the Christmas set bundle (only if missing).
     if not conn.execute("SELECT id FROM products WHERE id='christmas-set'").fetchone():
         conn.execute(
@@ -2123,6 +2186,7 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
     else:
         brand = '<a class="s-brand" href="/">ADN <span>Creations</span></a>'
         nav_items = [("/shop.html", "Lampes" if lang == "fr" else "Lamps", ""),
+                     ("/keychains", "Porte-clés" if lang == "fr" else "Saint keychains", ""),
                      ("/#saints", "Par saint" if lang == "fr" else "By saint", ""),
                      ("/#cadeaux", "Cadeaux" if lang == "fr" else "Gifts", ""),
                      ("/product/memorial-lamp", "Lampe commémorative" if lang == "fr" else "Memorial lamp", ""),
@@ -2775,6 +2839,8 @@ def shop_page(lang):
     by_group = {g: [] for g, _, _ in _SHOP_GROUPS}
     works = []
     for p in prods:
+        if p["id"].startswith("keychain-"):
+            continue  # saint keychains have their own section at /keychains
         if p["id"] in lamp_ids:
             continue
         if p["in_works"]:
@@ -2853,6 +2919,197 @@ def shop_page(lang):
     return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/shop.html")
 
 
+KC_ORDER = ['keychain-carlo-acutis', 'keychain-john-paul-ii', 'keychain-andre-kim', 'keychain-cabrini', 'keychain-bakhita', 'keychain-frere-andre', 'keychain-joseph', 'keychain-joseph-carpentry', 'keychain-anthony', 'keychain-francis', 'keychain-padre-pio', 'keychain-michael', 'keychain-therese', 'keychain-don-bosco', 'keychain-ignatius', 'keychain-rocco', 'keychain-charbel', 'keychain-solanus-casey', 'keychain-our-lady']
+KC_CATS = {'keychain-carlo-acutis': 'wyd', 'keychain-john-paul-ii': 'wyd', 'keychain-andre-kim': 'wyd', 'keychain-cabrini': 'wyd', 'keychain-bakhita': 'wyd', 'keychain-frere-andre': 'saint', 'keychain-joseph': 'saint', 'keychain-joseph-carpentry': 'saint', 'keychain-anthony': 'saint', 'keychain-francis': 'saint', 'keychain-padre-pio': 'saint', 'keychain-michael': 'saint', 'keychain-therese': 'saint', 'keychain-don-bosco': 'saint', 'keychain-ignatius': 'saint', 'keychain-rocco': 'saint', 'keychain-charbel': 'saint', 'keychain-solanus-casey': 'blessed', 'keychain-our-lady': 'holy'}
+
+
+def keychains_page(lang):
+    conn = db()
+    rows = conn.execute(
+        "SELECT * FROM products WHERE active=1 AND id LIKE 'keychain-%'").fetchall()
+    conn.close()
+    by_id = {p["id"]: p for p in rows}
+    prods = [by_id[i] for i in KC_ORDER if i in by_id]
+    fr = lang == "fr"
+
+    def fmt(c):
+        return money2(c, lang)
+
+    cards = []
+    for p in prods:
+        name = pick(p, lang, "name")
+        cat = KC_CATS.get(p["id"], "saint")
+        cards.append(
+            f'<div class="kc-card" data-cat="{h(cat)}">'
+            f'<a class="kc-img" href="/product/{p["id"]}"><img src="{h(p["photo"] or "")}" '
+            f'alt="{h(name)}" loading="lazy"></a>'
+            f'<h3><a href="/product/{p["id"]}">{h(name)}</a></h3>'
+            f'<p class="kc-price" data-kc-price>{fmt(499)}{" chacun" if fr else " each"}</p>'
+            f'<div class="kc-row"><span class="kc-step">'
+            f'<button type="button" onclick="kcStep(this,-1)" aria-label="-">&minus;</button>'
+            f'<span class="kc-qty">0</span>'
+            f'<button type="button" onclick="kcStep(this,1)" aria-label="+">+</button></span>'
+            f'<button type="button" class="btn btn-gold kc-add" data-pid="{h(p["id"])}" '
+            f'data-name="{h(name)}" data-img="{h(p["photo"] or "")}" onclick="kcAdd(this)">'
+            f'{h(t(lang, "add_to_cart"))}</button></div></div>')
+
+    mission_h = "Une étincelle pour les jeunes" if fr else "A spark for the youth"
+    mission_1 = ("Un saint sur un sac d'école ou un trousseau de clés ouvre des "
+                 "conversations que l'argent ne peut pas acheter. Ces petits compagnons "
+                 "mettent un ami au ciel dans la poche d'un jeune, quelqu'un à qui "
+                 "parler, à imiter, à qui demander de l'aide." if fr else
+                 "A saint on a school bag or a set of keys starts conversations that "
+                 "money cannot buy. These little companions put a friend in heaven "
+                 "into a kid's pocket, someone to talk to, to imitate, to ask for help.")
+    mission_2 = ("Collectionnez-les, offrez-les, échangez-les. Plus votre équipe "
+                 "compte de saints, moins chacun coûte." if fr else
+                 "Collect them, gift them, trade them. The more saints in your crew, "
+                 "the less each one costs.")
+    ship_line = ("Expédition des porte-clés : 2,50 $ au Canada pour les commandes de "
+                 "moins de 20 $, gratuite à 20 $ et plus." if fr else
+                 "Keychain shipping: $2.50 in Canada on orders under $20, free at $20 and up.")
+    tiers = "".join(
+        f'<span class="kc-tier" data-t="{i}">{lbl}</span>'
+        for i, lbl in enumerate([
+            ("1-2 : 4,99 $ chacun" if fr else "1-2 : $4.99 each"),
+            ("3-9 : 4,49 $ chacun" if fr else "3-9 : $4.49 each"),
+            ("10+ : 3,50 $ chacun" if fr else "10+ : $3.50 each")]))
+    filters = "".join(
+        f'<button type="button" class="{"on" if i == 0 else ""}" '
+        f'onclick="kcFilter(\'{c}\',this)">{lbl}</button>'
+        for i, (c, lbl) in enumerate([
+            ("all", "Tous" if fr else "All"),
+            ("wyd", "Patrons des JMJ Séoul 2027" if fr else "Seoul 2027 WYD Patrons"),
+            ("saint", "Saints"),
+            ("blessed", "Bienheureux" if fr else "Blessed"),
+            ("holy", "Jésus et Marie" if fr else "Jesus & Mary")]))
+    kcs = {
+        "each": " chacun" if fr else " each",
+        "crew": " chacun (prix d'équipe)" if fr else " each (crew price)",
+        "empty": "Votre équipe : 0 porte-clé" if fr else "Your crew: 0 keychains",
+        "crewN": "Votre équipe : {n} porte-clés" if fr else "Your crew: {n} keychains",
+        "shipW": "d'expédition" if fr else "shipping",
+        "shipFree": "expédition gratuite" if fr else "shipping free",
+        "addMore": ("Ajoutez-en {x} de plus et chacun tombe à {p}" if fr else
+                    "Add {x} more and every keychain drops to {p}"),
+        "best": "Meilleur prix débloqué" if fr else "Best price unlocked",
+        "added": "Ajouté ✓" if fr else "Added ✓",
+        "dec": "," if fr else ".",
+        "viewCart": "Voir le panier" if fr else "View cart",
+    }
+    script = """
+<script>
+var kcPending = {};
+var KCS = /*KCS*/;
+function kcUnit(n){ return n>=10?350 : n>=3?449 : 499; }
+function kcMoney(c){ return (KCS.dec === "," ? (c/100).toFixed(2).replace(".", ",") + " $" : "$" + (c/100).toFixed(2)); }
+function kcCartCount(){ try { var items = JSON.parse(localStorage.getItem("adn_cart_v1")) || [];
+  return items.reduce(function(s, it){ return s + ((it.pid || "").indexOf("keychain-") === 0 ? (it.qty || 1) : 0); }, 0);
+} catch(e){ return 0; } }
+function kcRender(){
+  var n = kcCartCount(), p = kcUnit(n);
+  document.querySelectorAll("[data-kc-price]").forEach(function(e){
+    e.textContent = kcMoney(p) + (n >= 3 ? KCS.crew : KCS.each); });
+  var info = document.getElementById("kcBarInfo"), hint = document.getElementById("kcBarHint");
+  if (info) {
+    if (n === 0) { info.textContent = KCS.empty; }
+    else { var sub = n * p, ship = sub >= 2000 ? 0 : 250;
+      info.textContent = KCS.crewN.replace("{n}", n) + " - " + kcMoney(sub) +
+        (ship ? " + " + kcMoney(ship) + " " + KCS.shipW + " = " + kcMoney(sub + ship)
+              : " - " + KCS.shipFree); }
+  }
+  if (hint) { var nx = n < 3 ? [3 - n, 449] : n < 10 ? [10 - n, 350] : null;
+    hint.textContent = nx ? KCS.addMore.replace("{x}", nx[0]).replace("{p}", kcMoney(nx[1]))
+                          : (n >= 10 ? KCS.best : ""); }
+  document.querySelectorAll(".kc-tier").forEach(function(el){
+    el.classList.toggle("on", +el.getAttribute("data-t") === (n < 3 ? 0 : n < 10 ? 1 : 2)); });
+}
+function kcStep(btn, d){
+  var card = btn.closest(".kc-card");
+  var pid = card.querySelector(".kc-add").getAttribute("data-pid");
+  var q = Math.max(0, Math.min(10, (kcPending[pid] || 0) + d));
+  kcPending[pid] = q;
+  card.querySelector(".kc-qty").textContent = q;
+}
+function kcAdd(btn){
+  var pid = btn.getAttribute("data-pid");
+  var q = kcPending[pid] || 0; if (q < 1) q = 1;
+  if (window.adnCart) window.adnCart.add({ pid: pid, name: btn.getAttribute("data-name"),
+    img: btn.getAttribute("data-img"), qty: q, unit_cents: 499, add_cents: 0,
+    design: "", saint: "", size: "", color: "", initials: "", engraving: "" });
+  kcPending[pid] = 0;
+  btn.closest(".kc-card").querySelector(".kc-qty").textContent = 0;
+  var old = btn.textContent; btn.textContent = KCS.added;
+  setTimeout(function(){ btn.textContent = old; }, 1200);
+  kcRender();
+}
+function kcFilter(cat, btn){
+  document.querySelectorAll(".kc-filters button").forEach(function(b){ b.classList.remove("on"); });
+  btn.classList.add("on");
+  document.querySelectorAll(".kc-card").forEach(function(c){
+    c.style.display = (cat === "all" || c.getAttribute("data-cat") === cat) ? "" : "none"; });
+}
+document.addEventListener("DOMContentLoaded", function(){
+  kcRender(); setInterval(kcRender, 2000);
+});
+</script>""".replace("/*KCS*/", json.dumps(kcs, ensure_ascii=False))
+    style = """<style>
+.kc-mission{background:#171310;color:#f3e9d2;border-radius:18px;padding:28px 22px;text-align:center;margin:18px 0 8px}
+.kc-mission h2{font-family:var(--serif);color:#e8c268;margin:0 0 10px;font-size:30px}
+.kc-mission p{max-width:660px;margin:6px auto;line-height:1.55}
+.kc-tiers{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:16px 0 8px}
+.kc-tier{background:#fffdf6;color:#241d12;border-radius:999px;padding:6px 14px;font-weight:600;font-size:.92rem}
+.kc-tier.on{background:#c9a227}
+.kc-ship{color:#d8c391;font-size:.95rem;margin:4px 0 0}
+.kc-filters{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 14px}
+.kc-filters button{border:1px solid var(--line2);background:var(--raised);color:var(--ink);border-radius:999px;padding:8px 16px;cursor:pointer;font:inherit}
+.kc-filters button.on{background:#171310;color:#f3e9d2}
+.kc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:18px}
+.kc-card{background:var(--raised);border:1px solid var(--line2);border-radius:16px;padding:12px;text-align:center}
+.kc-card img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:10px;background:#fff}
+.kc-card h3{font-family:var(--serif);margin:10px 0 2px;font-size:21px}
+.kc-card h3 a{color:var(--ink);text-decoration:none}
+.kc-price{color:#8a6d1f;font-weight:700;margin:2px 0 10px}
+.kc-row{display:flex;gap:8px;justify-content:center;align-items:center}
+.kc-step{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line2);border-radius:999px;padding:2px}
+.kc-step button{background:none;border:none;width:28px;height:28px;cursor:pointer;font-size:1.05rem;color:var(--ink)}
+.kc-qty{min-width:22px;font-weight:700}
+.kc-bar{position:fixed;left:0;right:0;bottom:0;background:#171310;color:#f3e9d2;display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 18px;z-index:900;flex-wrap:wrap}
+.kc-bar .kc-hint{color:#e8c268}
+</style>"""
+    body = f"""
+<section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Porte-clés des saints' if fr else 'Saint Keychains'}</h1>
+<p class="sub">{'Chaque saint est imprimé en couleur sur plastique d\u2019origine végétale, anneau inclus. Choisissez vos saints, formez votre équipe.' if fr else 'Every saint is printed in colour on plant based plastic, ring included. Pick your saints, build your crew.'}</p>
+</section>
+<div class="kc-mission"><h2>{h(mission_h)}</h2>
+<p>{h(mission_1)}</p>
+<p>{h(mission_2)}</p>
+<div class="kc-tiers">{tiers}</div>
+<p class="kc-ship">{h(ship_line)}</p></div>
+<div class="kc-filters">{filters}</div>
+<div class="kc-grid">{"".join(cards)}</div>
+<div style="height:76px"></div>
+<div class="kc-bar"><span id="kcBarInfo"></span><span class="kc-hint" id="kcBarHint"></span>
+<button type="button" class="btn btn-gold" onclick="window.adnCart && window.adnCart.open()">{h(kcs["viewCart"])}</button></div>
+{style}
+{script}"""
+    title = ("Porte-clés des saints — ADN Creations" if fr else
+             "Saint Keychains — ADN Creations")
+    desc = ("Porte-clés de saints en couleur, faits à la main à Montréal. Une étincelle "
+            "pour les jeunes : collectionnez-les, offrez-les, échangez-les." if fr else
+            "Colour saint keychains, hand crafted in Montreal. A spark for the youth: "
+            "collect them, gift them, trade them.")
+    return sacred_shell(title, desc, body, lang=lang, theme="sacred",
+                        path="/keychains",
+                        og_image=CANONICAL_URL + "/img/keychains/keychain-carlo-acutis-1.jpg")
+
+
+@app.route("/keychains")
+def keychains():
+    track_visit("/keychains")
+    lang = get_lang()
+    return lang_response(keychains_page(lang), lang)
+
 @app.route("/shop.html")
 def shop():
     track_visit("/shop.html")
@@ -2922,7 +3179,7 @@ def _redir_portraits():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     """Generated from the live catalogue so it can never drift from the shop."""
-    pages = [("/", "weekly", "1.0"), ("/shop.html", "daily", "0.9"),
+    pages = [("/", "weekly", "1.0"), ("/shop.html", "daily", "0.9"), ("/keychains", "weekly", "0.9"),
              ("/workshop", "weekly", "0.9"), ("/italia", "weekly", "0.9"),
              ("/workshop/engraving", "monthly", "0.8"),
              ("/workshop/portraits", "monthly", "0.8"),
@@ -3978,6 +4235,22 @@ INITIALS_ADDON_CENTS = 500   # CA$5 raised-initials add-on (card-case only)
 STONE_STATUE_IDS = ("andre-stone-statue", "carlo-stone-statue")
 WOOD_BASE_CENTS = 7500
 
+KEYCHAIN_PREFIX = "keychain-"
+
+
+def kc_unit_cents(n):
+    """Crew pricing for saint keychains (Antonio, 2026-11-07): the total
+    keychain count in the order sets one unit price for every keychain:
+    $4.99 for 1-2, $4.49 for 3-9, $3.50 for 10 or more."""
+    if n >= 10:
+        return 350
+    if n >= 3:
+        return 449
+    return 499
+
+KC_DESC_EN = ('A little companion for keys, bags and backpacks: {name} in full colour on plant based plastic, with a 12 mm ring included. The halo glows under UV light. Hand crafted in Montreal. Crew pricing: $4.99 each for 1-2, $4.49 each for 3-9, $3.50 each for 10 or more, applied automatically in your cart.')
+KC_DESC_FR = ("Un petit compagnon pour les clés, les sacs et les sacs à dos : {name} en couleur sur plastique d'origine végétale, avec un anneau de 12 mm inclus. L'auréole brille sous la lumière UV. Fait à la main à Montréal. Prix d'équipe : 4,99 $ chacun pour 1 à 2, 4,49 $ chacun pour 3 à 9, 3,50 $ chacun pour 10 et plus, appliqué automatiquement dans votre panier.")
+
 
 def clean_initials(raw):
     """Sanitize the raised-initials add-on text: letters and spaces only,
@@ -4043,7 +4316,9 @@ def api_checkout():
             return jsonify({"error": str(e)}), 400
         engraving = sides_summary(_clean_sides, lang)[:1500]
     # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
-    if pid == "mini-bust":
+    if pid.startswith(KEYCHAIN_PREFIX):
+        amount = kc_unit_cents(qty) * qty
+    elif pid == "mini-bust":
         amount = (2999 if size == "Large" else 1999) * qty
     # Tiered pricing ($39.99 first, $24.99 per extra copy). 4-pack pricing
     # ($99.99) is memorial-only; lamps past a pack bill at the additional
@@ -4108,6 +4383,9 @@ def api_checkout():
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
     if ship_country == "CA" and amount >= 5000:
         ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
+    if ship_country == "CA" and pid.startswith(KEYCHAIN_PREFIX):
+        # Keychain orders (2026-11-07): $2.50 under $20, free at $20+.
+        ship_cents = 0 if amount >= 2000 else 250
     if ship_country == "CA":
         allowed = ["CA"]
     elif ship_country == "US":
@@ -4211,7 +4489,9 @@ def api_cart_checkout():
         if _pool and color not in LIGHTER_COLORS:
             return jsonify({"error": t(lang, "err_stock")}), 400
         # Same pricing rules as /api/checkout.
-        if pid == "mini-bust":
+        if pid.startswith(KEYCHAIN_PREFIX):
+            line_amount = 499 * qty  # repriced by the crew ladder after the loop
+        elif pid == "mini-bust":
             line_amount = (2999 if size == "Large" else 1999) * qty
         elif pid == "memorial-lamp" and qty >= 4 and p["additional_price_cents"]:
             packs, rest = divmod(qty, 4)
@@ -4232,6 +4512,14 @@ def api_cart_checkout():
                       "options": options, "name": pick(p, lang, "name"),
                       "product": p, "color": color if _pool else "",
                       "pool": _pool, "initials": initials})
+    # Saint keychains: crew pricing (2026-11-07) - the total keychain
+    # count across the whole cart sets one unit price for every keychain.
+    _kc_n = sum(l["qty"] for l in lines if l["pid"].startswith(KEYCHAIN_PREFIX))
+    if _kc_n:
+        _kc_unit = kc_unit_cents(_kc_n)
+        for l in lines:
+            if l["pid"].startswith(KEYCHAIN_PREFIX):
+                l["amount"] = _kc_unit * l["qty"]
     for pid, q in total_qty_by_pid.items():
         p = get_product(pid)
         if not product_pool(p) and p["stock"] is not None and p["stock"] < q:
@@ -4314,6 +4602,10 @@ def api_cart_checkout():
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
     if ship_country == "CA" and amount >= 5000:
         ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
+    if (ship_country == "CA" and lines and
+            all(l["pid"].startswith(KEYCHAIN_PREFIX) for l in lines)):
+        # Keychain-only orders (2026-11-07): $2.50 under $20, free at $20+.
+        ship_cents = 0 if amount >= 2000 else 250
     if ship_country == "CA":
         allowed = ["CA"]
     elif ship_country == "US":
