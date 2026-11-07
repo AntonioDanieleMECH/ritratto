@@ -382,8 +382,18 @@
     sel.options[1].textContent = T("ship_us");
     sel.options[2].textContent = T("ship_intl");
     if (allKc) sel.options[0].textContent = lang() === "fr" ? "Canada — 2,50 $ CAD" : "Canada — $2.50 CAD";
+    if (!ship) {
+      /* Make free shipping unmissable: the dropdown itself says so too,
+         not just the amount on the right (Antonio, 2026-11-07). */
+      var cur = sel.options[sel.selectedIndex];
+      if (cur) cur.textContent = cur.textContent.split(" — ")[0] +
+        (lang() === "fr" ? " — Livraison gratuite" : " — Free shipping");
+    }
     document.getElementById("cartShipAmtL").textContent = T("shipping");
-    document.getElementById("cartShipAmt").textContent = ship ? money(ship) : T("ship_free");
+    var amtEl = document.getElementById("cartShipAmt");
+    amtEl.textContent = ship ? money(ship) : (lang() === "fr" ? "GRATUITE" : "FREE");
+    amtEl.style.fontWeight = ship ? "" : "800";
+    amtEl.style.color = ship ? "" : "#177245";
     document.getElementById("cartGiftWrapL").textContent = T("gift_wrap");
     document.getElementById("cartGiftWrapAmt").textContent = money(GW_CENTS);
     document.getElementById("cartGiftMsgL").textContent = T("gift_msg");
