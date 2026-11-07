@@ -2927,10 +2927,21 @@ def keychains_page(lang):
     conn = db()
     rows = conn.execute(
         "SELECT * FROM products WHERE active=1 AND id LIKE 'keychain-%'").fetchall()
+    photo_rows = conn.execute(
+        "SELECT product_id, photo FROM product_photos "
+        "WHERE product_id LIKE 'keychain-%' ORDER BY sort").fetchall()
     conn.close()
+    galleries = {}
+    for r in photo_rows:
+        galleries.setdefault(r["product_id"], []).append(r["photo"])
     by_id = {p["id"]: p for p in rows}
     prods = [by_id[i] for i in KC_ORDER if i in by_id]
     fr = lang == "fr"
+    kc_data = {p["id"]: {"name": pick(p, lang, "name"),
+                         "story": pick(p, lang, "story"),
+                         "desc": pick(p, lang, "description"),
+                         "photos": galleries.get(p["id"], [p["photo"] or ""])}
+               for p in prods}
 
     def fmt(c):
         return money2(c, lang)
@@ -2941,9 +2952,9 @@ def keychains_page(lang):
         cat = KC_CATS.get(p["id"], "saint")
         cards.append(
             f'<div class="kc-card" data-cat="{h(cat)}">'
-            f'<a class="kc-img" href="/product/{p["id"]}"><img src="{h(p["photo"] or "")}" '
+            f'<a class="kc-img" href="/product/{p["id"]}" onclick="return kcOpen(\'{p["id"]}\')"><img src="{h(p["photo"] or "")}" '
             f'alt="{h(name)}" loading="lazy"></a>'
-            f'<h3><a href="/product/{p["id"]}">{h(name)}</a></h3>'
+            f'<h3><a href="/product/{p["id"]}" onclick="return kcOpen(\'{p["id"]}\')">{h(name)}</a></h3>'
             f'<p class="kc-price" data-kc-price>{fmt(499)}{" chacun" if fr else " each"}</p>'
             f'<div class="kc-row"><span class="kc-step">'
             f'<button type="button" onclick="kcStep(this,-1)" aria-label="-">&minus;</button>'
@@ -2996,11 +3007,18 @@ def keychains_page(lang):
         "added": "Ajouté ✓" if fr else "Added ✓",
         "dec": "," if fr else ".",
         "viewCart": "Voir le panier" if fr else "View cart",
+        "front": "Devant" if fr else "Front",
+        "cartoon": "Le dessin" if fr else "The cartoon design",
+        "uv": "Sous lumière UV" if fr else "Under UV light",
+        "photoOf": ("photo {i} sur {n}, glissez ou utilisez les flèches" if fr else
+                    "photo {i} of {n} - swipe or use the arrows"),
+        "learnMore": "En savoir plus" if fr else "Learn more",
     }
     script = """
 <script>
 var kcPending = {};
 var KCS = /*KCS*/;
+var KC_DATA = /*KCDATA*/;
 function kcUnit(n){ return n>=10?350 : n>=3?449 : 499; }
 function kcMoney(c){ return (KCS.dec === "," ? (c/100).toFixed(2).replace(".", ",") + " $" : "$" + (c/100).toFixed(2)); }
 function kcCartCount(){ try { var items = JSON.parse(localStorage.getItem("adn_cart_v1")) || [];
@@ -3043,6 +3061,45 @@ function kcAdd(btn){
   setTimeout(function(){ btn.textContent = old; }, 1200);
   kcRender();
 }
+var kcCur = null, kcIdx = 0, kcMQty = 1, kcTouchX = null;
+function kcLabel(url, i, n){
+  var base = url.indexOf("-cartoon") >= 0 ? KCS.cartoon : url.indexOf("-uv") >= 0 ? KCS.uv : KCS.front;
+  return base + " - " + KCS.photoOf.replace("{i}", i + 1).replace("{n}", n);
+}
+function kcShow(){
+  var d = KC_DATA[kcCur], ph = d.photos;
+  kcIdx = ((kcIdx % ph.length) + ph.length) % ph.length;
+  document.getElementById("kcImg").src = ph[kcIdx];
+  document.getElementById("kcCap").textContent = kcLabel(ph[kcIdx], kcIdx, ph.length);
+  document.getElementById("kcDots").innerHTML = ph.map(function(_, i){
+    return '<span class="kc-dot' + (i === kcIdx ? " on" : "") + '"></span>'; }).join("");
+}
+function kcOpen(pid){
+  kcCur = pid; kcIdx = 0; kcMQty = 1;
+  document.getElementById("kcMQty").textContent = "1";
+  var d = KC_DATA[pid];
+  document.getElementById("kcName").textContent = d.name;
+  document.getElementById("kcStory").textContent = d.story;
+  document.getElementById("kcDesc").textContent = d.desc;
+  document.getElementById("kcMore").href = "/product/" + pid;
+  document.getElementById("kcMore").textContent = KCS.learnMore;
+  document.getElementById("kcModal").style.display = "flex";
+  kcShow();
+  return false;
+}
+function kcClose(){ document.getElementById("kcModal").style.display = "none"; }
+function kcNav(d){ kcIdx += d; kcShow(); }
+function kcMStep(d){
+  kcMQty = Math.max(1, Math.min(10, kcMQty + d));
+  document.getElementById("kcMQty").textContent = kcMQty;
+}
+function kcModalAdd(){
+  var d = KC_DATA[kcCur];
+  if (window.adnCart) window.adnCart.add({ pid: kcCur, name: d.name, img: d.photos[0],
+    qty: kcMQty, unit_cents: 499, add_cents: 0, design: "", saint: "", size: "",
+    color: "", initials: "", engraving: "" });
+  kcRender();
+}
 function kcFilter(cat, btn){
   document.querySelectorAll(".kc-filters button").forEach(function(b){ b.classList.remove("on"); });
   btn.classList.add("on");
@@ -3051,8 +3108,21 @@ function kcFilter(cat, btn){
 }
 document.addEventListener("DOMContentLoaded", function(){
   kcRender(); setInterval(kcRender, 2000);
+  var m = document.getElementById("kcModal");
+  if (m) {
+    m.addEventListener("click", function(e){ if (e.target === m) kcClose(); });
+    var g = m.querySelector(".kc-gal");
+    g.addEventListener("touchstart", function(e){ kcTouchX = e.changedTouches[0].screenX; }, { passive: true });
+    g.addEventListener("touchend", function(e){
+      if (kcTouchX === null) return;
+      var dx = e.changedTouches[0].screenX - kcTouchX;
+      if (Math.abs(dx) > 40) kcNav(dx < 0 ? 1 : -1);
+      kcTouchX = null;
+    }, { passive: true });
+  }
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") kcClose(); });
 });
-</script>""".replace("/*KCS*/", json.dumps(kcs, ensure_ascii=False))
+</script>""".replace("/*KCS*/", json.dumps(kcs, ensure_ascii=False)).replace("/*KCDATA*/", json.dumps(kc_data, ensure_ascii=False))
     style = """<style>
 .kc-mission{background:#171310;color:#f3e9d2;border-radius:18px;padding:28px 22px;text-align:center;margin:18px 0 8px}
 .kc-mission h2{font-family:var(--serif);color:#e8c268;margin:0 0 10px;font-size:30px}
@@ -3076,6 +3146,21 @@ document.addEventListener("DOMContentLoaded", function(){
 .kc-qty{min-width:22px;font-weight:700}
 .kc-bar{position:fixed;left:0;right:0;bottom:0;background:#171310;color:#f3e9d2;display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 18px;z-index:900;flex-wrap:wrap}
 .kc-bar .kc-hint{color:#e8c268}
+.kc-modal{position:fixed;inset:0;background:rgba(15,12,8,.72);z-index:1300;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:26px 12px}
+.kc-modal-card{background:#fffdf6;color:#241d12;border-radius:18px;max-width:520px;width:100%;padding:18px;position:relative;text-align:center}
+.kc-x{position:absolute;top:8px;right:12px;background:none;border:none;font-size:1.6rem;cursor:pointer;color:#241d12;z-index:2;line-height:1}
+.kc-gal{position:relative}
+.kc-gal img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:12px;background:#fff}
+.kc-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(23,19,16,.55);color:#fff;border:none;width:38px;height:38px;border-radius:50%;font-size:1.3rem;cursor:pointer;line-height:1}
+.kc-prev{left:8px}.kc-next{right:8px}
+.kc-dots{margin:10px 0 2px}
+.kc-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d8cfb8;margin:0 3px}
+.kc-dot.on{background:#c9a227}
+.kc-cap{color:#7a7261;font-size:.9rem;margin:4px 0}
+.kc-modal-card h3{font-family:var(--serif);font-size:28px;margin:8px 0}
+.kc-story{line-height:1.6;text-align:left}
+.kc-desc{color:#7a7261;font-size:.92rem}
+.kc-modal-row{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap}
 </style>"""
     body = f"""
 <section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Porte-clés des saints' if fr else 'Saint Keychains'}</h1>
@@ -3091,6 +3176,24 @@ document.addEventListener("DOMContentLoaded", function(){
 <div style="height:76px"></div>
 <div class="kc-bar"><span id="kcBarInfo"></span><span class="kc-hint" id="kcBarHint"></span>
 <button type="button" class="btn btn-gold" onclick="window.adnCart && window.adnCart.open()">{h(kcs["viewCart"])}</button></div>
+<div class="kc-modal" id="kcModal" style="display:none">
+<div class="kc-modal-card">
+<button type="button" class="kc-x" onclick="kcClose()" aria-label="&times;">&times;</button>
+<div class="kc-gal"><img id="kcImg" src="" alt="">
+<button type="button" class="kc-arrow kc-prev" onclick="kcNav(-1)" aria-label="&lt;">&#8249;</button>
+<button type="button" class="kc-arrow kc-next" onclick="kcNav(1)" aria-label="&gt;">&#8250;</button></div>
+<div class="kc-dots" id="kcDots"></div>
+<p class="kc-cap" id="kcCap"></p>
+<h3 id="kcName"></h3>
+<p class="kc-story" id="kcStory"></p>
+<p class="kc-desc" id="kcDesc"></p>
+<div class="kc-modal-row">
+<span class="kc-step"><button type="button" onclick="kcMStep(-1)" aria-label="-">&minus;</button><span class="kc-qty" id="kcMQty">1</span><button type="button" onclick="kcMStep(1)" aria-label="+">+</button></span>
+<button type="button" class="btn btn-gold" onclick="kcModalAdd()">{h(t(lang, "add_to_cart"))}</button>
+<a class="btn btn-line" id="kcMore" href="#">{"En savoir plus" if fr else "Learn more"}</a>
+</div>
+</div>
+</div>
 {style}
 {script}"""
     title = ("Porte-clés des saints — ADN Creations" if fr else
