@@ -2965,6 +2965,8 @@ def keychains_page(lang):
     for p in prods:
         name = pick(p, lang, "name")
         cat = KC_CATS.get(p["id"], "saint")
+        if cat == "wyd":
+            cat = "wyd saint"
         cards.append(
             f'<div class="kc-card" data-cat="{h(cat)}">'
             f'<a class="kc-img" href="/product/{p["id"]}" onclick="return kcOpen(\'{p["id"]}\')"><img src="{h(p["photo"] or "")}" '
@@ -2974,10 +2976,10 @@ def keychains_page(lang):
             f'<div class="kc-row"><span class="kc-step">'
             f'<button type="button" onclick="kcStep(this,-1)" aria-label="-">&minus;</button>'
             f'<span class="kc-qty">0</span>'
-            f'<button type="button" onclick="kcStep(this,1)" aria-label="+">+</button></span></div>'
+            f'<button type="button" onclick="kcStep(this,1)" aria-label="+">+</button></span>'
             f'<button type="button" class="btn btn-gold kc-add" data-pid="{h(p["id"])}" '
             f'data-name="{h(name)}" data-img="{h(p["photo"] or "")}" onclick="kcAdd(this)">'
-            f'{"Ajouter" if fr else "Add"}</button></div>')
+            f'{h(t(lang, "add_to_cart"))}</button></div></div>')
 
     mission_h = "Une étincelle pour les jeunes" if fr else "A spark for the youth"
     mission_1 = ("Un saint sur un sac d'école ou un trousseau de clés ouvre des "
@@ -3120,7 +3122,7 @@ function kcFilter(cat, btn){
   document.querySelectorAll(".kc-filters button").forEach(function(b){ b.classList.remove("on"); });
   btn.classList.add("on");
   document.querySelectorAll(".kc-card").forEach(function(c){
-    c.style.display = (cat === "all" || c.getAttribute("data-cat") === cat) ? "" : "none"; });
+    c.style.display = (cat === "all" || (c.getAttribute("data-cat") || "").split(" ").indexOf(cat) >= 0) ? "" : "none"; });
 }
 document.addEventListener("DOMContentLoaded", function(){
   kcRender(); setInterval(kcRender, 2000);
@@ -3156,7 +3158,6 @@ document.addEventListener("DOMContentLoaded", function(){
 .kc-card h3{font-family:var(--serif);margin:10px 0 2px;font-size:21px}
 .kc-card h3 a{color:var(--ink);text-decoration:none}
 .kc-price{color:#e8c268;font-weight:700;margin:2px 0 10px}
-.kc-add{width:100%;margin-top:8px}
 .kc-size{color:#d8c391;text-align:center;margin:2px 0 0}
 .kc-row{display:flex;gap:8px;justify-content:center;align-items:center}
 .kc-step{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line2);border-radius:999px;padding:2px}
