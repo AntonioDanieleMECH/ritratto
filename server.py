@@ -2979,7 +2979,7 @@ def keychains_page(lang):
             f'<button type="button" onclick="kcStep(this,1)" aria-label="+">+</button></span>'
             f'<button type="button" class="btn btn-gold kc-add" data-pid="{h(p["id"])}" '
             f'data-name="{h(name)}" data-img="{h(p["photo"] or "")}" onclick="kcAdd(this)">'
-            f'{h(t(lang, "add_to_cart"))}</button></div></div>')
+            f'{"Ajouter" if fr else "Add"}</button></div></div>')
 
     mission_h = "Une étincelle pour les jeunes" if fr else "A spark for the youth"
     mission_1 = ("Un saint sur un sac d'école ou un trousseau de clés ouvre des "
