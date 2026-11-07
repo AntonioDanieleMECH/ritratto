@@ -3021,7 +3021,7 @@ def keychains_page(lang):
         "addMore": ("Ajoutez-en {x} de plus et chacun tombe à {p}" if fr else
                     "Add {x} more and every keychain drops to {p}"),
         "best": "Meilleur prix débloqué" if fr else "Best price unlocked",
-        "added": "Ajouté ✓" if fr else "Added ✓",
+        "added": "Ajouté" if fr else "Added",
         "dec": "," if fr else ".",
         "viewCart": "Voir le panier" if fr else "View cart",
         "front": "Devant" if fr else "Front",
