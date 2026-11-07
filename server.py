@@ -1040,7 +1040,7 @@ def seed():
         'keychain-therese': ['/img/keychains/keychain-therese-1.jpg', '/img/keychains/keychain-therese-hand.jpg', '/img/keychains/keychain-therese-cartoon.jpg', '/img/keychains/keychain-therese-uv1.jpg'],
         'keychain-don-bosco': ['/img/keychains/keychain-don-bosco-1.jpg', '/img/keychains/keychain-don-bosco-2.jpg', '/img/keychains/keychain-don-bosco-cartoon.jpg', '/img/keychains/keychain-don-bosco-uv1.jpg'],
         'keychain-ignatius': ['/img/keychains/keychain-ignatius-1.jpg', '/img/keychains/keychain-ignatius-2.jpg', '/img/keychains/keychain-ignatius-cartoon.jpg', '/img/keychains/keychain-ignatius-uv1.jpg'],
-        'keychain-rocco': ['/img/keychains/keychain-rocco-1.jpg', '/img/keychains/keychain-rocco-2.jpg', '/img/keychains/keychain-rocco-cartoon.jpg', '/img/keychains/keychain-rocco-uv1.jpg'],
+        'keychain-rocco': ['/img/keychains/keychain-rocco-2.jpg', '/img/keychains/keychain-rocco-cartoon.jpg', '/img/keychains/keychain-rocco-uv1.jpg'],
         'keychain-charbel': ['/img/keychains/keychain-charbel-1.jpg', '/img/keychains/keychain-charbel-cartoon.jpg', '/img/keychains/keychain-charbel-uv1.jpg'],
         'keychain-solanus-casey': ['/img/keychains/keychain-solanus-casey-1.jpg', '/img/keychains/keychain-solanus-casey-2.jpg', '/img/keychains/keychain-solanus-casey-cartoon.jpg', '/img/keychains/keychain-solanus-casey-uv1.jpg'],
         'keychain-our-lady': ['/img/keychains/keychain-our-lady-1.jpg', '/img/keychains/keychain-our-lady-cartoon.jpg', '/img/keychains/keychain-our-lady-uv1.jpg'],
