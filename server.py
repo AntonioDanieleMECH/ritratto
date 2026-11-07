@@ -3999,25 +3999,9 @@ document.getElementById('buyBtn') && document.getElementById('buyBtn').addEventL
     else {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + (j.error || {json.dumps(t(lang, "checkout_failed"))}) + '<br>{("Écrivez-nous : " if lang == "fr" else "Email us: ") + SUPPORT_EMAIL}</div>'; btn.disabled = false; }}
   }} catch(e) {{ document.getElementById('buyMsg').innerHTML = '<div class="notice notice-err">' + {json.dumps(t(lang, "checkout_failed"))} + '<br>{("Écrivez-nous : " if lang == "fr" else "Email us: ") + SUPPORT_EMAIL}</div>'; btn.disabled = false; }}
 }});
-/* auto-detect the visitor's country for the shipping tier; the dropdown
-   stays for manual override (e.g. shipping to a different country) */
-(function() {{
-  var sc = document.getElementById('shipCountry');
-  if (!sc) return;
-  try {{
-    var ctl = new AbortController();
-    var to = setTimeout(function() {{ ctl.abort(); }}, 4000);
-    fetch('https://ipapi.co/country/', {{signal: ctl.signal}}).then(function(r) {{
-      return r.text();
-    }}).then(function(cc) {{
-      clearTimeout(to);
-      cc = (cc || '').trim().toUpperCase();
-      if (cc === 'CA') sc.value = 'CA';
-      else if (cc === 'US') sc.value = 'US';
-      else if (/^[A-Z]{{2}}$/.test(cc)) sc.value = 'INT';
-    }}).catch(function() {{ clearTimeout(to); }});
-  }} catch(e) {{}}
-}})();
+/* Shipping country defaults to Canada; the shopper can change it in
+   the dropdown. (IP auto-detection removed 2026-11-07: it misfires for
+   Private Relay / VPN users and showed Canadians US rates.) */
 (function(){{  /* live tier-price total as quantity changes */
   var qtyEl = document.getElementById('qty'), btn = document.getElementById('buyBtn'),
       priceEl = document.getElementById('priceTotal'), usdEl = document.getElementById('priceUsd'),

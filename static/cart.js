@@ -135,8 +135,16 @@
     return parts.join(" · ");
   }
   function shipCountry() {
+    /* Canada by default; only a country the shopper picked herself in
+       the dropdown (marked _src=manual) is honoured. An auto-detected
+       value stored by an earlier version is ignored: IP geolocation
+       misfires (Private Relay, VPNs, carrier NAT) and once stored it
+       stuck, showing Canadians US shipping rates. */
     var c = "CA";
-    try { c = localStorage.getItem(SHIP_KEY) || "CA"; } catch (e) {}
+    try {
+      if (localStorage.getItem(SHIP_KEY + "_src") === "manual")
+        c = localStorage.getItem(SHIP_KEY) || "CA";
+    } catch (e) {}
     return SHIP_CENTS[c] ? c : "CA";
   }
 
@@ -242,7 +250,10 @@
     var sel = document.getElementById("cartShipSel");
     sel.value = shipCountry();
     sel.addEventListener("change", function () {
-      try { localStorage.setItem(SHIP_KEY, sel.value); } catch (e) {}
+      try {
+        localStorage.setItem(SHIP_KEY, sel.value);
+        localStorage.setItem(SHIP_KEY + "_src", "manual");
+      } catch (e) {}
       render();
     });
     var cp = document.getElementById("cartCoupon");
@@ -271,25 +282,16 @@
   }
 
   function detectCountry() {
-    var stored = null;
-    try { stored = localStorage.getItem(SHIP_KEY); } catch (e) {}
-    if (stored) return;
+    /* No more IP auto-detection (see shipCountry). Clear any country an
+       older version auto-stored so the drawer falls back to Canada. */
     try {
-      var ctl = new AbortController();
-      var to = setTimeout(function () { ctl.abort(); }, 4000);
-      fetch("https://ipapi.co/country/", { signal: ctl.signal }).then(function (r) {
-        return r.text();
-      }).then(function (cc) {
-        clearTimeout(to);
-        cc = (cc || "").trim().toUpperCase();
-        var v = cc === "CA" ? "CA" : cc === "US" ? "US" :
-          (/^[A-Z]{2}$/.test(cc) ? "INT" : null);
-        if (v) {
-          try { localStorage.setItem(SHIP_KEY, v); } catch (e) {}
-          document.getElementById("cartShipSel").value = v;
-          render();
-        }
-      }).catch(function () { clearTimeout(to); });
+      if (localStorage.getItem(SHIP_KEY) &&
+          localStorage.getItem(SHIP_KEY + "_src") !== "manual") {
+        localStorage.removeItem(SHIP_KEY);
+        var sel = document.getElementById("cartShipSel");
+        if (sel) sel.value = "CA";
+        render();
+      }
     } catch (e) {}
   }
 
