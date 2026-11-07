@@ -3161,6 +3161,7 @@ document.addEventListener("DOMContentLoaded", function(){
 .kc-story{line-height:1.6;text-align:left}
 .kc-desc{color:#7a7261;font-size:.92rem}
 .kc-modal-row{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap}
+.kc-modal-card .btn-line{color:#3a2c14;border:2px solid #3a2c14;background:transparent}
 </style>"""
     body = f"""
 <section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Porte-clés des saints' if fr else 'Saint Keychains'}</h1>
