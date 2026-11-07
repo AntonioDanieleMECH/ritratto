@@ -3107,8 +3107,6 @@ function kcAdd(btn){
   var pid = btn.getAttribute("data-pid");
   if (kcCardQty(pid) < 10) {
     kcSetQty(pid, btn.getAttribute("data-name"), btn.getAttribute("data-img"), kcCardQty(pid) + 1);
-    var old = btn.textContent; btn.textContent = KCS.added;
-    setTimeout(function(){ btn.textContent = old; }, 1200);
   }
   kcRender();
 }
