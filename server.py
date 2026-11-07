@@ -3059,24 +3059,57 @@ function kcRender(){
                           : (n >= 10 ? KCS.best : ""); }
   document.querySelectorAll(".kc-tier").forEach(function(el){
     el.classList.toggle("on", +el.getAttribute("data-t") === (n < 3 ? 0 : n < 10 ? 1 : 2)); });
+  kcSyncCards();
+}
+function kcItems(){ try { return JSON.parse(localStorage.getItem("adn_cart_v1")) || []; } catch(e){ return []; } }
+function kcCardQty(pid){
+  return kcItems().reduce(function(s, it){ return s + (it.pid === pid ? (it.qty || 1) : 0); }, 0);
+}
+function kcBadge(){
+  var cc = document.getElementById("cartCount"); if (!cc) return;
+  var n = kcItems().reduce(function(s, it){ return s + (it.qty || 1); }, 0);
+  cc.textContent = n; cc.style.display = n ? "flex" : "none";
+}
+function kcSetQty(pid, name, img, n){
+  n = Math.max(0, Math.min(10, n));
+  var items = kcItems(), found = false;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].pid === pid && !(items[i].design || items[i].saint || items[i].size ||
+        items[i].color || items[i].initials || items[i].engraving)) {
+      found = true;
+      if (n === 0) items.splice(i, 1); else items[i].qty = n;
+      break;
+    }
+  }
+  if (!found && n > 0 && window.adnCart) {
+    window.adnCart.add({ pid: pid, name: name, img: img, qty: n, unit_cents: 499,
+      add_cents: 0, design: "", saint: "", size: "", color: "", initials: "", engraving: "" });
+  } else {
+    try { localStorage.setItem("adn_cart_v1", JSON.stringify(items)); } catch(e){}
+    kcBadge();
+  }
+  kcRender();
+}
+function kcSyncCards(){
+  document.querySelectorAll(".kc-card").forEach(function(card){
+    var b = card.querySelector(".kc-add"); if (!b) return;
+    var q = card.querySelector(".kc-qty");
+    if (q) q.textContent = kcCardQty(b.getAttribute("data-pid"));
+  });
 }
 function kcStep(btn, d){
   var card = btn.closest(".kc-card");
-  var pid = card.querySelector(".kc-add").getAttribute("data-pid");
-  var q = Math.max(0, Math.min(10, (kcPending[pid] || 0) + d));
-  kcPending[pid] = q;
-  card.querySelector(".kc-qty").textContent = q;
+  var b = card.querySelector(".kc-add");
+  var pid = b.getAttribute("data-pid");
+  kcSetQty(pid, b.getAttribute("data-name"), b.getAttribute("data-img"), kcCardQty(pid) + d);
 }
 function kcAdd(btn){
   var pid = btn.getAttribute("data-pid");
-  var q = kcPending[pid] || 0; if (q < 1) q = 1;
-  if (window.adnCart) window.adnCart.add({ pid: pid, name: btn.getAttribute("data-name"),
-    img: btn.getAttribute("data-img"), qty: q, unit_cents: 499, add_cents: 0,
-    design: "", saint: "", size: "", color: "", initials: "", engraving: "" });
-  kcPending[pid] = 0;
-  btn.closest(".kc-card").querySelector(".kc-qty").textContent = 0;
-  var old = btn.textContent; btn.textContent = KCS.added;
-  setTimeout(function(){ btn.textContent = old; }, 1200);
+  if (kcCardQty(pid) < 10) {
+    kcSetQty(pid, btn.getAttribute("data-name"), btn.getAttribute("data-img"), kcCardQty(pid) + 1);
+    var old = btn.textContent; btn.textContent = KCS.added;
+    setTimeout(function(){ btn.textContent = old; }, 1200);
+  }
   kcRender();
 }
 var kcCur = null, kcIdx = 0, kcMQty = 1, kcTouchX = null;
@@ -3093,8 +3126,8 @@ function kcShow(){
     return '<span class="kc-dot' + (i === kcIdx ? " on" : "") + '"></span>'; }).join("");
 }
 function kcOpen(pid){
-  kcCur = pid; kcIdx = 0; kcMQty = 1;
-  document.getElementById("kcMQty").textContent = "1";
+  kcCur = pid; kcIdx = 0; kcMQty = Math.max(1, kcCardQty(pid));
+  document.getElementById("kcMQty").textContent = kcMQty;
   var d = KC_DATA[pid];
   document.getElementById("kcName").textContent = d.name;
   document.getElementById("kcStory").textContent = d.story;
