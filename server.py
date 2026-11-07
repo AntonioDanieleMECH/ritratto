@@ -2200,8 +2200,8 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
         top = '<div class="tricolour"></div>'
     else:
         brand = '<a class="s-brand" href="/">ADN <span>Creations</span></a>'
-        nav_items = [("/shop.html", "Lampes" if lang == "fr" else "Lamps", ""),
-                     ("/keychains", "Porte-clés" if lang == "fr" else "Saint keychains", ""),
+        nav_items = [("/keychains", "Porte-clés" if lang == "fr" else "Saint keychains", ""),
+                     ("/shop.html", "Lampes" if lang == "fr" else "Lamps", ""),
                      ("/#saints", "Par saint" if lang == "fr" else "By saint", ""),
                      ("/#cadeaux", "Cadeaux" if lang == "fr" else "Gifts", ""),
                      ("/product/memorial-lamp", "Lampe commémorative" if lang == "fr" else "Memorial lamp", ""),
@@ -2211,9 +2211,9 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
     ribbon = ('<div style="background:#B3261E;color:#fff;text-align:center;padding:8px 12px;'
               'font:600 13px/1.4 system-ui;letter-spacing:.08em">STAGING — COPIE DE TEST / TEST COPY</div>'
               ) if STAGING_MODE else ""
-    foot_tag = ("Lampes de prière et cadeaux faits à la main à Montréal, en plastique d'origine végétale."
+    foot_tag = ("Porte-clés de saints, lampes de prière et cadeaux faits à la main à Montréal, en plastique d'origine végétale."
                 if lang == "fr" else
-                "Prayer lamps and gifts hand crafted in Montreal, from plant-based plastic.")
+                "Saint keychains, prayer lamps and gifts hand crafted in Montreal, from plant-based plastic.")
     gift_lbl = "Carte-cadeau" if lang == "fr" else "Gift card"
     contact_lbl = "Contact"
     reviews_lbl = "Avis" if lang == "fr" else "Reviews"
@@ -2381,32 +2381,60 @@ def home_page(lang):
         tag_html = ""
     order_date = "11 décembre" if lang == "fr" else "December 11"
     fine = st("hero_fineprint", lang).replace("{date}", order_date)
-    # Hero = the flagship Carlo lamp (Antonio, 2026-10-24: the store leads
-    # with the lamps, Carlo Acutis first). Falls back to the nativity lamp.
-    hero_p = carlo or nat
-    hero_price = money2(hero_p["price_cents"], lang) if hero_p else ""
-    hero_name = pick(hero_p, lang, "name") if hero_p else ""
-    hero_img = "/img/work/carlo-lamp-lit.jpg" if carlo else "/img/products/nativity-pro.jpg"
+    # Hero = the saint keychains (Antonio, 2026-11-07: the site focuses
+    # on the keychains and leads people to them; before that the Carlo
+    # lamp led). The lamps keep their sections below.
+    hero_title = ("Des saints à porter partout" if lang == "fr"
+                  else "Saints to carry everywhere")
+    hero_sub = ("19 porte-clés de saints, imprimés en couleur à Montréal. "
+                "4,99 $ chacun, et le prix baisse quand l'équipe grandit."
+                if lang == "fr" else
+                "19 saint keychains, printed in full colour in Montreal. "
+                "$4.99 each, and the price drops as your crew grows.")
+    hero_cta1 = "Voir les 19 porte-clés" if lang == "fr" else "See the 19 keychains"
+    hero_cta2 = "Découvrir nos lampes" if lang == "fr" else "Discover our lamps"
+    hero_alt = "Porte-clés de saints" if lang == "fr" else "Saint keychains"
     parts.append(f"""
 <section class="hero">
 <div>{tag_html}
-<h1>{h(st('hero_title', lang))}</h1>
-<p>{h(st('hero_sub', lang))}</p>
+<h1>{h(hero_title)}</h1>
+<p>{h(hero_sub)}</p>
 <div class="hero-ctas">
-<a class="btn btn-gold" href="/product/{hero_p["id"] if hero_p else ''}">{h(hero_name)} · {hero_price}</a>
-<a class="btn btn-line" href="#ensemble">{h(st('hero_cta_set', lang))}</a>
+<a class="btn btn-gold" href="/keychains">{h(hero_cta1)}</a>
+<a class="btn btn-line" href="#lampes">{h(hero_cta2)}</a>
 </div>
 <p class="fineprint">{h(fine)}</p>
 </div>
-<div class="hero-img"><img src="{hero_img}" alt="{h(hero_name)}"></div>
+<div class="hero-img"><img src="/img/keychains/hero-collage.jpg" alt="{h(hero_alt)}"></div>
 </section>""")
     # trust row
     trusts = [st(f"trust_{i}", lang) for i in range(1, 5)]
     if any(trusts):
         parts.append('<section class="trust">' + "".join(
             f"<div>{h(x)}</div>" for x in trusts if x) + "</section>")
-    # 4-face saint lamps lead the catalogue (Antonio, 2026-10-24): Carlo
-    # first as the flagship, then Padre Pio and Fulton Sheen.
+    # Keychain strip right under the hero: faces first, one click to
+    # the full set at /keychains (Antonio, 2026-11-07).
+    kc_ids = ["keychain-carlo-acutis", "keychain-john-paul-ii",
+              "keychain-frere-andre", "keychain-michael", "keychain-therese",
+              "keychain-joseph", "keychain-charbel", "keychain-our-lady"]
+    kc_circles = "".join(
+        f'<a class="saint" href="/keychains"><img src="{h(p["photo"] or "")}" '
+        f'alt="{h(pick(p, lang, "name"))}" loading="lazy"><span>{h(pick(p, lang, "name"))}</span></a>'
+        for p in (_prod(i) for i in kc_ids) if p)
+    if kc_circles:
+        kc_title = "Porte-clés de saints" if lang == "fr" else "Saint Keychains"
+        kc_sub = ("Imprimés en couleur à Montréal, anneau en métal inclus. 4,99 $ chacun, "
+                  "4,49 $ dès 3, 3,50 $ dès 10. Mélangez vos saints."
+                  if lang == "fr" else
+                  "Printed in full colour in Montreal, metal ring included. $4.99 each, "
+                  "$4.49 for 3 or more, $3.50 for 10 or more. Mix your saints.")
+        kc_btn = "Voir les 19 saints" if lang == "fr" else "See all 19 saints"
+        parts.append(f'<section class="section" id="porte-cles"><h2>{h(kc_title)}</h2>'
+                     f'<p class="sub">{h(kc_sub)}</p><div class="saints">{kc_circles}</div>'
+                     f'<p style="text-align:center;margin-top:20px">'
+                     f'<a class="btn btn-gold" href="/keychains">{h(kc_btn)}</a></p></section>')
+    # 4-face saint lamps (they led the store until 2026-11-07, when the
+    # keychains took the lead): Carlo first, then Padre Pio and Sheen.
     four = [p for p in (carlo, pio, sheen) if p]
     if four:
         f4_title = "Lampes de saints à 4 faces" if lang == "fr" else "4-Face Saint Lamps"
@@ -2896,6 +2924,15 @@ def shop_page(lang):
 <input type="search" id="shopSearch" placeholder="{'Rechercher…' if lang == 'fr' else 'Search…'}" aria-label="Search"
  style="width:100%;max-width:420px;padding:12px 16px;border-radius:999px;border:1px solid var(--line2);background:var(--raised);color:var(--ink)">
 </section>"""]
+    kc_banner_t = ("Nouveau : les porte-clés de saints sont arrivés. 19 saints, 4,99 $ chacun."
+                   if lang == "fr" else
+                   "New: the saint keychains are here. 19 saints, $4.99 each.")
+    kc_banner_b = "Voir la collection" if lang == "fr" else "Shop the set"
+    parts.append(f'<section class="section" style="padding-top:0"><a href="/keychains" '
+                 f'style="display:flex;justify-content:space-between;align-items:center;gap:14px;'
+                 f'background:var(--gold);color:#241a05;border-radius:14px;padding:16px 20px;'
+                 f'text-decoration:none;font-weight:700"><span>{h(kc_banner_t)}</span>'
+                 f'<span style="white-space:nowrap">{h(kc_banner_b)} &rarr;</span></a></section>')
     if lamp_prods:
         lamp_lbl = "Lampes de prière" if lang == "fr" else "Prayer lamps"
         parts.append(f'<section class="section shop-group"><h2>{h(lamp_lbl)}</h2>'
@@ -2929,8 +2966,8 @@ def shop_page(lang):
 })();
 </script>""")
     title = ("Boutique — ADN Creations" if lang == "fr" else "Shop — ADN Creations")
-    desc = ("Lampes de prière, étuis à cartes et cadeaux faits à la main à Montréal."
-            if lang == "fr" else "Prayer lamps, card cases and gifts hand crafted in Montreal.")
+    desc = ("Porte-clés de saints, lampes de prière et cadeaux faits à la main à Montréal."
+            if lang == "fr" else "Saint keychains, prayer lamps and gifts hand crafted in Montreal.")
     return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/shop.html")
 
 
