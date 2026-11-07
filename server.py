@@ -2174,7 +2174,7 @@ def sundays_before_advent():
 
 
 def sacred_shell(title, description, body, lang="fr", theme="sacred", active="", path="/",
-                 legacy_css=False, og_image=""):
+                 legacy_css=False, og_image="", extra_head=""):
     other = "en" if lang == "fr" else "fr"
     canonical = CANONICAL_URL + path
     banner = ""
@@ -2234,6 +2234,7 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
 <meta property="og:type" content="website">
 {('<meta property="og:image" content="' + h(og_image) + '">') if og_image else ''}
 <meta name="theme-color" content="#14110d">
+{extra_head}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Instrument+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
@@ -2609,10 +2610,14 @@ document.getElementById('nlForm').addEventListener('submit', function(e){{
 <a class="linkcard" href="/workshop"><h3>{h(st('atelier_teaser_title', lang))}</h3>
 <p>{h(st('atelier_teaser_text', lang))}</p><p style="margin-top:8px">{h(st('atelier_teaser_cta', lang))} →</p></a>
 </div></section>""")
-    title = ("ADN Creations — Lampes de prière faites à la main à Montréal" if lang == "fr"
-             else "ADN Creations — Hand crafted prayer lamps, Montreal")
-    desc = st("hero_sub", lang)[:155]
-    return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/")
+    title = ("Porte-clés de saints et lampes de prière — ADN Creations Montréal" if lang == "fr"
+             else "Saint Keychains & Catholic Prayer Lamps — ADN Creations Montreal")
+    desc = ("19 porte-clés de saints imprimés en couleur à Montréal, dès 4,99 $, et lampes "
+            "de prière catholiques faites à la main." if lang == "fr" else
+            "19 Catholic saint keychains printed in full colour in Montreal, from $4.99, "
+            "plus hand crafted prayer lamps.")
+    return sacred_shell(title, desc, "".join(parts), lang=lang, theme="sacred", path="/",
+                        og_image=CANONICAL_URL + "/img/keychains/hero-collage.jpg")
 
 
 def gift_wrap_cents():
@@ -3001,13 +3006,14 @@ def keychains_page(lang):
     cards = []
     for p in prods:
         name = pick(p, lang, "name")
+        alt = f"Porte-clés {name}" if fr else f"{name} keychain"
         cat = KC_CATS.get(p["id"], "saint")
         if cat == "wyd":
             cat = "wyd saint"
         cards.append(
             f'<div class="kc-card" data-cat="{h(cat)}">'
             f'<a class="kc-img" href="/product/{p["id"]}" onclick="return kcOpen(\'{p["id"]}\')"><img src="{h(p["photo"] or "")}" '
-            f'alt="{h(name)}" loading="lazy"></a>'
+            f'alt="{h(alt)}" loading="lazy"></a>'
             f'<h3><a href="/product/{p["id"]}" onclick="return kcOpen(\'{p["id"]}\')">{h(name)}</a></h3>'
             f'<p class="kc-price" data-kc-price>{fmt(499)}{" chacun" if fr else " each"}</p>'
             f'<div class="kc-row"><span class="kc-step">'
@@ -3252,8 +3258,8 @@ document.addEventListener("DOMContentLoaded", function(){
 .kc-more-row{margin-top:10px}.kc-more-row .btn{display:block;width:100%}
 </style>"""
     body = f"""
-<section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Porte-clés des saints' if fr else 'Saint Keychains'}</h1>
-<p class="sub">{'Chaque saint est imprimé en couleur sur plastique d\u2019origine végétale, anneau inclus. Choisissez vos saints, formez votre équipe.' if fr else 'Every saint is printed in colour on plant based plastic, ring included. Pick your saints, build your crew.'}</p>
+<section class="section"><h1 style="font-family:var(--serif);font-size:44px">{'Porte-clés de saints catholiques' if fr else 'Catholic Saint Keychains'}</h1>
+<p class="sub">{'Chaque saint est imprimé en couleur sur plastique d\u2019origine végétale, anneau inclus. 19 saints à collectionner, dès 4,99 $ chacun, avec prix d\u2019équipe pour les groupes, les classes et les groupes de jeunes.' if fr else 'Catholic saint keychains printed in full colour in Montreal, Canada. 19 saints to collect, from $4.99 each, with crew pricing for groups, classes and youth groups.'}</p>
 <p class=\"kc-size\">{'Chaque porte-clés mesure environ 53 mm (2 po) de haut, imprimé en couleur, avec anneau en métal.' if fr else 'Each keychain is about 53 mm (2 in) tall, printed in full colour, with a metal ring.'}</p>
 </section>
 <div class="kc-mission"><h2>{h(mission_h)}</h2>
@@ -3286,14 +3292,66 @@ document.addEventListener("DOMContentLoaded", function(){
 </div>
 {style}
 {script}"""
-    title = ("Porte-clés des saints — ADN Creations" if fr else
-             "Saint Keychains — ADN Creations")
-    desc = ("Porte-clés de saints en couleur, faits à la main à Montréal. Une étincelle "
-            "pour les jeunes : collectionnez-les, offrez-les, échangez-les." if fr else
-            "Colour saint keychains, hand crafted in Montreal. A spark for the youth: "
-            "collect them, gift them, trade them.")
+    _faq = ([
+        ("Combien coûtent les porte-clés de saints ?",
+         "4,99 $ CAD chacun. Le prix baisse à 4,49 $ chacun pour 3 à 9 porte-clés, et à 3,50 $ chacun pour 10 et plus. Vous pouvez mélanger les saints : le rabais s\u2019applique au nombre total de porte-clés dans le panier."),
+        ("Quelle est la taille des porte-clés ?",
+         "Chaque porte-clés mesure environ 53 mm (2 po) de haut, imprimé en couleur sur plastique d\u2019origine végétale, avec un anneau en métal déjà installé."),
+        ("Quels saints sont disponibles ?",
+         "19 saints et bienheureux : Carlo Acutis, Jean-Paul II, André Kim Taegon, Mère Cabrini, Joséphine Bakhita, Frère André, Saint Joseph, Joseph et Jésus charpentiers, Saint Antoine, Saint François, Padre Pio, Saint Michel, Sainte Thérèse, Saint Jean Bosco, Saint Ignace, Saint Roch, Saint Charbel, Bienheureux Solanus Casey et Notre-Dame."),
+        ("Est-ce qu\u2019ils réagissent à la lumière UV ?",
+         "Oui. Ils sont imprimés aux UV, et des détails comme les auréoles brillent sous la lumière ultraviolette."),
+        ("Combien coûte l\u2019expédition ?",
+         "Au Canada, l\u2019expédition des porte-clés coûte 2,50 $ pour les commandes de moins de 20 $, et elle est gratuite à 20 $ et plus. Toute commande de 50 $ et plus est expédiée gratuitement partout dans le monde."),
+        ("Sont-ils de bons cadeaux de première communion ou de confirmation ?",
+         "Oui, ils sont faits pour ça : un porte-clés d\u2019un saint patron est un petit cadeau abordable pour une première communion, une confirmation, un baptême ou un groupe de jeunes, et le prix d\u2019équipe rend les ensembles pour une classe abordables."),
+        ("Puis-je commander pour ma paroisse, mon école ou mon groupe de jeunes ?",
+         "Oui. Les groupes commandent 10 porte-clés et plus à 3,50 $ chacun, et nous offrons la consignation aux boutiques de paroisses et de sanctuaires. Écrivez-nous par la page contact pour les prix de gros."),
+    ] if fr else [
+        ("How much do the saint keychains cost?",
+         "$4.99 CAD each. The price drops to $4.49 each when you buy 3 to 9, and $3.50 each for 10 or more. You can mix any saints, the discount is on the total number of keychains in your cart."),
+        ("How big are the keychains?",
+         "Each keychain is about 53 mm (2 in) tall, printed in full colour on plant based plastic, and comes with a metal ring already attached."),
+        ("Which saints are available?",
+         "19 saints and blesseds: Carlo Acutis, John Paul II, André Kim Taegon, Mother Cabrini, Joséphine Bakhita, Brother André, Saint Joseph, Joseph & Jesus the Carpenters, Saint Anthony, Saint Francis, Padre Pio, Saint Michael, Saint Thérèse, Saint John Bosco, Saint Ignatius, Saint Rocco, Saint Charbel, Blessed Solanus Casey and Our Lady."),
+        ("Do the keychains glow?",
+         "Yes. They are UV printed, and details like the halos glow under UV light."),
+        ("How much is shipping?",
+         "In Canada, keychain shipping is $2.50 on orders under $20 and free at $20 and up. Every order of $50 or more ships free worldwide."),
+        ("Are they good gifts for First Communion or Confirmation?",
+         "Yes, they are made for it: a patron saint keychain is a small, affordable gift for First Communion, Confirmation, baptisms and youth groups, and the crew pricing keeps class sets affordable."),
+        ("Can I order for my parish, school or youth group?",
+         "Yes. Groups order 10 or more at $3.50 each, and we take consignment orders for parish and shrine gift shops. Use the contact page for wholesale."),
+    ])
+    _faq_html = ('<section class="section"><h2 style="font-family:var(--serif)">'
+                 + ("Questions fréquentes" if fr else "Frequently asked questions")
+                 + "</h2>" + "".join(f"<h3>{h(q)}</h3><p>{h(a)}</p>" for q, a in _faq)
+                 + "</section>")
+    body = body.replace('<div style="height:76px"></div>',
+                        _faq_html + '<div style="height:76px"></div>', 1)
+    _seo_head = ('<script type="application/ld+json">' + json.dumps({
+        "@context": "https://schema.org",
+        "@graph": [
+            {"@type": "FAQPage",
+             "mainEntity": [{"@type": "Question", "name": q,
+                             "acceptedAnswer": {"@type": "Answer", "text": a}}
+                            for q, a in _faq]},
+            {"@type": "ItemList",
+             "itemListElement": [{"@type": "ListItem", "position": i + 1,
+                                  "name": pick(p, lang, "name"),
+                                  "url": CANONICAL_URL + "/product/" + p["id"]}
+                                 for i, p in enumerate(prods)]},
+        ]}, ensure_ascii=False) + "</script>")
+    title = ("Porte-clés de saints catholiques, 19 saints dès 4,99 $ — ADN Creations" if fr else
+             "Catholic Saint Keychains — 19 Saints from $4.99 | ADN Creations")
+    desc = ("Achetez des porte-clés de saints catholiques : 19 saints imprimés en couleur "
+            "à Montréal, dès 4,99 $ CAD. Prix d\u2019équipe pour groupes de jeunes, classes et "
+            "paroisses. Expédition gratuite dès 50 $." if fr else
+            "Shop Catholic saint keychains: 19 saints printed in full colour in Montreal, "
+            "from $4.99 CAD. Crew pricing for youth groups, classes and parishes. "
+            "Free shipping on orders $50+.")
     return sacred_shell(title, desc, body, lang=lang, theme="sacred",
-                        path="/keychains",
+                        path="/keychains", extra_head=_seo_head,
                         og_image=CANONICAL_URL + "/img/keychains/keychain-carlo-acutis-1.jpg")
 
 
@@ -3372,7 +3430,7 @@ def _redir_portraits():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     """Generated from the live catalogue so it can never drift from the shop."""
-    pages = [("/", "weekly", "1.0"), ("/shop.html", "daily", "0.9"), ("/keychains", "weekly", "0.9"),
+    pages = [("/", "weekly", "1.0"), ("/shop.html", "daily", "0.9"), ("/keychains", "weekly", "1.0"),
              ("/workshop", "weekly", "0.9"), ("/italia", "weekly", "0.9"),
              ("/workshop/engraving", "monthly", "0.8"),
              ("/workshop/portraits", "monthly", "0.8"),
@@ -3387,11 +3445,12 @@ def sitemap_xml():
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for path, freq, prio in pages:
-        out.append(f"  <url><loc>{SITE_URL}{path}</loc><changefreq>{freq}</changefreq>"
+        out.append(f"  <url><loc>{CANONICAL_URL}{path}</loc><changefreq>{freq}</changefreq>"
                    f"<priority>{prio}</priority></url>")
     for pid in ids:
-        out.append(f"  <url><loc>{SITE_URL}/product/{pid}</loc>"
-                   f"<changefreq>weekly</changefreq><priority>0.8</priority></url>")
+        _prio = "0.9" if pid.startswith("keychain-") else "0.8"
+        out.append(f"  <url><loc>{CANONICAL_URL}/product/{pid}</loc>"
+                   f"<changefreq>weekly</changefreq><priority>{_prio}</priority></url>")
     out.append("</urlset>")
     return app.response_class("\n".join(out) + "\n", mimetype="application/xml")
 
@@ -3526,6 +3585,18 @@ def product_page(pid):
     name = pick(p, lang, "name")
     desc = pick(p, lang, "description")
     story = pick(p, lang, "story")
+    is_kc = pid.startswith("keychain-")
+    if is_kc:
+        # SEO (2026-11-07): keychain product pages carry the search terms
+        # in their title tag and meta description.
+        seo_desc = (f"Porte-clés {name} en couleur, imprimé à Montréal sur plastique "
+                    f"d\u2019origine végétale, environ 53 mm, anneau en métal inclus. "
+                    f"4,99 $ CAD, prix d\u2019équipe dès 3 porte-clés." if lang == "fr" else
+                    f"{name} saint keychain, printed in full colour in Montreal on "
+                    f"plant based plastic, about 53 mm (2 in) tall with a metal ring. "
+                    f"$4.99 CAD, crew pricing from 3 keychains.")
+    else:
+        seo_desc = desc
     depts = json.loads(p["depts"] or "[]")
     tags = " ".join(f'<span class="dept-tag">{dept_label(d, lang)}</span>' for d in depts)
 
@@ -3553,7 +3624,8 @@ def product_page(pid):
             main_html = ('<video src="' + h(first["src"]) + '" controls playsinline '
                          'preload="metadata" style="width:100%;display:block"></video>')
         else:
-            main_html = '<img src="' + h(first["src"]) + '" alt="' + h(name) + '">'
+            _alt = (("Porte-clés " + name) if lang == "fr" else (name + " keychain")) if is_kc else name
+            main_html = '<img src="' + h(first["src"]) + '" alt="' + h(_alt) + '">'
         thumbs_html = ('<div class="gal-thumbs">' + thumbs + "</div>") if len(items) > 1 else ""
         gallery = ('<div class="product-gallery"><div id="galMainWrap">' + main_html + "</div>"
                    + thumbs_html + scale_cap + "</div>")
@@ -4287,6 +4359,16 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
             "url": f"{CANONICAL_URL}/product/{pid}",
         },
     }
+    if is_kc:
+        _pjson["material"] = "Plant based plastic"
+        _pjson["size"] = "53 mm"
+        _pjson["category"] = "Catholic saint keychain"
+        _pjson["offers"]["shippingDetails"] = {
+            "@type": "OfferShippingDetails",
+            "shippingRate": {"@type": "MonetaryAmount", "value": "2.50",
+                             "currency": "CAD"},
+            "shippingDestination": {"@type": "DefinedRegion", "addressCountry": "CA"},
+        }
     if rrow and rrow[0]:
         _pjson["aggregateRating"] = {
             "@type": "AggregateRating",
@@ -4294,7 +4376,10 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
             "reviewCount": rrow[0],
         }
     body = '<script type="application/ld+json">' + json.dumps(_pjson) + "</script>" + body
-    html = sacred_shell(name + " | ADN Creations", desc[:160], body, lang=lang, theme="sacred",
+    _ttl = ((f"Porte-clés {name} | ADN Creations" if lang == "fr"
+             else f"{name} Keychain | ADN Creations") if is_kc
+            else name + " | ADN Creations")
+    html = sacred_shell(_ttl, seo_desc[:200] if is_kc else desc[:160], body, lang=lang, theme="sacred",
                         path=f"/product/{pid}", legacy_css=True,
                         og_image=abs_url(photos[0]["photo"] if photos else p["photo"]))
     return lang_response(html, lang)
