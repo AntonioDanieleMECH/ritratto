@@ -1068,10 +1068,10 @@ def seed():
     # descriptions, in-hand photos in five galleries. Idempotent.
     for _pid, _nen, _nfr, _cat, _sen, _sfr in _KC:
         conn.execute(
-            "UPDATE products SET name=?, name_fr=?, description=?, description_fr=? "
-            "WHERE id=?",
+            "UPDATE products SET name=?, name_fr=?, description=?, description_fr=?, "
+            "photo=? WHERE id=?",
             (_nen, _nfr, KC_DESC_EN.format(name=_nen),
-             KC_DESC_FR.format(name=_nfr), _pid))
+             KC_DESC_FR.format(name=_nfr), _KC_PHOTOS[_pid][0], _pid))
         conn.execute("DELETE FROM product_photos WHERE product_id=?", (_pid,))
         for _i, _ph in enumerate(_KC_PHOTOS[_pid]):
             conn.execute(
