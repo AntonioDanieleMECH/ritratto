@@ -3762,11 +3762,17 @@ def product_page(pid):
             buy_html = f'<div class="notice notice-err">{t(lang, "sold_out")}</div>'
         else:
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
+            _ship_line = (("Expédition des porte-clés : 2,50 $ au Canada (gratuite dès 20 $), "
+                           "10 $ aux États-Unis, 15 $ à l'international. Livraison : 1 à 2 semaines.")
+                          if lang == "fr" else
+                          ("Keychain shipping: $2.50 in Canada (free at $20+), $10 to the US, "
+                           "$15 international. Delivery: 1-2 weeks.")) \
+                if pid.startswith(KEYCHAIN_PREFIX) else t(lang, "seller_ship")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money2(p["price_cents"], lang)}</button>'
                         f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
                         f'<div class="trustbox" style="border:1px solid #E8E0CF;border-radius:12px;padding:12px 14px;margin-top:14px;background:#FDFAF2;color:#33302A">'
                         f'<p style="margin:0 0 6px"><strong>{t(lang, "seller_trusted")}</strong></p>'
-                        f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_ship")}</p>'
+                        f'<p class="small" style="margin:0 0 6px">{_ship_line}</p>'
                         f'<p class="small" style="margin:0 0 6px">{t(lang, "seller_returns")} {t(lang, "seller_contact")}</p>'
                         f'<p class="small" style="margin:0 0 6px"><strong>{t(lang, "seller_welcome")}</strong></p>'
                         f'<p class="small muted" style="margin:0">{t(lang, "seller_secure")}</p></div>')
