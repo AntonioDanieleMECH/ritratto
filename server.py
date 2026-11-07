@@ -132,7 +132,7 @@ STR = {
         "sold_out": "Épuisé.", "coming_soon": "Bientôt disponible. Pas encore en vente.",
         "secure_checkout": "Paiement sécurisé avec Stripe. Expédition : 5 $ Canada, 10 $ États-Unis, 15 $ international. Livraison : 1 à 2 semaines. L'adresse de livraison est demandée au paiement.",
         "seller_trusted": "Fournisseur de confiance de l'Oratoire Saint-Joseph de Montréal",
-        "seller_ship": "Expédition : 5 $ au Canada (gratuite dès 50 $), 10 $ aux États-Unis, 15 $ à l'international. Livraison : 1 à 2 semaines.",
+        "seller_ship": "Expédition : 5 $ au Canada, 10 $ aux États-Unis, 15 $ à l'international. Livraison gratuite partout dès 50 $. Livraison : 1 à 2 semaines.",
         "seller_returns": "Retours acceptés (sous 1 semaine).",
         "seller_contact": "Un problème ou une question ? N'hésitez pas à nous écrire, il nous fera plaisir de vous aider.",
         "seller_welcome": "Première commande ? 10 % de rabais avec le code WELCOME10.",
@@ -220,7 +220,7 @@ STR = {
         "sold_out": "Sold out.", "coming_soon": "Coming soon. Not available for order yet.",
         "secure_checkout": "Secure checkout with Stripe. Shipping: $5 Canada, $10 US, $15 worldwide. Delivery: 1-2 weeks. Shipping address collected at checkout.",
         "seller_trusted": "Trusted supplier to Saint Joseph's Oratory in Montreal",
-        "seller_ship": "Shipping: $5 in Canada (free on orders over $50), $10 to the US, $15 international. Delivery: 1-2 weeks.",
+        "seller_ship": "Shipping: $5 in Canada, $10 to the US, $15 international. Free shipping worldwide on orders over $50. Delivery: 1-2 weeks.",
         "seller_returns": "Returns accepted (within 1 week).",
         "seller_contact": "Any problems or questions? Please feel free to reach out, we are happy to help.",
         "seller_welcome": "First order? Get 10% off with code WELCOME10.",
@@ -3921,10 +3921,10 @@ def product_page(pid):
         else:
             label = t(lang, "preorder_now") if p["preorder"] else t(lang, "buy_now")
             _ship_line = (("Expédition des porte-clés : 2,50 $ au Canada (gratuite dès 20 $), "
-                           "10 $ aux États-Unis, 15 $ à l'international. Livraison : 1 à 2 semaines.")
+                           "10 $ aux États-Unis, 15 $ à l'international, gratuite partout dès 50 $. Livraison : 1 à 2 semaines.")
                           if lang == "fr" else
                           ("Keychain shipping: $2.50 in Canada (free at $20+), $10 to the US, "
-                           "$15 international. Delivery: 1-2 weeks.")) \
+                           "$15 international, free worldwide at $50+. Delivery: 1-2 weeks.")) \
                 if pid.startswith(KEYCHAIN_PREFIX) else t(lang, "seller_ship")
             buy_html = (f'<button class="btn btn-brass btn-block" id="buyBtn">{label} &middot; {money2(p["price_cents"], lang)}</button>'
                         f'<button class="btn btn-outline btn-block" id="addCartBtn" type="button" style="margin-top:10px">{t(lang, "add_to_cart")}</button>'
@@ -4121,8 +4121,8 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
         _fs = ""
         if _two >= 5000:
             _fs = ('<div class="small" style="color:var(--amber)">'
-                   + ("Livraison gratuite au Canada débloquée" if lang == "fr"
-                      else "Free Canada shipping unlocked") + "</div>")
+                   + ("Livraison gratuite débloquée" if lang == "fr"
+                      else "Free shipping unlocked") + "</div>")
         qty_cards = (
             '<div class="radio-cards" id="qtyCards">'
             f'<div class="radio-card sel" data-qty="1"><input type="radio" name="qtycard" checked>'
@@ -4529,8 +4529,8 @@ def api_checkout():
         ship_country = "CA"
     # Tiered shipping: $5 Canada, $10 US, $15 worldwide.
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
-    if ship_country == "CA" and amount >= 5000:
-        ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
+    if amount >= 5000:
+        ship_cents = 0  # free shipping WORLDWIDE on orders of $50+ (Antonio, 2026-11-07)
     if ship_country == "CA" and pid.startswith(KEYCHAIN_PREFIX):
         # Keychain orders (2026-11-07): $2.50 under $20, free at $20+.
         ship_cents = 0 if amount >= 2000 else 250
@@ -4748,8 +4748,8 @@ def api_cart_checkout():
         ship_country = "CA"
     # Tiered shipping: $5 Canada, $10 US, $15 worldwide.
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
-    if ship_country == "CA" and amount >= 5000:
-        ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
+    if amount >= 5000:
+        ship_cents = 0  # free shipping WORLDWIDE on orders of $50+ (Antonio, 2026-11-07)
     if (ship_country == "CA" and lines and
             all(l["pid"].startswith(KEYCHAIN_PREFIX) for l in lines)):
         # Keychain-only orders (2026-11-07): $2.50 under $20, free at $20+.
@@ -5482,8 +5482,8 @@ def lamp_checkout():
     if ship_country not in ("CA", "US", "INT"):
         ship_country = "CA"
     ship_cents = {"CA": 500, "US": 1000, "INT": 1500}[ship_country]
-    if ship_country == "CA" and amount >= 5000:
-        ship_cents = 0  # free Canada shipping on orders of $50+ (2026-10-21)
+    if amount >= 5000:
+        ship_cents = 0  # free shipping WORLDWIDE on orders of $50+ (Antonio, 2026-11-07)
     if ship_country == "CA":
         allowed = ["CA"]
     elif ship_country == "US":

@@ -355,17 +355,18 @@
     var gwEl = document.getElementById("cartGiftWrap");
     var wrap = (gwEl && gwEl.checked) ? GW_CENTS : 0;
     var disc = pctOff ? Math.round((sub + wrap) * pctOff / 100) : 0;
-    /* Mirror the server: free Canada shipping once the discounted
+    /* Mirror the server: free shipping worldwide once the discounted
        merchandise total reaches $50 (the drawer used to always show $5). */
     var allKc = items.length > 0 && items.every(function (x) {
       return (x.pid || "").indexOf("keychain-") === 0; });
     var ship;
-    if (shipCountry() === "CA" && allKc) {
+    if ((sub + wrap - disc) >= 5000) {
+      ship = 0; /* free shipping worldwide on orders of $50+ */
+    } else if (shipCountry() === "CA" && allKc) {
       /* Keychain-only orders (2026-11-07): $2.50 under $20, free at $20+. */
       ship = (sub + wrap - disc) >= 2000 ? 0 : 250;
     } else {
-      ship = (shipCountry() === "CA" && (sub + wrap - disc) >= 5000)
-        ? 0 : SHIP_CENTS[shipCountry()];
+      ship = SHIP_CENTS[shipCountry()];
     }
     document.getElementById("cartSubL").textContent = T("subtotal");
     document.getElementById("cartSub").textContent = money(sub);
