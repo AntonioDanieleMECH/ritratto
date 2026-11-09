@@ -5872,6 +5872,10 @@ def admin_analytics():
         names = {r["id"]: r["name"] for r in
                  conn.execute("SELECT id, name FROM products").fetchall()}
         cart_adds = [(names.get(r[0], r[0]), r[1]) for r in cart_adds]
+    daily_rows = conn.execute(
+        "SELECT day, COUNT(*) pv, COUNT(DISTINCT sid) visits, COUNT(DISTINCT vid) visitors "
+        "FROM analytics_events WHERE type='pageview' AND day>=? "
+        "GROUP BY day ORDER BY day", (since,)).fetchall()
     rows = conn.execute(
         "SELECT sid, ts, path FROM analytics_events WHERE type='pageview' AND day>=? "
         "ORDER BY sid, id", (since,)).fetchall()
@@ -5887,6 +5891,84 @@ def admin_analytics():
             path_counts[key] = path_counts.get(key, 0) + 1
     top_paths = sorted(path_counts.items(), key=lambda kv: -kv[1])[:10]
     recent = sorted(sessions.items(), key=lambda kv: kv[1][0][0], reverse=True)[:15]
+
+    # --- Viewers vs time graph (Antonio, 2026-11-08): last 30 days, one
+    # point per day. Gold bars = visitors, dark line = page views, dashed
+    # line = visits. Server-rendered SVG, no JS or external library. ---
+    daily_by_day = {r[0]: (r[1], r[2], r[3]) for r in daily_rows}
+    first_day = datetime.strptime(since, "%Y-%m-%d").date()
+    series = []
+    for i in range(30):
+        d = first_day + timedelta(days=i)
+        pv_d, visits_d, visitors_d = daily_by_day.get(d.strftime("%Y-%m-%d"), (0, 0, 0))
+        series.append((d, pv_d, visits_d, visitors_d))
+    gw, gh = 920, 280
+    gpl, gpr, gpt, gpb = 38, 12, 14, 30
+    plot_w, plot_h = gw - gpl - gpr, gh - gpt - gpb
+    max_val = max([max(s[1], s[2], s[3]) for s in series] + [1])
+    # Round the ceiling up to a clean grid step.
+    for step_try in (1, 2, 5, 10, 20, 25, 50, 100, 200, 500):
+        if max_val <= step_try * 4:
+            max_val = step_try * 4
+            break
+    else:
+        step_try = 500
+
+    def gx(i):
+        return gpl + (plot_w * i / 29.0)
+
+    def gy(v):
+        return gpt + plot_h - (plot_h * v / float(max_val))
+
+    grid_svg = ""
+    for gv in range(0, max_val + 1, max_val // 4):
+        y = gy(gv)
+        grid_svg += (f"<line x1='{gpl}' y1='{y:.1f}' x2='{gw - gpr}' y2='{y:.1f}' "
+                     f"stroke='#ddd' stroke-width='1'/>"
+                     f"<text x='{gpl - 6}' y='{y + 3:.1f}' font-size='10' fill='#777' "
+                     f"text-anchor='end'>{gv}</text>")
+    bars_svg = ""
+    bar_w = max(4.0, plot_w / 30.0 * 0.55)
+    for i, (d, pv_d, visits_d, visitors_d) in enumerate(series):
+        x = gx(i) - bar_w / 2
+        y = gy(visitors_d)
+        bars_svg += (f"<rect x='{x:.1f}' y='{y:.1f}' width='{bar_w:.1f}' "
+                     f"height='{max(0.0, gy(0) - y):.1f}' fill='#c9a227'>"
+                     f"<title>{d.strftime('%b %d')}: {visitors_d} visitors, "
+                     f"{visits_d} visits, {pv_d} page views</title></rect>")
+
+    def line_svg(idx, colour, dash=""):
+        pts = " ".join(f"{gx(i):.1f},{gy(s[idx]):.1f}" for i, s in enumerate(series))
+        dots = "".join(
+            f"<circle cx='{gx(i):.1f}' cy='{gy(s[idx]):.1f}' r='2.5' fill='{colour}'>"
+            f"<title>{s[0].strftime('%b %d')}: {s[idx]}</title></circle>"
+            for i, s in enumerate(series))
+        dash_attr = f" stroke-dasharray='{dash}'" if dash else ""
+        return (f"<polyline points='{pts}' fill='none' stroke='{colour}' "
+                f"stroke-width='2'{dash_attr}/>" + dots)
+
+    labels_svg = ""
+    for i, (d, pv_d, visits_d, visitors_d) in enumerate(series):
+        if i % 5 == 0 or i == 29:
+            labels_svg += (f"<text x='{gx(i):.1f}' y='{gh - 8}' font-size='10' "
+                           f"fill='#777' text-anchor='middle'>{d.strftime('%b %d')}</text>")
+    peak = max(series, key=lambda s: s[3])
+    if peak[3] > 0:
+        peak_txt = (f"Busiest day: {peak[0].strftime('%B %d')} with {peak[3]} visitors "
+                    f"and {peak[1]} page views. Hover any bar or dot for that day's numbers.")
+    else:
+        peak_txt = "No visits recorded yet in this period. The graph fills in as people visit."
+    graph_html = f"""
+<div class="admin-card">
+<h2>Viewers over time <span class="muted" style="font-size:14px">(last 30 days, per day)</span></h2>
+<p class="small" style="margin:0 0 6px"><span style="color:#c9a227">&#9638;</span> <strong>Visitors</strong> &nbsp;
+<span style="color:#333">&#9644;</span> <strong>Page views</strong> &nbsp;
+<span style="color:#888">&#9644;</span> <strong>Visits (dashed)</strong></p>
+<svg viewBox="0 0 {gw} {gh}" style="width:100%;height:auto;display:block" role="img" aria-label="Graph of visitors, visits and page views per day for the last 30 days">
+{grid_svg}{bars_svg}{line_svg(2, "#888", "5,4")}{line_svg(1, "#333")}{labels_svg}
+</svg>
+<p class="small muted">{peak_txt}</p>
+</div>"""
 
     def table(title, pairs, empty="Nothing yet."):
         items = "".join(f"<tr><td>{h(str(a))}</td><td style='text-align:right'>{b}</td></tr>"
@@ -5913,6 +5995,7 @@ def admin_analytics():
 <p style="font-size:18px"><strong>{visits}</strong> visits &nbsp;·&nbsp; <strong>{visitors}</strong> visitors &nbsp;·&nbsp; <strong>{pv}</strong> page views</p>
 <p class="small muted">A visit is one browsing session. Sources and countries come from each visit's first page. Tracking started 2026-10-21, so history builds from today.</p>
 </div>
+{graph_html}
 {table("Where visits come from", [(r[0] or "Direct", r[1]) for r in sources])}
 {table("Countries", [(r[0], r[1]) for r in countries])}
 {table("Most viewed pages", [(r[0], r[1]) for r in top_pages])}
