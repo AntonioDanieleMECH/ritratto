@@ -4357,6 +4357,14 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
             "availability": ("https://schema.org/InStock" if _in_stock
                              else "https://schema.org/OutOfStock"),
             "url": f"{CANONICAL_URL}/product/{pid}",
+            "hasMerchantReturnPolicy": {
+                "@type": "MerchantReturnPolicy",
+                "applicableCountry": "CA",
+                "returnPolicyCategory":
+                    "https://schema.org/MerchantReturnFiniteReturnWindow",
+                "merchantReturnDays": 7,
+                "returnMethod": "https://schema.org/ReturnByMail",
+            },
         },
     }
     if is_kc:
@@ -4368,6 +4376,11 @@ document.getElementById('notifyBtn').addEventListener('click', async function() 
             "shippingRate": {"@type": "MonetaryAmount", "value": "2.50",
                              "currency": "CAD"},
             "shippingDestination": {"@type": "DefinedRegion", "addressCountry": "CA"},
+            "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "transitTime": {"@type": "QuantitativeValue",
+                                "minValue": 7, "maxValue": 14, "unitCode": "DAY"},
+            },
         }
     if rrow and rrow[0]:
         _pjson["aggregateRating"] = {
