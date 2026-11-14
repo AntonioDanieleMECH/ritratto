@@ -875,7 +875,13 @@
     } else if ((id = t.getAttribute("data-pshare"))) {
       doShare("product", id, t);
     } else if ((id = t.getAttribute("data-adel"))) {
-      if (confirm("Delete this announcement? This cannot be undone.")) {
+      if (!t.getAttribute("data-armed")) {
+        t.setAttribute("data-armed", "1");
+        t.textContent = "Click again to confirm";
+        setTimeout(function () { t.removeAttribute("data-armed"); t.textContent = "Delete"; }, 5000);
+        return;
+      }
+      {
         try {
           await call("/api/admin/announcements/" + encodeURIComponent(id), { method: "DELETE" });
           await loadAnnouncements();
@@ -891,13 +897,17 @@
         } catch (err) { showErr($("wipList"), "Could not delete the project: " + err.message); }
       }
     } else if ((id = t.getAttribute("data-odel"))) {
-      if (confirm("Delete this order permanently? This cannot be undone.")) {
-        try {
-          await jpost("/api/admin/orders/" + encodeURIComponent(id) + "/delete", {});
-          showOk($("orderList"), "Order deleted.");
-          await loadOrders();
-        } catch (err) { showErr($("orderList"), "Could not delete the order: " + err.message); }
+      if (!t.getAttribute("data-armed")) {
+        t.setAttribute("data-armed", "1");
+        t.textContent = "Click again to confirm delete";
+        setTimeout(function () { t.removeAttribute("data-armed"); t.textContent = "Delete order"; }, 5000);
+        return;
       }
+      try {
+        await jpost("/api/admin/orders/" + encodeURIComponent(id) + "/delete", {});
+        showOk($("orderList"), "Order deleted.");
+        await loadOrders();
+      } catch (err) { showErr($("orderList"), "Could not delete the order: " + err.message); }
     } else if ((id = t.getAttribute("data-dispatch"))) {
       var tr = t.closest("tr");
       var tn = tr.querySelector("input[data-trk]").value.trim();
