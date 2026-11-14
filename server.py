@@ -6532,6 +6532,27 @@ def admin_dispatch():
     return jsonify({"ok": True, "emailed": emailed, "email_detail": detail})
 
 
+@app.route("/api/admin/orders/<oid>/delete", methods=["POST"])
+def admin_order_delete(oid):
+    """Delete an order row (and its cart items). Admin-only; used to clear
+    test/junk orders so the counts stay real."""
+    if not admin_ok():
+        abort(403)
+    conn = db()
+    cur = conn.execute("DELETE FROM orders WHERE id=?", (oid,))
+    n = cur.rowcount
+    if n:
+        conn.execute("DELETE FROM order_items WHERE order_id=?", (oid,))
+    else:
+        cur = conn.execute("DELETE FROM lamp_orders WHERE id=?", (oid,))
+        n = cur.rowcount
+    conn.commit()
+    conn.close()
+    if not n:
+        return jsonify({"error": "unknown order"}), 404
+    return jsonify({"ok": True, "deleted": oid})
+
+
 @app.route("/api/admin/product-views")
 def admin_product_views():
     """Per-product view counts: total + last 30 days. Admin stays English."""
