@@ -562,6 +562,7 @@
     } else {
       dispatchCell = '<span class="small muted">-</span>';
     }
+    dispatchCell += '<div style="margin-top:6px"><button class="btn btn-sm btn-outline" data-odel="' + esc(o.id) + '" type="button">Delete order</button></div>';
     var customer = esc(o.customer || "-") +
       (o.email ? '<br><a href="mailto:' + esc(o.email) + '">' + esc(o.email) + "</a>" : "") +
       (o.phone ? '<br><a href="tel:' + esc(o.phone.replace(/[^+\d]/g, "")) + '">' + esc(o.phone) + "</a>" : "");
@@ -888,6 +889,14 @@
           await call("/api/admin/wip/" + encodeURIComponent(id), { method: "DELETE" });
           await loadWip();
         } catch (err) { showErr($("wipList"), "Could not delete the project: " + err.message); }
+      }
+    } else if ((id = t.getAttribute("data-odel"))) {
+      if (confirm("Delete this order permanently? This cannot be undone.")) {
+        try {
+          await jpost("/api/admin/orders/" + encodeURIComponent(id) + "/delete", {});
+          showOk($("orderList"), "Order deleted.");
+          await loadOrders();
+        } catch (err) { showErr($("orderList"), "Could not delete the order: " + err.message); }
       }
     } else if ((id = t.getAttribute("data-dispatch"))) {
       var tr = t.closest("tr");
