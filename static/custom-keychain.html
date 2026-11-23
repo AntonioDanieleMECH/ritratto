@@ -432,13 +432,26 @@ function smoothContour(mask, w, h){
 
 function buildFinal(){
   if(!styledCanvas) return;
-  const pad = 130, w = styledCanvas.width + pad*2, h = styledCanvas.height + pad*2;
   const ctx0 = styledCanvas.getContext('2d');
   const data = ctx0.getImageData(0,0,styledCanvas.width,styledCanvas.height).data;
+  // pre-scan the subject bbox so the pad always fits the raised tab
+  // (with the hole higher, a big subject in frame could clip the tab top)
+  let sMinX=1e9,sMaxX=-1,sMinY=1e9,sMaxY=-1;
+  for(let y=0;y<styledCanvas.height;y++) for(let x=0;x<styledCanvas.width;x++){
+    if(data[(y*styledCanvas.width+x)*4+3] > 140){
+      if(x<sMinX)sMinX=x; if(x>sMaxX)sMaxX=x; if(y<sMinY)sMinY=y; if(y>sMaxY)sMaxY=y;
+    }
+  }
+  if(sMaxX<0){ setStatus('No subject found in that photo. Try a clearer photo.'); return; }
+  const sizeMmPre = parseInt($('size').value, 10) || 60;
+  const subjLongPre = Math.max(sMaxX-sMinX, sMaxY-sMinY);
+  const tabRPre = Math.round(5.7 * (subjLongPre / Math.max(20, sizeMmPre - 12)));
+  const pad = Math.max(130, Math.ceil(tabRPre * 1.8));
+  const w = styledCanvas.width + pad*2, h = styledCanvas.height + pad*2;
   let mask = new Uint8Array(w*h);
   let minX=w, maxX=0, minY=h, maxY=0, topXsum=0, topCount=0;
   for(let y=0;y<styledCanvas.height;y++) for(let x=0;x<styledCanvas.width;x++){
-    if(data[(y*styledCanvas.width+x)*4+3] > 60){
+    if(data[(y*styledCanvas.width+x)*4+3] > 140){
       mask[(y+pad)*w+(x+pad)] = 1;
       if(x+pad<minX)minX=x+pad; if(x+pad>maxX)maxX=x+pad;
       if(y+pad<minY)minY=y+pad; if(y+pad>maxY)maxY=y+pad;
