@@ -385,7 +385,7 @@ function buildFinal(){
   // Fill the bays between limbs first (closing): a real keychain outline
   // wraps the figure in one smooth blob like his saint keychains, it does
   // not carve into the stomach where an arm or leg leaves a gap.
-  const closeR = Math.max(14, Math.round(w * 0.04));
+  const closeR = Math.max(16, Math.round(w * 0.052));
   mask = erode(dilate(mask, w, h, closeR), w, h, closeR);
   // opening: shave off whisker-thin spikes so the cut line stays smooth
   // (the whiskers still print, the outline just does not chase them)
@@ -410,7 +410,7 @@ function buildFinal(){
   }
   const offsetPx = Math.max(10, Math.round(w * 0.022)); // ~2-3mm border at final size
   let dil = dilate(mask, w, h, offsetPx);
-  dil = roundOutline(dil, w, h); // no sharp corners or steps: every corner rounded
+  dil = roundOutline(roundOutline(dil, w, h), w, h); // two passes: junction shelves (tail/leg, tab/shoulder) blend into curves
   // bounding box of final outline
   let fMinX=w,fMaxX=0,fMinY=h,fMaxY=0;
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(dil[y*w+x]){ if(x<fMinX)fMinX=x; if(x>fMaxX)fMaxX=x; if(y<fMinY)fMinY=y; if(y>fMaxY)fMaxY=y; }
