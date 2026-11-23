@@ -80,6 +80,9 @@
       <button id="btnTouch">AI Touch-Up<small>Same pose, just cleaned and isolated</small></button>
     </div>
 
+    <button id="btnGenerate" class="btn" style="width:100%; margin-top:14px; font-size:17px; padding:13px;">Generate my keychain</button>
+    <p style="font-size:12.5px; color:#777; margin:6px 0 0;">Pick your photo and style first, then press Generate. Nothing is made until you do.</p>
+
     <div class="step">3. Size</div>
     <div class="sizeRow"><span>Keychain length</span><b><span id="mmVal">54</span> mm</b></div>
     <input type="range" id="size" min="54" max="70" step="1" value="54">
@@ -158,6 +161,7 @@ let finalCanvas = null;       // composite with white body + red outline
 let style = 'real';
 let busy = false;
 let lastFile = null;          // original upload, sent to the AI cartoon endpoint
+let origFile = null;          // untouched upload, kept for exact (no AI) mode
 let enhanceUsed = false;      // true when the AI enhance succeeded for this photo
 let aiCartoonCanvas = null;   // cached AI cartoon cutout for the current photo
 let aiRealCanvas = null;      // cached AI-isolated realistic cutout for the current photo
@@ -184,39 +188,19 @@ drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('ov
 fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
 
 async function handleFile(file){
-  if(busy) return; busy = true;
-  lastFile = file; aiCartoonCanvas = null; aiRealCanvas = null; aiTouchCanvas = null; editStack = []; enhanceUsed = false;
-  style = 'real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); $('btnTouch').classList.remove('active');
-  let workFile = file;
-  // Optional AI enhance (live site endpoint /api/keychain-enhance): runs BEFORE
-  // the cutout, so the cutout and the print both use the enhanced photo.
-  if($('enhanceAi').checked && !$('exactPhoto').checked){
-    setStatus('<span class="spin"></span> AI is enhancing your photo (lighting, sharpness, colours)...');
-    try {
-      const fd = new FormData(); fd.append('photo', file);
-      const r = await fetch('/api/keychain-enhance', { method:'POST', body: fd });
-      if(!r.ok) throw new Error('enhance endpoint ' + r.status);
-      workFile = await r.blob();
-      lastFile = workFile; enhanceUsed = true;
-      setStatus('<span class="spin"></span> Photo enhanced. Cutting out the subject...');
-    } catch(err) {
-      console.error(err);
-      setStatus('AI enhance could not run just now. Continuing with your original photo...');
-    }
-  }
-  setStatus('<span class="spin"></span> Cutting out the subject... first time can take a minute, the cutout tool downloads once.');
+  if(busy) return;
+  origFile = file; lastFile = file;
+  aiCartoonCanvas = null; aiRealCanvas = null; aiTouchCanvas = null; cutoutCanvas = null;
+  styledCanvas = null; finalCanvas = null; editStack = []; enhanceUsed = false;
   try {
-    cutoutCanvas = await cutoutFile(workFile);
-    setStatus('Cutout done: this is the exact cutout of your photo. AI Touch-Up keeps this exact pose and just cleans it, Realistic repositions your subject clean like our keychains, AI Cartoon makes it chibi style.');
-  } catch(err) {
-    console.error(err);
-    cutoutCanvas = null; styledCanvas = null; finalCanvas = null; placeholder();
-    setStatus('The automatic cutout could not run in this browser. Try Chrome or Safari, or send us the photo and we will set it up for you. Nothing was outlined, because outlining the whole rectangle would be wrong. (' + ((err && err.message) || err || '').toString().slice(0,120) + ')');
-    busy = false;
-    return;
-  }
-  busy = false;
-  restyle();
+    const img = await loadImage(URL.createObjectURL(file));
+    sctx.fillStyle = '#fff'; sctx.fillRect(0,0,stage.width,stage.height);
+    const sc = Math.min(stage.width/img.width, stage.height/img.height);
+    const dw = img.width*sc, dh = img.height*sc;
+    sctx.drawImage(img, (stage.width-dw)/2, (stage.height-dh)/2, dw, dh);
+  } catch(err) { placeholder(); }
+  $('dims').textContent = 'Press Generate to see the full dimensions.';
+  setStatus('Photo ready. Pick your style and options above, then press <b>Generate</b>.');
 }
 
 // Background removal for one image file, returns a capped transparent canvas.
@@ -249,26 +233,40 @@ $('exactPhoto').addEventListener('change', ()=>{
   $('btnReal').disabled = ex; $('btnToon').disabled = ex; $('btnTouch').disabled = ex;
   $('enhanceAi').disabled = ex;
   if(ex){
-    style = 'real'; aiRealCanvas = null; aiCartoonCanvas = null; aiTouchCanvas = null; editStack = [];
-    $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
-    if(enhanceUsed){
-      setStatus('Exact photo mode is on. This preview was AI enhanced earlier, so upload the photo once more for a truly untouched version.');
-    } else {
-      if(cutoutCanvas) restyle();
-      setStatus('Exact photo mode: your uploaded image, untouched, just cut out.');
-    }
+    aiRealCanvas = null; aiCartoonCanvas = null; aiTouchCanvas = null; editStack = [];
+    setStatus(origFile ? 'Exact photo mode: your uploaded image, untouched. Press <b>Generate</b> to cut it out.'
+                       : 'Exact photo mode: your uploaded image, untouched, just cut out.');
+  } else {
+    setStatus(origFile ? 'AI styles back on. Pick a style, then press <b>Generate</b>.' : 'Pick a style, then press Generate.');
   }
 });
-$('btnReal').onclick = async ()=>{
+$('enhanceAi').addEventListener('change', ()=>{
+  // Enhance applies at Generate time; changing it invalidates earlier results.
+  aiRealCanvas = null; aiCartoonCanvas = null; aiTouchCanvas = null; cutoutCanvas = null; editStack = [];
+  enhanceUsed = false; lastFile = origFile;
+  if(origFile) setStatus('AI enhance ' + ($('enhanceAi').checked ? 'on' : 'off') + '. Press <b>Generate</b> to make your keychain.');
+});
+
+function selectStyleVisual(){
+  $('btnReal').classList.toggle('active', style === 'real');
+  $('btnToon').classList.toggle('active', style === 'toon');
+  $('btnTouch').classList.toggle('active', style === 'touch');
+}
+function selectStyle(s){
   if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
-  if(!lastFile){ setStatus('Upload a photo first.'); return; }
-  if(busy){ setStatus('One step at a time: wait for the current step to finish.'); return; }
-  style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); $('btnTouch').classList.remove('active');
-  if(aiRealCanvas || !cutoutCanvas){ restyle(); return; }
+  style = s; selectStyleVisual();
+  const name = s === 'toon' ? 'AI Cartoon' : s === 'touch' ? 'AI Touch-Up' : 'Realistic';
+  setStatus(origFile ? name + ' selected. Press <b>Generate</b> to make it.'
+                     : name + ' selected. Upload a photo, then press Generate.');
+}
+$('btnReal').onclick = ()=> selectStyle('real');
+$('btnToon').onclick = ()=> selectStyle('toon');
+$('btnTouch').onclick = ()=> selectStyle('touch');
+
+async function makeReal(){
   // Realistic = AI regenerates the subject alone, nicely positioned on
   // white (like his saint keychain figures), then we cut that out. The
   // exact-photo browser cutout stays as the fallback if the AI fails.
-  busy = true;
   setStatus('<span class="spin"></span> The AI is isolating your subject and positioning it nicely for the keychain...');
   try {
     const fd = new FormData(); fd.append('photo', lastFile);
@@ -283,20 +281,12 @@ $('btnReal').onclick = async ()=>{
     console.error(err);
     setStatus('The AI could not isolate that one just now, so this is the exact cutout of your photo.');
   }
-  busy = false;
   restyle();
-};
-$('btnToon').onclick = async ()=>{
-  if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
-  if(!lastFile){ setStatus('Upload a photo first.'); return; }
-  if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Cartoon.'); return; }
-  if(!cutoutCanvas){ setStatus('The cutout has not finished yet. Wait for your preview to appear, then tap AI Cartoon.'); return; }
-  style='toon'; $('btnToon').classList.add('active'); $('btnReal').classList.remove('active'); $('btnTouch').classList.remove('active');
-  if(aiCartoonCanvas){ restyle(); return; }
-  // AI cartoon: the server regenerates the subject as a cartoon depiction
-  // (Gemini image model, endpoint /api/keychain-cartoon in server.py, live site only).
-  // It returns the cartoon on a transparent background, ready to outline.
-  busy = true;
+}
+
+async function makeToon(){
+  // AI cartoon: the server regenerates the subject as a chibi cartoon
+  // (Gemini image model, endpoint /api/keychain-cartoon in server.py).
   setStatus('<span class="spin"></span> The AI is redrawing your subject as a cartoon... this takes about 30 to 60 seconds.');
   try {
     const fd = new FormData();
@@ -311,24 +301,16 @@ $('btnToon').onclick = async ()=>{
     setStatus('AI cartoon done. The outline follows the cartoon.');
   } catch(err) {
     console.error(err);
-    style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); $('btnTouch').classList.remove('active');
+    style='real'; selectStyleVisual();
     setStatus(finalCanvas ? 'The AI cartoon could not be made just now. Your realistic keychain is still ready below.'
                           : 'The AI cartoon could not be made just now. Try again in a moment.');
   }
-  busy = false;
   restyle();
-};
+}
 
-$('btnTouch').onclick = async ()=>{
-  if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
-  if(!lastFile){ setStatus('Upload a photo first.'); return; }
-  if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Touch-Up.'); return; }
-  if(!cutoutCanvas){ setStatus('The cutout has not finished yet. Wait for your preview to appear, then tap AI Touch-Up.'); return; }
-  style='touch'; $('btnTouch').classList.add('active'); $('btnReal').classList.remove('active'); $('btnToon').classList.remove('active');
-  if(aiTouchCanvas){ restyle(); return; }
+async function makeTouch(){
   // Same-pose touch-up: server Gemini edit, strict prompt, subject keeps
   // its exact pose; only the background is replaced and basics tidied.
-  busy = true;
   setStatus('<span class="spin"></span> The AI is cleaning your photo, same pose, background removed... about 30 to 60 seconds.');
   try {
     const fd = new FormData();
@@ -342,13 +324,60 @@ $('btnTouch').onclick = async ()=>{
     setStatus('Touch-up done: same pose, cleaned and isolated.');
   } catch(err) {
     console.error(err);
-    style='real'; $('btnReal').classList.add('active'); $('btnTouch').classList.remove('active');
+    style='real'; selectStyleVisual();
     setStatus(finalCanvas ? 'The AI touch-up could not be made just now. Your current keychain is still ready below.'
                           : 'The AI touch-up could not be made just now. Try again in a moment.');
   }
-  busy = false;
   restyle();
-};
+}
+
+// ---------- generate (Antonio, 2026-11-23): pick preferences, then generate ----------
+async function generate(){
+  if(!origFile){ setStatus('Upload a photo first.'); return; }
+  if(busy){ setStatus('Working on it, one step at a time.'); return; }
+  busy = true; $('btnGenerate').disabled = true;
+  try {
+    if($('exactPhoto').checked){
+      if(!cutoutCanvas){
+        setStatus('<span class="spin"></span> Cutting out your photo... first time can take a minute, the cutout tool downloads once.');
+        try { cutoutCanvas = await cutoutFile(origFile); }
+        catch(err) { console.error(err); setStatus('The automatic cutout could not run in this browser. Try Chrome or Safari, or send us the photo and we will set it up for you.'); return; }
+      }
+      style = 'real'; selectStyleVisual();
+      restyle();
+      setStatus('Done: your photo, untouched, just cut out.');
+      return;
+    }
+    // Optional AI enhance, once per photo, before the cutout and the styles.
+    if($('enhanceAi').checked && !enhanceUsed){
+      setStatus('<span class="spin"></span> AI is enhancing your photo (lighting, sharpness, colours)...');
+      try {
+        const fd = new FormData(); fd.append('photo', origFile);
+        const r = await fetch('/api/keychain-enhance', { method:'POST', body: fd });
+        if(!r.ok) throw new Error('enhance endpoint ' + r.status);
+        lastFile = await r.blob(); enhanceUsed = true; cutoutCanvas = null;
+      } catch(err) {
+        console.error(err);
+        setStatus('AI enhance could not run just now. Continuing with your original photo...');
+      }
+    }
+    if(!cutoutCanvas){
+      setStatus('<span class="spin"></span> Cutting out the subject... first time can take a minute, the cutout tool downloads once.');
+      try { cutoutCanvas = await cutoutFile(lastFile); }
+      catch(err) { console.error(err); cutoutCanvas = null; setStatus('The automatic cutout could not run in this browser. Try Chrome or Safari, or send us the photo and we will set it up for you.'); return; }
+    }
+    if(style === 'toon'){
+      if(aiCartoonCanvas){ restyle(); setStatus('Showing your AI Cartoon version.'); } else await makeToon();
+    } else if(style === 'touch'){
+      if(aiTouchCanvas){ restyle(); setStatus('Showing your AI Touch-Up version.'); } else await makeTouch();
+    } else {
+      if(aiRealCanvas){ restyle(); setStatus('Showing your Realistic version.'); } else await makeReal();
+    }
+  } finally {
+    busy = false; $('btnGenerate').disabled = false;
+  }
+}
+$('btnGenerate').onclick = generate;
 
 function hasTransparency(c){
   const d = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
@@ -369,53 +398,52 @@ function restyle(){
 }
 
 // ---------- outline + composite ----------
-function dilate(mask, w, h, r){
-  // Radial (disc) dilation via gaussian blur + low threshold. The old
-  // separable SQUARE dilation left flat shelves and right-angle corners
-  // where shapes join (tail base, flank, tab shoulders); a disc rounds
-  // every junction into an arc, like a real die cut.
-  const src = document.createElement('canvas'); src.width=w; src.height=h;
-  const sctx = src.getContext('2d');
-  const img = sctx.createImageData(w,h);
-  for(let i=0;i<w*h;i++) if(mask[i]){ img.data[i*4]=255; img.data[i*4+1]=255; img.data[i*4+2]=255; img.data[i*4+3]=255; }
-  sctx.putImageData(img,0,0);
-  const blr = document.createElement('canvas'); blr.width=w; blr.height=h;
-  const bctx = blr.getContext('2d');
-  bctx.filter = 'blur(' + Math.max(1, Math.round(r*0.5)) + 'px)';
-  bctx.drawImage(src,0,0); bctx.drawImage(src,0,0);
-  bctx.filter = 'none';
-  const bd = bctx.getImageData(0,0,w,h).data;
-  const out = new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 25 ? 1 : 0;
+// Exact morphology via Euclidean distance transform (Felzenszwalb).
+// The old blur-based dilate/erode grew unpredictably in the browser
+// (a 1.3 mm spec border shipped as ~6 mm on a real order preview), so
+// every radius below is now an exact distance in pixels.
+function edt1d(f, n, d, v, z){
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for(let q=1;q<n;q++){
+    let s = ((f[q] + q*q) - (f[v[k]] + v[k]*v[k])) / (2*q - 2*v[k]);
+    while(s <= z[k]){ k--; s = ((f[q] + q*q) - (f[v[k]] + v[k]*v[k])) / (2*q - 2*v[k]); }
+    k++; v[k] = q; z[k] = s; z[k+1] = 1e20;
+  }
+  k = 0;
+  for(let q=0;q<n;q++){
+    while(z[k+1] < q) k++;
+    d[q] = (q - v[k])*(q - v[k]) + f[v[k]];
+  }
+}
+function edtTo(mask, w, h){
+  // distance from every pixel to the nearest 1-pixel of mask (0 inside)
+  const INF = 1e9, N = Math.max(w, h);
+  const f = new Float64Array(N), d = new Float64Array(N), tmp = new Float64Array(w*h);
+  const v = new Int32Array(N), z = new Float64Array(N+1), out = new Float32Array(w*h);
+  for(let x=0;x<w;x++){
+    for(let y=0;y<h;y++) f[y] = mask[y*w+x] ? 0 : INF;
+    edt1d(f, h, d, v, z);
+    for(let y=0;y<h;y++) tmp[y*w+x] = d[y];
+  }
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++) f[x] = tmp[y*w+x];
+    edt1d(f, w, d, v, z);
+    for(let x=0;x<w;x++) out[y*w+x] = Math.sqrt(d[x]);
+  }
   return out;
 }
-function erode(mask, w, h, r){
+function dilateDT(mask, w, h, r){
+  const D = edtTo(mask, w, h), out = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) out[i] = D[i] <= r ? 1 : 0;
+  return out;
+}
+function erodeDT(mask, w, h, r){
   const inv = new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++) inv[i] = mask[i]?0:1;
-  const d = dilate(inv, w, h, r);
-  const out = new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++) out[i] = d[i]?0:1;
+  for(let i=0;i<w*h;i++) inv[i] = mask[i] ? 0 : 1;
+  const D = edtTo(inv, w, h), out = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) out[i] = (mask[i] && D[i] > r) ? 1 : 0;
   return out;
 }
-function roundOutline(dil, w, h){
-  const src = document.createElement('canvas'); src.width=w; src.height=h;
-  const sctx2 = src.getContext('2d');
-  const img = sctx2.createImageData(w,h);
-  for(let i=0;i<w*h;i++) if(dil[i]){ img.data[i*4]=255; img.data[i*4+1]=255; img.data[i*4+2]=255; img.data[i*4+3]=255; }
-  sctx2.putImageData(img,0,0);
-  const blr = document.createElement('canvas'); blr.width=w; blr.height=h;
-  const bctx2 = blr.getContext('2d');
-  bctx2.filter = 'blur(11px)';
-  // ONE draw only: stacking blurred copies saturates the alpha and the
-  // shape silently grows ~1.5 mm past spec (found measuring the border).
-  bctx2.drawImage(src,0,0);
-  bctx2.filter = 'none';
-  const bd = bctx2.getImageData(0,0,w,h).data;
-  const out = new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 128 ? 1 : 0;
-  return out;
-}
-
 function smoothContour(mask, w, h){
   // Trace the outer boundary (Moore neighbourhood), smooth the polygon
   // itself with Chaikin corner cutting, and re-fill. Pixel-level rounding
@@ -496,19 +524,15 @@ function buildFinal(){
   const sizeMm = parseInt($('size').value, 10) || 60;
   const subjLong = Math.max(maxX-minX, maxY-minY);
   const estPxMm = subjLong / Math.max(20, sizeMm - 12);
-  // Fill the bays between limbs first (closing): a real keychain outline
-  // wraps the figure in one smooth blob like his saint keychains, it does
-  // not carve into the stomach where an arm or leg leaves a gap.
-  const closeR = Math.max(14, Math.round(w * 0.05));
-  mask = erode(dilate(mask, w, h, closeR), w, h, closeR);
+  // Light closing (under 1 mm): seals hairline cracks in the silhouette
+  // but, like Antonio's own saint cut files, leaves the natural bays open
+  // (under an arm, between legs) instead of ballooning the outline out.
+  const closeR = Math.max(6, Math.round(0.9 * estPxMm));
+  mask = erodeDT(dilateDT(mask, w, h, closeR), w, h, closeR);
   // opening: shave off whisker-thin spikes so the cut line stays smooth
   // (the whiskers still print, the outline just does not chase them)
-  let closedArea = 0;
-  for(let i=0;i<w*h;i++) closedArea += mask[i];
-  const openR = Math.max(6, Math.round(w * 0.007));
-  mask = dilate(erode(mask, w, h, openR), w, h, openR);
-  let openedArea = 0;
-  for(let i=0;i<w*h;i++) openedArea += mask[i];
+  const openR = Math.max(4, Math.round(0.35 * estPxMm));
+  mask = dilateDT(erodeDT(mask, w, h, openR), w, h, openR);
   // centre of mass of the whole silhouette: the tab sits there so the
   // finished keychain hangs straight and balanced, not over one paw.
   let cxSum=0, cCount=0;
@@ -523,15 +547,13 @@ function buildFinal(){
     const dx=x-tabCX, dy=y-tabCY;
     if(dx*dx+dy*dy <= tabR*tabR) mask[y*w+x]=1;
   }
-  // White border 1-2 mm depending on complexity (Antonio): a plain shape
-  // gets ~1.3 mm so the printed image fills the keychain; a shape whose
-  // opening pass had to shave a lot (thin protrusions, an arm sticking
-  // out) gets 2 mm and the rounded contour keeps it strong.
-  const complex = (1 - openedArea / Math.max(1, closedArea)) > 0.035;
-  const offsetPx = Math.max(6, Math.round((complex ? 2.0 : 1.3) * estPxMm));
-  let dil = dilate(mask, w, h, offsetPx);
-  dil = roundOutline(roundOutline(dil, w, h), w, h);
-  dil = smoothContour(smoothContour(dil, w, h), w, h); // two contour passes: the second rounds what the first leaves (right tail kink)
+  // White border: a flat 2 mm, measured on Antonio's own saint cut files
+  // (his red lines sit ~2-3 mm off the figure). Exact distance transform,
+  // so 2 mm in the file is 2 mm on the keychain. Thin protrusions stay
+  // strong: 2 mm of material is added on every side of them.
+  const offsetPx = Math.max(6, Math.round(2.0 * estPxMm));
+  let dil = dilateDT(mask, w, h, offsetPx);
+  dil = smoothContour(dil, w, h); // one gentle pass: his cut lines keep the figure's natural waviness
   // bounding box of final outline
   let fMinX=w,fMaxX=0,fMinY=h,fMaxY=0;
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(dil[y*w+x]){ if(x<fMinX)fMinX=x; if(x>fMaxX)fMaxX=x; if(y<fMinY)fMinY=y; if(y>fMaxY)fMaxY=y; }
