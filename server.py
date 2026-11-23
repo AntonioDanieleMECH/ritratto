@@ -5658,7 +5658,8 @@ def _gemini_image_edit(img_bytes, mime, prompt):
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 params={"key": GEMINI_API_KEY}, json=payload, timeout=120)
             if r.status_code != 200:
-                last_err = RuntimeError(f"gemini {model} {r.status_code}")
+                last_err = RuntimeError(
+                    f"gemini {model} {r.status_code} {(r.text or '')[:300]}")
                 continue
             for cand in (r.json().get("candidates") or []):
                 for part in ((cand.get("content") or {}).get("parts") or []):
@@ -5668,7 +5669,49 @@ def _gemini_image_edit(img_bytes, mime, prompt):
             last_err = RuntimeError("gemini returned no image")
         except Exception as e:
             last_err = e
-    raise RuntimeError(str(last_err) if last_err else "gemini failed")
+    err_text = str(last_err) if last_err else "gemini failed"
+    _maybe_alert_gemini_down(err_text)
+    raise RuntimeError(err_text)
+
+
+_GEMINI_ALERT_MARKERS = ("429", "403", "quota", "billing", "credit",
+                         "prepay", "resource_exhausted", "insufficient",
+                         "no_ai_key")
+
+
+def _maybe_alert_gemini_down(err_text):
+    """Email Antonio when Gemini AI calls start failing for what looks like
+    billing/quota (his prepaid credit running out), at most once a day.
+    Added 2026-11-23 at his request so the AI styles never die silently:
+    Realistic falls back to the plain cutout and nobody would notice."""
+    try:
+        low = (err_text or "").lower()
+        if not any(m in low for m in _GEMINI_ALERT_MARKERS):
+            return
+        stamp_path = os.path.join(DATA_DIR, "gemini_alert_stamp.txt")
+        now = time.time()
+        try:
+            with open(stamp_path) as fh:
+                if now - float(fh.read().strip() or 0) < 24 * 3600:
+                    return
+        except (OSError, ValueError):
+            pass
+        ok, _info = send_email(
+            SUPPORT_EMAIL,
+            "Gemini AI may be out of credit — AI styles failing",
+            "The website's Gemini image calls just failed with what looks "
+            "like a billing or quota error:\n\n" + (err_text or "")[:400] +
+            "\n\nCheck the prepaid balance in Google AI Studio / Google "
+            "Cloud Billing and top up if it hit $0. Until then, the custom "
+            "keychain AI styles (Cartoon, Realistic, Touch-Up, Enhance) "
+            "will fail or fall back to the plain cutout.\n\n"
+            "This alert repeats at most once every 24 hours while it keeps "
+            "failing.")
+        if ok:
+            with open(stamp_path, "w") as fh:
+                fh.write(str(now))
+    except Exception:
+        pass
 
 @app.route("/api/keychain-enhance", methods=["POST"])
 def keychain_enhance():
