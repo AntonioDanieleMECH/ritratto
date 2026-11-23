@@ -57,13 +57,26 @@ DATA_DIR = os.environ.get("DATA_DIR", BASE)  # /var/data on Render (persistent d
 UPLOADS = os.path.join(DATA_DIR, "uploads")
 LAMP_UPLOAD_DIR = os.path.join(STATIC_DIR, "lamp_uploads")
 DESIGN_UPLOAD_DIR = os.path.join(STATIC_DIR, "design_uploads")
-KEYCHAIN_DESIGN_DIR = os.path.join(STATIC_DIR, "keychain_designs")
+# Customer keychain design files live on the PERSISTENT disk: when they
+# were under static/ (the app directory), every Render deploy wiped them
+# and real order designs would have been lost (found 2026-11-23, all test
+# designs 404'd after a deploy). Served by an explicit route below.
+KEYCHAIN_DESIGN_DIR = os.path.join(DATA_DIR, "keychain_designs")
+_LEGACY_KC_DIR = os.path.join(STATIC_DIR, "keychain_designs")
 PRODUCT_IMG_DIR = os.path.join(STATIC_DIR, "img", "products")
 DB = os.path.join(DATA_DIR, "jobs.db")
 os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
 os.makedirs(DESIGN_UPLOAD_DIR, exist_ok=True)
 os.makedirs(KEYCHAIN_DESIGN_DIR, exist_ok=True)
+try:
+    if os.path.isdir(_LEGACY_KC_DIR):
+        for _fn in os.listdir(_LEGACY_KC_DIR):
+            _dst = os.path.join(KEYCHAIN_DESIGN_DIR, _fn)
+            if not os.path.exists(_dst):
+                shutil.copyfile(os.path.join(_LEGACY_KC_DIR, _fn), _dst)
+except Exception:
+    pass
 os.makedirs(PRODUCT_IMG_DIR, exist_ok=True)
 VIDEO_DIR = os.path.join(DATA_DIR, "uploads", "videos")
 os.makedirs(VIDEO_DIR, exist_ok=True)
@@ -5536,6 +5549,13 @@ LAMP_SINGLE = 3999   # $39.99 for one custom lamp
 LAMP_PACK4 = 9999    # $99.99 for a 4-pack of the same design
 LAMP_EXTRA = 2499    # $24.99 for each additional copy
 LAMP_SHIPPING = 1000
+
+
+@app.route("/keychain_designs/<path:fname>")
+def keychain_design_file(fname):
+    """Serve a saved custom-keychain design (original / cutout / preview)
+    from the persistent disk. Basename only, no traversal."""
+    return send_from_directory(KEYCHAIN_DESIGN_DIR, os.path.basename(fname))
 
 
 def load_upright(stream):
