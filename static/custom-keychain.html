@@ -342,6 +342,14 @@ function dilate(mask, w, h, r){
 // Round off the outline: blur the dilated shape and re-threshold it.
 // Sharp corners, steps and flat ends (like a tail cut off by the photo edge)
 // come back as smooth round corners, radius roughly the blur size.
+function erode(mask, w, h, r){
+  const inv = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) inv[i] = mask[i]?0:1;
+  const d = dilate(inv, w, h, r);
+  const out = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) out[i] = d[i]?0:1;
+  return out;
+}
 function roundOutline(dil, w, h){
   const src = document.createElement('canvas'); src.width=w; src.height=h;
   const sctx2 = src.getContext('2d');
@@ -374,12 +382,23 @@ function buildFinal(){
     }
   }
   if(maxX===0){ setStatus('No subject found in that photo. Try a clearer photo.'); return; }
-  // tab: circle sitting on the top centre of the subject
-  for(let y=0;y<styledCanvas.height;y++){ let found=false;
-    for(let x=0;x<styledCanvas.width;x++) if(data[(y*styledCanvas.width+x)*4+3]>12){ topXsum+=x+pad; topCount++; found=true; }
-    if(found && y>4) break; }
-  const tabCX = Math.round(topXsum/Math.max(1,topCount));
-  const tabCY = minY - 6, tabR = 30, holeR = 10;
+  // Fill the bays between limbs first (closing): a real keychain outline
+  // wraps the figure in one smooth blob like his saint keychains, it does
+  // not carve into the stomach where an arm or leg leaves a gap.
+  const closeR = Math.max(14, Math.round(w * 0.04));
+  mask = erode(dilate(mask, w, h, closeR), w, h, closeR);
+  // centre of mass of the whole silhouette: the tab sits there so the
+  // finished keychain hangs straight and balanced, not over one paw.
+  let cxSum=0, cCount=0;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(mask[y*w+x]){ cxSum+=x; cCount++; }
+  const centroidX = cCount ? cxSum/cCount : (minX+maxX)/2;
+  // tab sized in real millimetres: 5 mm ring hole with a solid wall
+  const sizeMm = parseInt($('size').value, 10) || 60;
+  const subjLong = Math.max(maxX-minX, maxY-minY);
+  const estPxMm = subjLong / Math.max(20, sizeMm - 12);
+  const tabR = Math.round(5.7 * estPxMm);
+  const tabCX = Math.round(Math.min(Math.max(centroidX, minX + tabR*0.55), maxX - tabR*0.55));
+  const tabCY = minY - Math.round(tabR * 0.15);
   for(let y=tabCY-tabR;y<=tabCY+tabR;y++) for(let x=tabCX-tabR;x<=tabCX+tabR;x++){
     if(x<0||y<0||x>=w||y>=h) continue;
     const dx=x-tabCX, dy=y-tabCY;
@@ -422,7 +441,8 @@ function buildFinal(){
   // red line, drawn 3x offset for thickness
   for(const [ox,oy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]])
     fx.drawImage(edge, fMinX-m+ox, fMinY-m+oy, finalCanvas.width, finalCanvas.height, ox, oy, finalCanvas.width, finalCanvas.height);
-  // ring hole
+  // ring hole: 5 mm across at the chosen finished size
+  const holeR = Math.max(8, Math.round(2.5 * (fH / sizeMm)));
   const hx = tabCX-fMinX+m, hy = tabCY-fMinY+m;
   fx.beginPath(); fx.arc(hx, hy, holeR, 0, Math.PI*2);
   fx.fillStyle = '#faf8f4'; fx.fill();
