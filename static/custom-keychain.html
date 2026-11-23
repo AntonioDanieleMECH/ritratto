@@ -194,9 +194,9 @@ async function handleFile(file){
 
 // Background removal for one image file, returns a capped transparent canvas.
 async function cutoutFile(fileOrBlob){
-  const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal-js@1.5.5/+esm');
+  const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
   const blob = await removeBackground(fileOrBlob, {
-    publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.5.5/dist/',
+    publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/',
     device: 'gpu',
     output: { format: 'image/png', quality: 1 },
     progress: (key, cur, tot) => {
