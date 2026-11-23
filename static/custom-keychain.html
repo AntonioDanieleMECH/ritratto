@@ -358,8 +358,8 @@ function roundOutline(dil, w, h){
   sctx2.putImageData(img,0,0);
   const blr = document.createElement('canvas'); blr.width=w; blr.height=h;
   const bctx2 = blr.getContext('2d');
-  bctx2.filter = 'blur(6px)';
-  bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0);
+  bctx2.filter = 'blur(11px)';
+  bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0);
   bctx2.filter = 'none';
   const bd = bctx2.getImageData(0,0,w,h).data;
   const out = new Uint8Array(w*h);
@@ -375,7 +375,7 @@ function buildFinal(){
   let mask = new Uint8Array(w*h);
   let minX=w, maxX=0, minY=h, maxY=0, topXsum=0, topCount=0;
   for(let y=0;y<styledCanvas.height;y++) for(let x=0;x<styledCanvas.width;x++){
-    if(data[(y*styledCanvas.width+x)*4+3] > 12){
+    if(data[(y*styledCanvas.width+x)*4+3] > 60){
       mask[(y+pad)*w+(x+pad)] = 1;
       if(x+pad<minX)minX=x+pad; if(x+pad>maxX)maxX=x+pad;
       if(y+pad<minY)minY=y+pad; if(y+pad>maxY)maxY=y+pad;
@@ -387,6 +387,10 @@ function buildFinal(){
   // not carve into the stomach where an arm or leg leaves a gap.
   const closeR = Math.max(14, Math.round(w * 0.04));
   mask = erode(dilate(mask, w, h, closeR), w, h, closeR);
+  // opening: shave off whisker-thin spikes so the cut line stays smooth
+  // (the whiskers still print, the outline just does not chase them)
+  const openR = Math.max(6, Math.round(w * 0.007));
+  mask = dilate(erode(mask, w, h, openR), w, h, openR);
   // centre of mass of the whole silhouette: the tab sits there so the
   // finished keychain hangs straight and balanced, not over one paw.
   let cxSum=0, cCount=0;
