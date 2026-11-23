@@ -5647,7 +5647,8 @@ def keychain_cartoon():
             "illustration for a keychain: same subject, same pose, same "
             "colours and markings, simplified with smooth bold shapes and "
             "soft shading. Show the full subject only, centred, isolated on "
-            "a pure white background. No background, no other objects, no text.")
+            "a pure white background. No background, no other objects, no text, "
+            "and no keychain ring, loop, tab or any hardware: just the subject.")
     except RuntimeError as e:
         if "no_ai_key" in str(e):
             return jsonify({"error": "AI is not configured on the server yet."}), 503
