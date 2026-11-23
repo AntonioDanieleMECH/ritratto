@@ -5685,16 +5685,45 @@ def keychain_cartoon():
     try:
         out, mime = _gemini_image_edit(
             f.read(12 * 1024 * 1024), f.mimetype or "image/jpeg",
-            "Redraw the subject of this photo as a cute, clean cartoon "
-            "illustration for a keychain: same subject, same pose, same "
-            "colours and markings, simplified with smooth bold shapes and "
-            "soft shading. Show the full subject only, centred, isolated on "
-            "a pure white background. No background, no other objects, no text, "
-            "and no keychain ring, loop, tab or any hardware: just the subject.")
+            "Redraw the subject of this photo as a cute CHIBI cartoon "
+            "keychain illustration, in the style of chibi saint keychains: "
+            "big head, small body, bold clean black outlines, flat bright "
+            "colours with soft simple shading, adorable and instantly "
+            "recognizable as the same subject, same pose, same colours and "
+            "markings, same key features and clothing or accessories. Show "
+            "the full figure only, centred, isolated on a pure white "
+            "background. No background, no other objects, no text, and no "
+            "keychain ring, loop, tab or any hardware: just the character.")
     except RuntimeError as e:
         if "no_ai_key" in str(e):
             return jsonify({"error": "AI is not configured on the server yet."}), 503
         return jsonify({"error": "AI cartoon failed, try again."}), 502
+    return Response(out, mimetype=mime)
+
+@app.route("/api/keychain-isolate", methods=["POST"])
+def keychain_isolate():
+    """Realistic style (Antonio, 2026-11-23): AI regenerates the photo's
+    subject alone, photorealistic, nicely positioned for a keychain, on a
+    pure white background that the page then cuts out. Like his saint
+    keychains: a clean isolated figure, not a raw photo rectangle."""
+    f = request.files.get("photo")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    try:
+        out, mime = _gemini_image_edit(
+            f.read(12 * 1024 * 1024), f.mimetype or "image/jpeg",
+            "Present the subject of this photo ALONE as a clean keychain "
+            "figure: photorealistic, exactly the same subject with the same "
+            "appearance, colours and markings, in a natural pose, the FULL "
+            "subject in frame, nicely centred with even margins all around, "
+            "isolated on a pure white background, bright even studio "
+            "lighting. No background scenery, no other objects or people, "
+            "no text, and no keychain ring, loop, tab or any hardware: "
+            "just the subject.")
+    except RuntimeError as e:
+        if "no_ai_key" in str(e):
+            return jsonify({"error": "AI is not configured on the server yet."}), 503
+        return jsonify({"error": "AI isolate failed, try again."}), 502
     return Response(out, mimetype=mime)
 
 @app.route("/api/lamp-upload", methods=["POST"])

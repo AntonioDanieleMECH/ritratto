@@ -69,8 +69,8 @@
 
     <div class="step">2. Style</div>
     <div class="seg">
-      <button id="btnReal" class="active">Realistic<small>Your photo, cut out</small></button>
-      <button id="btnToon">AI Cartoon<small>AI redraws it as a cartoon</small></button>
+      <button id="btnReal" class="active">Realistic<small>AI isolates your subject, nicely positioned</small></button>
+      <button id="btnToon">AI Cartoon<small>Chibi keychain style, like our saints</small></button>
     </div>
 
     <div class="step">3. Size</div>
@@ -80,7 +80,23 @@
 
     <div id="status">Waiting for a photo.</div>
 
-    <div class="step">4. Quantity and order</div>
+    <div class="step">4. Edit it yours</div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn secondary" id="eraseToggle" style="margin-top:0; flex:1;">Erase tool: off</button>
+      <button class="btn secondary" id="undoEdit" style="margin-top:0; flex:1;">Undo edit</button>
+    </div>
+    <div style="font-size:13px; margin-top:10px;">Brush size
+      <input type="range" id="brushSize" min="6" max="80" value="28" style="width:100%; accent-color:#b98a1c;">
+    </div>
+    <p style="font-size:12.5px; color:#777; margin:6px 0 0;">Turn the erase tool on, then paint over the preview to remove anything the cutout kept by mistake. Edits apply to the style you are viewing.</p>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <input type="text" id="frontText" maxlength="24" placeholder="Add text on the front"
+        style="flex:1; padding:10px; border:1.5px solid #d8cfba; border-radius:10px; font-size:14px;">
+      <button class="btn secondary" id="addText" style="margin-top:0; width:auto; padding:10px 14px;">Add</button>
+    </div>
+    <p style="font-size:12.5px; color:#777; margin:6px 0 0;">Text goes at the bottom of your design, in bold. For a name on the back instead, use the option in step 5.</p>
+
+    <div class="step">5. Quantity and order</div>
     <div class="sizeRow"><span>Quantity (minimum 10)</span>
       <select id="qtySel" style="font-size:15px; padding:6px 8px; border-radius:8px; border:1.5px solid #d8cfba;">
         <option value="10" selected>10</option><option value="20">20</option>
@@ -137,6 +153,9 @@ let busy = false;
 let lastFile = null;          // original upload, sent to the AI cartoon endpoint
 let enhanceUsed = false;      // true when the AI enhance succeeded for this photo
 let aiCartoonCanvas = null;   // cached AI cartoon cutout for the current photo
+let aiRealCanvas = null;      // cached AI-isolated realistic cutout for the current photo
+let editStack = [];           // undo snapshots of styledCanvas (data URLs)
+let eraseOn = false;
 
 function setStatus(html){ $('status').innerHTML = html; }
 function placeholder(){
@@ -158,7 +177,7 @@ fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fil
 
 async function handleFile(file){
   if(busy) return; busy = true;
-  lastFile = file; aiCartoonCanvas = null; enhanceUsed = false;
+  lastFile = file; aiCartoonCanvas = null; aiRealCanvas = null; editStack = []; enhanceUsed = false;
   style = 'real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
   let workFile = file;
   // Optional AI enhance (live site endpoint /api/keychain-enhance): runs BEFORE
@@ -180,7 +199,7 @@ async function handleFile(file){
   setStatus('<span class="spin"></span> Cutting out the subject... first time can take a minute, the cutout tool downloads once.');
   try {
     cutoutCanvas = await cutoutFile(workFile);
-    setStatus('Cutout done: the outline follows the subject, not the photo. Pick a style and a size.');
+    setStatus('Cutout done: this is the exact cutout of your photo. Tap Realistic and the AI repositions your subject clean like our keychains, or tap AI Cartoon for the chibi style.');
   } catch(err) {
     console.error(err);
     cutoutCanvas = null; styledCanvas = null; finalCanvas = null; placeholder();
@@ -217,7 +236,32 @@ function capSize(img, max){
 }
 
 // ---------- style ----------
-$('btnReal').onclick = ()=>{ style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); restyle(); };
+$('btnReal').onclick = async ()=>{
+  if(!lastFile){ setStatus('Upload a photo first.'); return; }
+  if(busy){ setStatus('One step at a time: wait for the current step to finish.'); return; }
+  style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+  if(aiRealCanvas || !cutoutCanvas){ restyle(); return; }
+  // Realistic = AI regenerates the subject alone, nicely positioned on
+  // white (like his saint keychain figures), then we cut that out. The
+  // exact-photo browser cutout stays as the fallback if the AI fails.
+  busy = true;
+  setStatus('<span class="spin"></span> The AI is isolating your subject and positioning it nicely for the keychain...');
+  try {
+    const fd = new FormData(); fd.append('photo', lastFile);
+    const r = await fetch('/api/keychain-isolate', { method:'POST', body: fd });
+    if(!r.ok) throw new Error('isolate endpoint ' + r.status);
+    const blob = await r.blob();
+    const img = await loadImage(URL.createObjectURL(blob));
+    aiRealCanvas = capSize(img, 900);
+    if(!hasTransparency(aiRealCanvas)) aiRealCanvas = await cutoutFile(blob);
+    setStatus('Done: your subject, isolated and positioned by AI.');
+  } catch(err) {
+    console.error(err);
+    setStatus('The AI could not isolate that one just now, so this is the exact cutout of your photo.');
+  }
+  busy = false;
+  restyle();
+};
 $('btnToon').onclick = async ()=>{
   if(!lastFile){ setStatus('Upload a photo first.'); return; }
   if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Cartoon.'); return; }
@@ -257,7 +301,7 @@ function hasTransparency(c){
 }
 
 function restyle(){
-  const src = (style === 'toon' && aiCartoonCanvas) ? aiCartoonCanvas : cutoutCanvas;
+  const src = style === 'toon' ? (aiCartoonCanvas || cutoutCanvas) : (aiRealCanvas || cutoutCanvas);
   if(!src) return;
   styledCanvas = document.createElement('canvas');
   styledCanvas.width = src.width; styledCanvas.height = src.height;
@@ -386,6 +430,7 @@ function buildFinal(){
 
   // store geometry for size maths
   finalCanvas._fW = fW; finalCanvas._fH = fH;
+  finalCanvas._ox = pad - fMinX + m; finalCanvas._oy = pad - fMinY + m;
   drawStage();
   updateDims();
   $('dlPreview').disabled = false; $('dlCutout').disabled = false; $('btnActual').disabled = false; $('addCart').disabled = false;
@@ -408,6 +453,75 @@ function updateDims(){
   const widthMm = mm * (finalCanvas._fW / finalCanvas._fH);
   $('dims').innerHTML = 'Finished size: <b>' + mm + ' mm long x ' + widthMm.toFixed(1) + ' mm wide</b>, tab and ring hole included.';
 }
+
+// ---------- edit tools: erase brush, undo, front text ----------
+function pushEdit(){
+  if(!styledCanvas) return;
+  editStack.push(styledCanvas.toDataURL('image/png'));
+  if(editStack.length > 6) editStack.shift();
+}
+$('undoEdit').onclick = async ()=>{
+  const prev = editStack.pop();
+  if(!prev || !styledCanvas){ setStatus('Nothing to undo.'); return; }
+  const img = await loadImage(prev);
+  styledCanvas.getContext('2d').clearRect(0,0,styledCanvas.width,styledCanvas.height);
+  styledCanvas.getContext('2d').drawImage(img, 0, 0);
+  buildFinal();
+  setStatus('Undone.');
+};
+$('eraseToggle').onclick = ()=>{
+  eraseOn = !eraseOn;
+  $('eraseToggle').textContent = 'Erase tool: ' + (eraseOn ? 'ON, paint the preview' : 'off');
+  stage.style.cursor = eraseOn ? 'crosshair' : '';
+  if(eraseOn) setStatus('Erase is on: paint over the preview to remove parts. The red outline redraws when you lift your finger.');
+};
+let erasing = false;
+function stageToStyled(e){
+  const r = stage.getBoundingClientRect();
+  const fx = (e.clientX - r.left) / r.width * finalCanvas.width;
+  const fy = (e.clientY - r.top) / r.height * finalCanvas.height;
+  return { x: fx - finalCanvas._ox, y: fy - finalCanvas._oy,
+           scale: finalCanvas.width / r.width };
+}
+function eraseAt(e){
+  if(!styledCanvas || !finalCanvas) return;
+  const pos = stageToStyled(e);
+  const ctx = styledCanvas.getContext('2d');
+  const rad = parseInt($('brushSize').value, 10) * pos.scale / 2;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath(); ctx.arc(pos.x, pos.y, rad, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+  drawStageQuick();
+}
+function drawStageQuick(){
+  // live feedback while erasing: redraw final without rebuilding the outline
+  if(!finalCanvas || !styledCanvas) return;
+  const fx = finalCanvas.getContext('2d');
+  fx.clearRect(finalCanvas._ox, finalCanvas._oy, styledCanvas.width, styledCanvas.height);
+  fx.drawImage(styledCanvas, finalCanvas._ox, finalCanvas._oy);
+  drawStage();
+}
+stage.addEventListener('pointerdown', e=>{ if(!eraseOn) return; pushEdit(); erasing = true; eraseAt(e); });
+stage.addEventListener('pointermove', e=>{ if(erasing && eraseOn) eraseAt(e); });
+window.addEventListener('pointerup', ()=>{ if(erasing){ erasing = false; buildFinal(); } });
+$('addText').onclick = ()=>{
+  const txt = $('frontText').value.trim();
+  if(!txt || !styledCanvas){ setStatus('Type the text first, and make your preview.'); return; }
+  pushEdit();
+  const ctx = styledCanvas.getContext('2d');
+  const w = styledCanvas.width, h = styledCanvas.height;
+  const fs = Math.max(28, Math.round(w / 11));
+  ctx.font = '800 ' + fs + 'px Arial, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  const x = w/2, y = h - Math.round(h*0.02);
+  ctx.lineWidth = Math.max(4, fs/6); ctx.strokeStyle = '#ffffff';
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = '#141210';
+  ctx.fillText(txt, x, y);
+  buildFinal();
+  setStatus('Text added at the bottom. Undo is above if you want it off.');
+};
 
 // ---------- quantity, price, add to cart ----------
 function kcUnit(q){
