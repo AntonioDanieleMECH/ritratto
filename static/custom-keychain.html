@@ -77,6 +77,7 @@
     <div class="seg">
       <button id="btnReal" class="active">Realistic<small>AI isolates your subject, nicely positioned</small></button>
       <button id="btnToon">AI Cartoon<small>Chibi keychain style, like our saints</small></button>
+      <button id="btnTouch">AI Touch-Up<small>Same pose, just cleaned and isolated</small></button>
     </div>
 
     <div class="step">3. Size</div>
@@ -160,6 +161,7 @@ let lastFile = null;          // original upload, sent to the AI cartoon endpoin
 let enhanceUsed = false;      // true when the AI enhance succeeded for this photo
 let aiCartoonCanvas = null;   // cached AI cartoon cutout for the current photo
 let aiRealCanvas = null;      // cached AI-isolated realistic cutout for the current photo
+let aiTouchCanvas = null;     // cached AI touch-up cutout (same pose) for the current photo
 let editStack = [];           // undo snapshots of styledCanvas (data URLs)
 let eraseOn = false;
 
@@ -183,8 +185,8 @@ fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fil
 
 async function handleFile(file){
   if(busy) return; busy = true;
-  lastFile = file; aiCartoonCanvas = null; aiRealCanvas = null; editStack = []; enhanceUsed = false;
-  style = 'real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+  lastFile = file; aiCartoonCanvas = null; aiRealCanvas = null; aiTouchCanvas = null; editStack = []; enhanceUsed = false;
+  style = 'real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); $('btnTouch').classList.remove('active');
   let workFile = file;
   // Optional AI enhance (live site endpoint /api/keychain-enhance): runs BEFORE
   // the cutout, so the cutout and the print both use the enhanced photo.
@@ -205,7 +207,7 @@ async function handleFile(file){
   setStatus('<span class="spin"></span> Cutting out the subject... first time can take a minute, the cutout tool downloads once.');
   try {
     cutoutCanvas = await cutoutFile(workFile);
-    setStatus('Cutout done: this is the exact cutout of your photo. Tap Realistic and the AI repositions your subject clean like our keychains, or tap AI Cartoon for the chibi style.');
+    setStatus('Cutout done: this is the exact cutout of your photo. AI Touch-Up keeps this exact pose and just cleans it, Realistic repositions your subject clean like our keychains, AI Cartoon makes it chibi style.');
   } catch(err) {
     console.error(err);
     cutoutCanvas = null; styledCanvas = null; finalCanvas = null; placeholder();
@@ -244,10 +246,10 @@ function capSize(img, max){
 // ---------- style ----------
 $('exactPhoto').addEventListener('change', ()=>{
   const ex = $('exactPhoto').checked;
-  $('btnReal').disabled = ex; $('btnToon').disabled = ex;
+  $('btnReal').disabled = ex; $('btnToon').disabled = ex; $('btnTouch').disabled = ex;
   $('enhanceAi').disabled = ex;
   if(ex){
-    style = 'real'; aiRealCanvas = null; aiCartoonCanvas = null; editStack = [];
+    style = 'real'; aiRealCanvas = null; aiCartoonCanvas = null; aiTouchCanvas = null; editStack = [];
     $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
     if(enhanceUsed){
       setStatus('Exact photo mode is on. This preview was AI enhanced earlier, so upload the photo once more for a truly untouched version.');
@@ -261,7 +263,7 @@ $('btnReal').onclick = async ()=>{
   if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
   if(!lastFile){ setStatus('Upload a photo first.'); return; }
   if(busy){ setStatus('One step at a time: wait for the current step to finish.'); return; }
-  style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+  style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); $('btnTouch').classList.remove('active');
   if(aiRealCanvas || !cutoutCanvas){ restyle(); return; }
   // Realistic = AI regenerates the subject alone, nicely positioned on
   // white (like his saint keychain figures), then we cut that out. The
@@ -289,7 +291,7 @@ $('btnToon').onclick = async ()=>{
   if(!lastFile){ setStatus('Upload a photo first.'); return; }
   if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Cartoon.'); return; }
   if(!cutoutCanvas){ setStatus('The cutout has not finished yet. Wait for your preview to appear, then tap AI Cartoon.'); return; }
-  style='toon'; $('btnToon').classList.add('active'); $('btnReal').classList.remove('active');
+  style='toon'; $('btnToon').classList.add('active'); $('btnReal').classList.remove('active'); $('btnTouch').classList.remove('active');
   if(aiCartoonCanvas){ restyle(); return; }
   // AI cartoon: the server regenerates the subject as a cartoon depiction
   // (Gemini image model, endpoint /api/keychain-cartoon in server.py, live site only).
@@ -309,9 +311,40 @@ $('btnToon').onclick = async ()=>{
     setStatus('AI cartoon done. The outline follows the cartoon.');
   } catch(err) {
     console.error(err);
-    style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+    style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); $('btnTouch').classList.remove('active');
     setStatus(finalCanvas ? 'The AI cartoon could not be made just now. Your realistic keychain is still ready below.'
                           : 'The AI cartoon could not be made just now. Try again in a moment.');
+  }
+  busy = false;
+  restyle();
+};
+
+$('btnTouch').onclick = async ()=>{
+  if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
+  if(!lastFile){ setStatus('Upload a photo first.'); return; }
+  if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Touch-Up.'); return; }
+  if(!cutoutCanvas){ setStatus('The cutout has not finished yet. Wait for your preview to appear, then tap AI Touch-Up.'); return; }
+  style='touch'; $('btnTouch').classList.add('active'); $('btnReal').classList.remove('active'); $('btnToon').classList.remove('active');
+  if(aiTouchCanvas){ restyle(); return; }
+  // Same-pose touch-up: server Gemini edit, strict prompt, subject keeps
+  // its exact pose; only the background is replaced and basics tidied.
+  busy = true;
+  setStatus('<span class="spin"></span> The AI is cleaning your photo, same pose, background removed... about 30 to 60 seconds.');
+  try {
+    const fd = new FormData();
+    fd.append('photo', lastFile);
+    const r = await fetch('/api/keychain-touchup', { method:'POST', body: fd });
+    if(!r.ok) throw new Error('touchup endpoint ' + r.status);
+    const blob = await r.blob();
+    const img = await loadImage(URL.createObjectURL(blob));
+    aiTouchCanvas = capSize(img, 900);
+    if(!hasTransparency(aiTouchCanvas)) aiTouchCanvas = await cutoutFile(blob);
+    setStatus('Touch-up done: same pose, cleaned and isolated.');
+  } catch(err) {
+    console.error(err);
+    style='real'; $('btnReal').classList.add('active'); $('btnTouch').classList.remove('active');
+    setStatus(finalCanvas ? 'The AI touch-up could not be made just now. Your current keychain is still ready below.'
+                          : 'The AI touch-up could not be made just now. Try again in a moment.');
   }
   busy = false;
   restyle();
@@ -324,7 +357,7 @@ function hasTransparency(c){
 }
 
 function restyle(){
-  const src = style === 'toon' ? (aiCartoonCanvas || cutoutCanvas) : (aiRealCanvas || cutoutCanvas);
+  const src = style === 'toon' ? (aiCartoonCanvas || cutoutCanvas) : style === 'touch' ? (aiTouchCanvas || cutoutCanvas) : (aiRealCanvas || cutoutCanvas);
   if(!src) return;
   styledCanvas = document.createElement('canvas');
   styledCanvas.width = src.width; styledCanvas.height = src.height;
@@ -660,13 +693,13 @@ $('addCart').onclick = async ()=>{
       pid: 'keychain-custom-photo', name: 'Custom Photo Keychain',
       img: j.preview_url, qty: qty, unit_cents: kcUnit(qty), add_cents: 0,
       design: 'Custom kc_' + j.design_id, size: mm + 'mm',
-      engraving: 'Style: ' + (style === 'toon' ? 'AI Cartoon' : 'Realistic') +
+      engraving: 'Style: ' + (style === 'toon' ? 'AI Cartoon' : style === 'touch' ? 'AI Touch-Up (same pose)' : 'Realistic') +
                  '; AI enhance: ' + (enhanceUsed ? 'yes' : 'no'),
       saint: '', color: '', initials: '', base: '',
       sides: JSON.stringify({ back_name: $('backNameToggle').checked ? $('backName').value.trim() : '' })
     });
     setStatus('Added to your cart: ' + qty + ' custom keychains, ' + mm + ' mm, ' +
-              (style === 'toon' ? 'AI cartoon' : 'realistic') + '. Open the cart to check out.');
+              (style === 'toon' ? 'AI cartoon' : style === 'touch' ? 'AI touch-up' : 'realistic') + '. Open the cart to check out.');
     window.adnCart.open();
   } catch(err) {
     console.error(err);

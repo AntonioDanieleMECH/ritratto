@@ -5700,6 +5700,31 @@ def keychain_cartoon():
         return jsonify({"error": "AI cartoon failed, try again."}), 502
     return Response(out, mimetype=mime)
 
+@app.route("/api/keychain-touchup", methods=["POST"])
+def keychain_touchup():
+    """Same-pose touch-up (Antonio, 2026-11-23): AI edits only the basics,
+    the subject keeps its exact pose, position and proportions; the AI
+    just removes the background onto pure white and tidies light/edges."""
+    f = request.files.get("photo")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    try:
+        out, mime = _gemini_image_edit(
+            f.read(12 * 1024 * 1024), f.mimetype or "image/jpeg",
+            "Edit this photo MINIMALLY. Keep the subject EXACTLY as it is: "
+            "same pose, same position in the frame, same proportions, same "
+            "colours and markings. Do NOT redraw, re-pose, move or reshape "
+            "anything. Only do the basics: remove the background completely "
+            "and replace it with a pure white background, tidy the edges of "
+            "the subject, and even out the lighting and sharpness a little. "
+            "No other objects, no text, and no keychain ring, loop, tab or "
+            "any hardware.")
+    except RuntimeError as e:
+        if "no_ai_key" in str(e):
+            return jsonify({"error": "AI is not configured on the server yet."}), 503
+        return jsonify({"error": "AI touch-up failed, try again."}), 502
+    return Response(out, mimetype=mime)
+
 @app.route("/api/keychain-isolate", methods=["POST"])
 def keychain_isolate():
     """Realistic style (Antonio, 2026-11-23): AI regenerates the photo's
