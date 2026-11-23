@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Photo Keychain - ADN Creations</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin:0; background:#faf8f4; color:#1c1a17; }
+  header { background:#141210; color:#f3ead8; padding:18px 20px; }
+  header h1 { margin:0; font-size:22px; letter-spacing:.3px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.85; }
+  .proto { background:#b98a1c; color:#fff; font-size:12px; font-weight:700; padding:3px 8px; border-radius:20px; vertical-align:middle; margin-left:8px;}
+  main { max-width:1060px; margin:0 auto; padding:22px 16px 60px; display:grid; grid-template-columns:340px 1fr; gap:22px; }
+  @media (max-width:820px){ main{ grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e6dfd2; border-radius:14px; padding:18px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
+  .card h2 { margin:0 0 12px; font-size:16px; }
+  .step { font-size:12px; font-weight:700; color:#b98a1c; text-transform:uppercase; letter-spacing:.6px; margin:18px 0 8px; }
+  .step:first-of-type{ margin-top:0; }
+  #drop { border:2px dashed #c9bfa8; border-radius:12px; padding:26px 12px; text-align:center; cursor:pointer; background:#fdfbf7; }
+  #drop:hover, #drop.over { border-color:#b98a1c; background:#fbf3df; }
+  #drop p { margin:6px 0; font-size:14px; }
+  #drop small { color:#777; }
+  input[type=file]{ display:none; }
+  .seg { display:flex; gap:8px; }
+  .seg button { flex:1; padding:10px 6px; border-radius:10px; border:1.5px solid #d8cfba; background:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+  .seg button.active { border-color:#b98a1c; background:#fbf3df; }
+  .seg small { display:block; font-weight:400; color:#777; font-size:11px; margin-top:2px; }
+  input[type=range]{ width:100%; accent-color:#b98a1c; }
+  .sizeRow { display:flex; justify-content:space-between; font-size:14px; }
+  .sizeRow b { font-size:17px; }
+  #dims { font-size:13px; color:#555; margin-top:4px; }
+  #status { font-size:13px; color:#555; min-height:20px; margin-top:10px; line-height:1.45; }
+  .btn { display:block; width:100%; padding:12px; margin-top:10px; border:none; border-radius:10px; background:#141210; color:#f3ead8; font-size:14px; font-weight:700; cursor:pointer; }
+  .btn.secondary { background:#fff; color:#141210; border:1.5px solid #d8cfba; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  #previewWrap { text-align:center; }
+  #stage { max-width:100%; height:auto; background:
+      repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 0 0/22px 22px;
+    border-radius:10px; border:1px solid #e6dfd2; }
+  .hint { font-size:12.5px; color:#777; line-height:1.5; margin-top:12px; text-align:left; }
+  #actualWrap { margin-top:16px; padding-top:14px; border-top:1px dashed #ddd; text-align:center; display:none; }
+  #actualStage { background:#fff; border:1px solid #e6dfd2; border-radius:6px; }
+  #actualWrap p { font-size:12px; color:#777; }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid #ccc; border-top-color:#b98a1c; border-radius:50%; animation:s 0.8s linear infinite; vertical-align:-2px; }
+  @keyframes s { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<header class="header-inner">
+  <h1>Custom Photo Keychain</h1>
+  <p>ADN Creations - upload a photo, see exactly how your keychain would be cut.</p>
+</header>
+
+<main>
+  <section class="card">
+    <div class="step">1. Your photo</div>
+    <div id="drop">
+      <p><strong>Tap to upload a photo</strong></p>
+      <p><small>or drag and drop it here<br>Pets, kids, family, a logo, anything</small></p>
+    </div>
+    <input type="file" id="file" accept="image/*">
+
+    <label style="display:flex; gap:9px; align-items:flex-start; margin-top:14px; cursor:pointer; font-size:14px;">
+      <input type="checkbox" id="enhanceAi" style="width:18px; height:18px; margin-top:1px; accent-color:#b98a1c;">
+      <span><strong>AI enhance my photo</strong><br>
+      <small style="color:#777;">Fixes lighting, sharpness and colours before the cutout. Optional, takes a little longer.</small></span>
+    </label>
+
+    <div class="step">2. Style</div>
+    <div class="seg">
+      <button id="btnReal" class="active">Realistic<small>Your photo, cut out</small></button>
+      <button id="btnToon">AI Cartoon<small>AI redraws it as a cartoon</small></button>
+    </div>
+
+    <div class="step">3. Size</div>
+    <div class="sizeRow"><span>Keychain length</span><b><span id="mmVal">54</span> mm</b></div>
+    <input type="range" id="size" min="54" max="70" step="1" value="54">
+    <div id="dims">Upload a photo to see the full dimensions.</div>
+
+    <div id="status">Waiting for a photo.</div>
+
+    <div class="step">4. Quantity and order</div>
+    <div class="sizeRow"><span>Quantity (minimum 10)</span>
+      <select id="qtySel" style="font-size:15px; padding:6px 8px; border-radius:8px; border:1.5px solid #d8cfba;">
+        <option value="10" selected>10</option><option value="20">20</option>
+        <option value="30">30</option><option value="40">40</option>
+        <option value="50">50</option><option value="100">100</option>
+      </select></div>
+    <div id="priceLine" style="font-size:14px; margin-top:6px;">$3.50 each, <b>total $35.00 CAD</b> for 10</div>
+    <button class="btn" id="addCart" disabled style="background:#A67C2E; font-size:16px;">Add to cart</button>
+    <p style="font-size:12.5px; color:#777; margin:8px 0 0;">Then check out from the cart, like any other order. We make them once your order is placed.</p>
+
+    <button class="btn" id="dlPreview" disabled>Download preview</button>
+    <button class="btn secondary" id="dlCutout" disabled>Download cutout (PNG)</button>
+    <button class="btn secondary" id="btnActual" disabled>Show true size on screen</button>
+  </section>
+
+  <section class="card">
+    <h2>Your keychain</h2>
+    <div id="previewWrap">
+      <canvas id="stage" width="640" height="640"></canvas>
+    </div>
+    <p class="hint">
+      The <strong style="color:#d21f1f">red line</strong> is the cut line: the keychain is cut a few millimetres
+      outside your picture, so nothing important gets clipped, and a small tab with a hole is added at the top for the ring.
+      White inside the red line is the keychain body.<br><br>
+      Note: blurry photos, busy backgrounds and fine hair or fur may need a quick manual cleanup by us before printing.
+      Minimum order is 10 keychains of the same design, $3.50 each.
+    </p>
+    <div id="actualWrap">
+      <p><strong>True size</strong> (on most screens - hold a real keychain up to check)</p>
+      <canvas id="actualStage" width="300" height="300"></canvas>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const stage = $('stage'), sctx = stage.getContext('2d');
+let cutoutCanvas = null;      // transparent PNG after background removal (full res, capped)
+let styledCanvas = null;      // after realistic/cartoon treatment
+let finalCanvas = null;       // composite with white body + red outline
+let style = 'real';
+let busy = false;
+let lastFile = null;          // original upload, sent to the AI cartoon endpoint
+let enhanceUsed = false;      // true when the AI enhance succeeded for this photo
+let aiCartoonCanvas = null;   // cached AI cartoon cutout for the current photo
+
+function setStatus(html){ $('status').innerHTML = html; }
+function placeholder(){
+  sctx.clearRect(0,0,stage.width,stage.height);
+  sctx.fillStyle = '#fff'; sctx.fillRect(0,0,stage.width,stage.height);
+  sctx.fillStyle = '#999'; sctx.font = '20px sans-serif'; sctx.textAlign='center';
+  sctx.fillText('Your keychain preview will appear here', stage.width/2, stage.height/2);
+}
+placeholder();
+
+// ---------- upload ----------
+const drop = $('drop'), fileInput = $('file');
+drop.addEventListener('click', ()=> fileInput.click());
+drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', ()=> drop.classList.remove('over'));
+drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('over');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+async function handleFile(file){
+  if(busy) return; busy = true;
+  lastFile = file; aiCartoonCanvas = null; enhanceUsed = false;
+  style = 'real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+  let workFile = file;
+  // Optional AI enhance (live site endpoint /api/keychain-enhance): runs BEFORE
+  // the cutout, so the cutout and the print both use the enhanced photo.
+  if($('enhanceAi').checked){
+    setStatus('<span class="spin"></span> AI is enhancing your photo (lighting, sharpness, colours)...');
+    try {
+      const fd = new FormData(); fd.append('photo', file);
+      const r = await fetch('/api/keychain-enhance', { method:'POST', body: fd });
+      if(!r.ok) throw new Error('enhance endpoint ' + r.status);
+      workFile = await r.blob();
+      lastFile = workFile; enhanceUsed = true;
+      setStatus('<span class="spin"></span> Photo enhanced. Cutting out the subject...');
+    } catch(err) {
+      console.error(err);
+      setStatus('AI enhance could not run just now. Continuing with your original photo...');
+    }
+  }
+  setStatus('<span class="spin"></span> Cutting out the subject... first time can take a minute, the cutout tool downloads once.');
+  try {
+    cutoutCanvas = await cutoutFile(workFile);
+    setStatus('Cutout done: the outline follows the subject, not the photo. Pick a style and a size.');
+  } catch(err) {
+    console.error(err);
+    cutoutCanvas = null; styledCanvas = null; finalCanvas = null; placeholder();
+    setStatus('The automatic cutout could not run in this browser. Try Chrome or Safari, or send us the photo and we will set it up for you. Nothing was outlined, because outlining the whole rectangle would be wrong.');
+    busy = false;
+    return;
+  }
+  busy = false;
+  restyle();
+}
+
+// Background removal for one image file, returns a capped transparent canvas.
+async function cutoutFile(fileOrBlob){
+  const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal-js@1.5.5/+esm');
+  const blob = await removeBackground(fileOrBlob, {
+    device: 'gpu',
+    output: { format: 'image/png', quality: 1 },
+    progress: (key, cur, tot) => {
+      if(tot > 0) setStatus('<span class="spin"></span> Working... ' + Math.round(cur/tot*100) + '%');
+    }
+  });
+  const img = await loadImage(URL.createObjectURL(blob));
+  return capSize(img, 900);
+}
+
+function loadImage(src){ return new Promise((res, rej)=>{ const i = new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+function capSize(img, max){
+  const s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
+// ---------- style ----------
+$('btnReal').onclick = ()=>{ style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); restyle(); };
+$('btnToon').onclick = async ()=>{
+  if(!lastFile){ setStatus('Upload a photo first.'); return; }
+  style='toon'; $('btnToon').classList.add('active'); $('btnReal').classList.remove('active');
+  if(aiCartoonCanvas){ restyle(); return; }
+  // AI cartoon: the server regenerates the subject as a cartoon depiction
+  // (Gemini image model, endpoint /api/keychain-cartoon in server.py, live site only).
+  // It returns the cartoon on a transparent background, ready to outline.
+  if(busy) return; busy = true;
+  setStatus('<span class="spin"></span> The AI is redrawing your subject as a cartoon... this takes about 30 to 60 seconds.');
+  try {
+    const fd = new FormData();
+    fd.append('photo', lastFile);
+    const r = await fetch('/api/keychain-cartoon', { method:'POST', body: fd });
+    if(!r.ok) throw new Error('cartoon endpoint ' + r.status);
+    const blob = await r.blob();
+    const img = await loadImage(URL.createObjectURL(blob));
+    aiCartoonCanvas = capSize(img, 900);
+    // If the AI returned a white background instead of transparent, cut it out too.
+    if(!hasTransparency(aiCartoonCanvas)) aiCartoonCanvas = await cutoutFile(blob);
+    setStatus('AI cartoon done. The outline follows the cartoon.');
+  } catch(err) {
+    console.error(err);
+    style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+    setStatus('The AI cartoon could not be made just now. Your realistic keychain is still ready below.');
+  }
+  busy = false;
+  restyle();
+};
+
+function hasTransparency(c){
+  const d = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+  for(let i=3;i<d.length;i+=16) if(d[i] < 250) return true;
+  return false;
+}
+
+function restyle(){
+  const src = (style === 'toon' && aiCartoonCanvas) ? aiCartoonCanvas : cutoutCanvas;
+  if(!src) return;
+  styledCanvas = document.createElement('canvas');
+  styledCanvas.width = src.width; styledCanvas.height = src.height;
+  const ctx = styledCanvas.getContext('2d');
+  ctx.filter = 'saturate(1.05) contrast(1.03)';
+  ctx.drawImage(src, 0, 0);
+  ctx.filter = 'none';
+  buildFinal();
+}
+
+// ---------- outline + composite ----------
+function dilate(mask, w, h, r){
+  // separable dilation using sliding window sums
+  const tmp = new Uint8Array(w*h), out = new Uint8Array(w*h);
+  for(let y=0;y<h;y++){
+    let sum=0; const row=y*w;
+    for(let x=-r;x<=r;x++) if(x>=0 && x<w) sum+=mask[row+x];
+    for(let x=0;x<w;x++){
+      tmp[row+x] = sum>0?1:0;
+      const xa=x-r, xb=x+r+1;
+      if(xa>=0) sum-=mask[row+xa];
+      if(xb<w) sum+=mask[row+xb];
+    }
+  }
+  for(let x=0;x<w;x++){
+    let sum=0;
+    for(let y=-r;y<=r;y++) if(y>=0 && y<h) sum+=tmp[y*w+x];
+    for(let y=0;y<h;y++){
+      out[y*w+x] = sum>0?1:0;
+      const ya=y-r, yb=y+r+1;
+      if(ya>=0) sum-=tmp[ya*w+x];
+      if(yb<h) sum+=tmp[yb*w+x];
+    }
+  }
+  return out;
+}
+
+// Round off the outline: blur the dilated shape and re-threshold it.
+// Sharp corners, steps and flat ends (like a tail cut off by the photo edge)
+// come back as smooth round corners, radius roughly the blur size.
+function roundOutline(dil, w, h){
+  const src = document.createElement('canvas'); src.width=w; src.height=h;
+  const sctx2 = src.getContext('2d');
+  const img = sctx2.createImageData(w,h);
+  for(let i=0;i<w*h;i++) if(dil[i]){ img.data[i*4]=255; img.data[i*4+1]=255; img.data[i*4+2]=255; img.data[i*4+3]=255; }
+  sctx2.putImageData(img,0,0);
+  const blr = document.createElement('canvas'); blr.width=w; blr.height=h;
+  const bctx2 = blr.getContext('2d');
+  bctx2.filter = 'blur(6px)';
+  bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0);
+  bctx2.filter = 'none';
+  const bd = bctx2.getImageData(0,0,w,h).data;
+  const out = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 110 ? 1 : 0;
+  return out;
+}
+
+function buildFinal(){
+  if(!styledCanvas) return;
+  const pad = 90, w = styledCanvas.width + pad*2, h = styledCanvas.height + pad*2;
+  const ctx0 = styledCanvas.getContext('2d');
+  const data = ctx0.getImageData(0,0,styledCanvas.width,styledCanvas.height).data;
+  let mask = new Uint8Array(w*h);
+  let minX=w, maxX=0, minY=h, maxY=0, topXsum=0, topCount=0;
+  for(let y=0;y<styledCanvas.height;y++) for(let x=0;x<styledCanvas.width;x++){
+    if(data[(y*styledCanvas.width+x)*4+3] > 12){
+      mask[(y+pad)*w+(x+pad)] = 1;
+      if(x+pad<minX)minX=x+pad; if(x+pad>maxX)maxX=x+pad;
+      if(y+pad<minY)minY=y+pad; if(y+pad>maxY)maxY=y+pad;
+    }
+  }
+  if(maxX===0){ setStatus('No subject found in that photo. Try a clearer photo.'); return; }
+  // tab: circle sitting on the top centre of the subject
+  for(let y=0;y<styledCanvas.height;y++){ let found=false;
+    for(let x=0;x<styledCanvas.width;x++) if(data[(y*styledCanvas.width+x)*4+3]>12){ topXsum+=x+pad; topCount++; found=true; }
+    if(found && y>4) break; }
+  const tabCX = Math.round(topXsum/Math.max(1,topCount));
+  const tabCY = minY - 6, tabR = 30, holeR = 10;
+  for(let y=tabCY-tabR;y<=tabCY+tabR;y++) for(let x=tabCX-tabR;x<=tabCX+tabR;x++){
+    if(x<0||y<0||x>=w||y>=h) continue;
+    const dx=x-tabCX, dy=y-tabCY;
+    if(dx*dx+dy*dy <= tabR*tabR) mask[y*w+x]=1;
+  }
+  const offsetPx = Math.max(10, Math.round(w * 0.022)); // ~2-3mm border at final size
+  let dil = dilate(mask, w, h, offsetPx);
+  dil = roundOutline(dil, w, h); // no sharp corners or steps: every corner rounded
+  // bounding box of final outline
+  let fMinX=w,fMaxX=0,fMinY=h,fMaxY=0;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(dil[y*w+x]){ if(x<fMinX)fMinX=x; if(x>fMaxX)fMaxX=x; if(y<fMinY)fMinY=y; if(y>fMaxY)fMaxY=y; }
+  const fW = fMaxX-fMinX+1, fH = fMaxY-fMinY+1;
+
+  // white body from dilated mask
+  const body = document.createElement('canvas'); body.width=w; body.height=h;
+  const bctx = body.getContext('2d');
+  const bimg = bctx.createImageData(w,h);
+  for(let i=0;i<w*h;i++) if(dil[i]){ bimg.data[i*4]=255; bimg.data[i*4+1]=255; bimg.data[i*4+2]=255; bimg.data[i*4+3]=255; }
+  bctx.putImageData(bimg,0,0);
+  // red edge of dilated mask, thickened
+  const edge = document.createElement('canvas'); edge.width=w; edge.height=h;
+  const ectx = edge.getContext('2d');
+  const eimg = ectx.createImageData(w,h);
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+    const i=y*w+x;
+    if(dil[i] && (!dil[i-1]||!dil[i+1]||!dil[i-w]||!dil[i+w])){
+      eimg.data[i*4]=210; eimg.data[i*4+1]=25; eimg.data[i*4+2]=25; eimg.data[i*4+3]=255;
+    }
+  }
+  ectx.putImageData(eimg,0,0);
+
+  // composite, cropped to outline bbox + small margin
+  const m = 14;
+  finalCanvas = document.createElement('canvas');
+  finalCanvas.width = fW + m*2; finalCanvas.height = fH + m*2;
+  const fx = finalCanvas.getContext('2d');
+  fx.clearRect(0,0,finalCanvas.width,finalCanvas.height);
+  fx.drawImage(body, fMinX-m, fMinY-m, finalCanvas.width, finalCanvas.height, 0, 0, finalCanvas.width, finalCanvas.height);
+  fx.drawImage(styledCanvas, pad-fMinX+m, pad-fMinY+m);
+  // red line, drawn 3x offset for thickness
+  for(const [ox,oy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]])
+    fx.drawImage(edge, fMinX-m+ox, fMinY-m+oy, finalCanvas.width, finalCanvas.height, ox, oy, finalCanvas.width, finalCanvas.height);
+  // ring hole
+  const hx = tabCX-fMinX+m, hy = tabCY-fMinY+m;
+  fx.beginPath(); fx.arc(hx, hy, holeR, 0, Math.PI*2);
+  fx.fillStyle = '#faf8f4'; fx.fill();
+  fx.lineWidth = 3; fx.strokeStyle = '#d21f1f'; fx.stroke();
+
+  // store geometry for size maths
+  finalCanvas._fW = fW; finalCanvas._fH = fH;
+  drawStage();
+  updateDims();
+  $('dlPreview').disabled = false; $('dlCutout').disabled = false; $('btnActual').disabled = false; $('addCart').disabled = false;
+}
+
+function drawStage(){
+  const maxS = 620;
+  const s = Math.min(1, maxS / Math.max(finalCanvas.width, finalCanvas.height));
+  stage.width = Math.round(finalCanvas.width*s); stage.height = Math.round(finalCanvas.height*s);
+  sctx.clearRect(0,0,stage.width,stage.height);
+  sctx.drawImage(finalCanvas, 0, 0, stage.width, stage.height);
+}
+
+// ---------- size ----------
+$('size').addEventListener('input', updateDims);
+function updateDims(){
+  const mm = parseInt($('size').value, 10);
+  $('mmVal').textContent = mm;
+  if(!finalCanvas) return;
+  const widthMm = mm * (finalCanvas._fW / finalCanvas._fH);
+  $('dims').innerHTML = 'Finished size: <b>' + mm + ' mm long x ' + widthMm.toFixed(1) + ' mm wide</b>, tab and ring hole included.';
+}
+
+// ---------- quantity, price, add to cart ----------
+$('qtySel').addEventListener('change', ()=>{
+  const q = parseInt($('qtySel').value, 10);
+  $('priceLine').innerHTML = '$3.50 each, <b>total $' + (q*3.5).toFixed(2) + ' CAD</b> for ' + q;
+});
+function canvasBlob(c){ return new Promise(res => c.toBlob(res, 'image/png')); }
+$('addCart').onclick = async ()=>{
+  if(!finalCanvas || !styledCanvas || !lastFile){ setStatus('Make your preview first.'); return; }
+  if(!window.adnCart){ setStatus('The cart is still loading, try again in a second.'); return; }
+  const btn = $('addCart'); btn.disabled = true;
+  setStatus('<span class="spin"></span> Saving your design and adding it to the cart...');
+  try {
+    const fd = new FormData();
+    fd.append('original', lastFile, 'photo.jpg');
+    fd.append('cutout', await canvasBlob(styledCanvas), 'cutout.png');
+    fd.append('preview', await canvasBlob(finalCanvas), 'preview.png');
+    const r = await fetch('/api/keychain-design-upload', { method:'POST', body: fd });
+    const j = await r.json();
+    if(!r.ok || !j.design_id) throw new Error(j.error || 'upload failed');
+    const mm = parseInt($('size').value, 10);
+    const qty = parseInt($('qtySel').value, 10);
+    window.adnCart.add({
+      pid: 'keychain-custom-photo', name: 'Custom Photo Keychain',
+      img: j.preview_url, qty: qty, unit_cents: 350, add_cents: 0,
+      design: 'Custom kc_' + j.design_id, size: mm + 'mm',
+      engraving: 'Style: ' + (style === 'toon' ? 'AI Cartoon' : 'Realistic') +
+                 '; AI enhance: ' + (enhanceUsed ? 'yes' : 'no'),
+      saint: '', color: '', initials: '', base: '', sides: ''
+    });
+    setStatus('Added to your cart: ' + qty + ' custom keychains, ' + mm + ' mm, ' +
+              (style === 'toon' ? 'AI cartoon' : 'realistic') + '. Open the cart to check out.');
+    window.adnCart.open();
+  } catch(err) {
+    console.error(err);
+    setStatus('Could not save the design just now. Check your connection and try again.');
+  }
+  btn.disabled = false;
+};
+
+// ---------- downloads / true size ----------
+$('dlPreview').onclick = ()=> download(finalCanvas, 'keychain-preview.png');
+$('dlCutout').onclick = ()=> download(styledCanvas, 'keychain-cutout.png');
+function download(c, name){
+  const a = document.createElement('a');
+  a.download = name; a.href = c.toDataURL('image/png'); a.click();
+}
+$('btnActual').onclick = ()=>{
+  if(!finalCanvas) return;
+  const wrap = $('actualWrap'); wrap.style.display = 'block';
+  const mm = parseInt($('size').value, 10);
+  const pxPerMm = 96/25.4; // CSS reference pixel
+  const ac = $('actualStage');
+  ac.style.width = (mm * (finalCanvas._fW/finalCanvas._fH) * pxPerMm) + 'px';
+  ac.style.height = (mm * pxPerMm) + 'px';
+  ac.width = finalCanvas.width; ac.height = finalCanvas.height;
+  ac.getContext('2d').drawImage(finalCanvas, 0, 0);
+  wrap.scrollIntoView({behavior:'smooth'});
+};
+</script>
+<script src="/cart.js"></script>
+</body>
+</html>

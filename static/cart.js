@@ -412,6 +412,11 @@
     for (var i = 0; i < items.length; i++) {
       if (keyOf(items[i]) !== k) continue;
       if (act === "rm") items.splice(i, 1);
+      else if (items[i].pid === "keychain-custom-photo") {
+        /* Custom photo keychains: min 10, steps of 10, max 100. */
+        if (act === "inc") items[i].qty = Math.min(100, (items[i].qty || 10) + 10);
+        else if (act === "dec") items[i].qty = Math.max(10, (items[i].qty || 10) - 10);
+      }
       else if (act === "inc") items[i].qty = Math.min(10, (items[i].qty || 1) + 1);
       else if (act === "dec") items[i].qty = Math.max(1, (items[i].qty || 1) - 1);
       break;
@@ -422,13 +427,14 @@
 
   function add(it) {
     if (!it || !it.pid) return;
-    it.qty = Math.max(1, Math.min(10, it.qty || 1));
+    var cap = it.pid === "keychain-custom-photo" ? 100 : 10;
+    it.qty = Math.max(1, Math.min(cap, it.qty || 1));
     var items = load();
     var k = keyOf(it);
     var found = false;
     for (var i = 0; i < items.length; i++) {
       if (keyOf(items[i]) === k) {
-        items[i].qty = Math.min(10, (items[i].qty || 1) + it.qty);
+        items[i].qty = Math.min(cap, (items[i].qty || 1) + it.qty);
         found = true;
         break;
       }

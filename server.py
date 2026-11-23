@@ -49,7 +49,7 @@ from html import escape as h
 
 import requests
 from PIL import Image, ImageOps
-from flask import Flask, request, jsonify, send_file, abort, redirect, send_from_directory, session
+from flask import Flask, request, jsonify, send_file, abort, redirect, send_from_directory, session, Response
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE, "static")
@@ -57,11 +57,13 @@ DATA_DIR = os.environ.get("DATA_DIR", BASE)  # /var/data on Render (persistent d
 UPLOADS = os.path.join(DATA_DIR, "uploads")
 LAMP_UPLOAD_DIR = os.path.join(STATIC_DIR, "lamp_uploads")
 DESIGN_UPLOAD_DIR = os.path.join(STATIC_DIR, "design_uploads")
+KEYCHAIN_DESIGN_DIR = os.path.join(STATIC_DIR, "keychain_designs")
 PRODUCT_IMG_DIR = os.path.join(STATIC_DIR, "img", "products")
 DB = os.path.join(DATA_DIR, "jobs.db")
 os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
 os.makedirs(DESIGN_UPLOAD_DIR, exist_ok=True)
+os.makedirs(KEYCHAIN_DESIGN_DIR, exist_ok=True)
 os.makedirs(PRODUCT_IMG_DIR, exist_ok=True)
 VIDEO_DIR = os.path.join(DATA_DIR, "uploads", "videos")
 os.makedirs(VIDEO_DIR, exist_ok=True)
@@ -70,6 +72,8 @@ VIDEO_MAX_BYTES = 50 * 1024 * 1024  # 50 MB per video
 STRIPE_SECRET = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:5000").rstrip("/")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_IMAGE_MODELS = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"]
 # Canonical public domain (2026-10-18: adncreations.ca is the brand domain;
 # ritratto.ca and ritratto.onrender.com 301 here). Used for canonical tags and
 # share-preview URLs regardless of what SITE_URL is still set to.
@@ -1064,6 +1068,22 @@ def seed():
                 conn.execute(
                     "INSERT INTO product_photos (id, product_id, photo, sort, is_scale, created) "
                     "VALUES (?,?,?,?,?,?)", (_phpid, _pid, _ph, _i, 0, now_iso()))
+    # Custom photo keychain (2026-11-23, Antonio): the /custom-keychain.html
+    # designer product. Crew ladder pricing applies (id starts with
+    # "keychain-"), so 10+ are $3.50 each; orders are min 10, enforced in
+    # both checkouts. The design files ride in the line's design field.
+    if not conn.execute("SELECT id FROM products WHERE id='keychain-custom-photo'").fetchone():
+        conn.execute(
+            "INSERT INTO products (id, name, name_fr, price_cents, photo, "
+            "description, description_fr, story, story_fr, depts, "
+            "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
+            "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ('keychain-custom-photo', 'Custom Photo Keychain', 'Porte-clés photo personnalisé', 499,
+             '/img/keychains/hero-collage.jpg',
+             'Your own photo, cut out and made into a keychain: a pet, a child, your family, any picture you love. Realistic or AI cartoon, 54 to 70 mm long, with the ring included. Minimum order 10, $3.50 each at 10 or more. Hand crafted in Montreal.',
+             "Votre propre photo, découpée et transformée en porte-clés : un animal, un enfant, votre famille, n'importe quelle image que vous aimez. Réaliste ou dessin animé par IA, de 54 à 70 mm de long, anneau inclus. Commande minimum de 10, 3,50 $ chacun à partir de 10. Fait à la main à Montréal.",
+             '', '', json.dumps(["religious"]),
+             None, 0, "", 0, 1, "/custom-keychain.html", 1, 61, now_iso()))
     # 2026-11-07 review fixes: refreshed EN names, 53 mm size line in the
     # descriptions, in-hand photos in five galleries. Idempotent.
     for _pid, _nen, _nfr, _cat, _sen, _sfr in _KC:
@@ -4550,6 +4570,19 @@ def api_checkout():
         lang = "fr"
     pid = (data.get("product_id") or "").strip()
     qty = max(1, min(10, int(data.get("qty") or 1)))
+    if pid == CUSTOM_KC_PID:
+        # Custom photo keychains: min 10, steps of 10, up to 100, and the
+        # uploaded design files must exist (Antonio, 2026-11-23).
+        try:
+            qty = int(data.get("qty") or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        _qe = kc_qty_error(qty, lang)
+        if _qe:
+            return jsonify({"error": _qe}), 400
+        _de = kc_design_error((data.get("design") or ""), lang)
+        if _de:
+            return jsonify({"error": _de}), 400
     engraving = (data.get("engraving_text") or "").strip()[:200]
     design = (data.get("design") or "").strip()[:60]
     saint = (data.get("saint") or "").strip()[:40]
@@ -4725,6 +4758,17 @@ def api_cart_checkout():
             qty = max(1, min(10, int(it.get("qty") or 1)))
         except (TypeError, ValueError):
             qty = 1
+        if pid == CUSTOM_KC_PID:
+            try:
+                qty = int(it.get("qty") or 0)
+            except (TypeError, ValueError):
+                qty = 0
+            _qe = kc_qty_error(qty, lang)
+            if _qe:
+                return jsonify({"error": _qe}), 400
+            _de = kc_design_error((it.get("design") or ""), lang)
+            if _de:
+                return jsonify({"error": _de}), 400
         engraving = (it.get("engraving_text") or "").strip()[:200]
         design = (it.get("design") or "").strip()[:60]
         saint = (it.get("saint") or "").strip()[:40]
@@ -5481,6 +5525,134 @@ LAMP_SHIPPING = 1000
 def load_upright(stream):
     return ImageOps.exif_transpose(Image.open(stream)).convert("RGB")
 
+
+
+CUSTOM_KC_PID = "keychain-custom-photo"
+
+def kc_design_error(design, lang):
+    """A custom photo keychain order is useless without its design files.
+    The page uploads original + cutout + preview first and puts the id in
+    the line's design field as 'Custom kc_<id>'. Returns an error string
+    or None."""
+    m = re.search(r"kc_([0-9a-f]{10})", design or "")
+    if not m:
+        return ("Missing keychain design. Go back to the designer and add it again."
+                if lang == "en" else
+                "Design du porte-clés manquant. Retournez au designer et ajoutez-le à nouveau.")
+    did = m.group(1)
+    for suffix in ("_orig.jpg", "_cut.png", "_prev.png"):
+        if not os.path.isfile(os.path.join(KEYCHAIN_DESIGN_DIR, "kc_" + did + suffix)):
+            return ("Missing keychain design. Go back to the designer and add it again."
+                    if lang == "en" else
+                    "Design du porte-clés manquant. Retournez au designer et ajoutez-le à nouveau.")
+    return None
+
+def kc_qty_error(qty, lang):
+    """Custom photo keychains: minimum order 10, in steps of 10, max 100
+    (Antonio, 2026-11-23)."""
+    if qty < 10 or qty > 100 or qty % 10 != 0:
+        return ("Custom photo keychains are a minimum of 10, in steps of 10."
+                if lang == "en" else
+                "Les porte-clés photo personnalisés sont un minimum de 10, par étapes de 10.")
+    return None
+
+@app.route("/api/keychain-design-upload", methods=["POST"])
+def keychain_design_upload():
+    """Save one custom keychain design: the customer's original photo, the
+    transparent cutout and the outlined preview, under one design id."""
+    orig = request.files.get("original")
+    cut = request.files.get("cutout")
+    prev = request.files.get("preview")
+    if not orig or not cut or not prev:
+        return jsonify({"error": "missing files"}), 400
+    did = uuid.uuid4().hex[:10]
+    try:
+        img = load_upright(orig.stream)
+        img.thumbnail((1600, 1600), Image.LANCZOS)
+        img.convert("RGB").save(os.path.join(KEYCHAIN_DESIGN_DIR, f"kc_{did}_orig.jpg"), "JPEG", quality=90)
+        for f, suffix in ((cut, "_cut.png"), (prev, "_prev.png")):
+            im = Image.open(f.stream)
+            im.thumbnail((1200, 1200), Image.LANCZOS)
+            im.save(os.path.join(KEYCHAIN_DESIGN_DIR, f"kc_{did}{suffix}"), "PNG")
+    except Exception:
+        return jsonify({"error": "could not read those images"}), 400
+    return jsonify({"design_id": did,
+                    "preview_url": f"/keychain_designs/kc_{did}_prev.png",
+                    "cutout_url": f"/keychain_designs/kc_{did}_cut.png",
+                    "original_url": f"/keychain_designs/kc_{did}_orig.jpg"})
+
+def _gemini_image_edit(img_bytes, mime, prompt):
+    """One Gemini image edit/generation call. Returns (bytes, mime) or
+    raises RuntimeError. Tries the full-quality model, then the fallback."""
+    import base64 as _b64
+    if not GEMINI_API_KEY:
+        raise RuntimeError("no_ai_key")
+    payload = {
+        "contents": [{"parts": [
+            {"inline_data": {"mime_type": mime, "data": _b64.b64encode(img_bytes).decode()}},
+            {"text": prompt}]}],
+        "generationConfig": {"responseModalities": ["IMAGE"]},
+    }
+    last_err = None
+    for model in GEMINI_IMAGE_MODELS:
+        try:
+            r = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                params={"key": GEMINI_API_KEY}, json=payload, timeout=120)
+            if r.status_code != 200:
+                last_err = RuntimeError(f"gemini {model} {r.status_code}")
+                continue
+            for cand in (r.json().get("candidates") or []):
+                for part in ((cand.get("content") or {}).get("parts") or []):
+                    inline = part.get("inlineData") or part.get("inline_data") or {}
+                    if inline.get("data"):
+                        return _b64.b64decode(inline["data"]), inline.get("mimeType", "image/png")
+            last_err = RuntimeError("gemini returned no image")
+        except Exception as e:
+            last_err = e
+    raise RuntimeError(str(last_err) if last_err else "gemini failed")
+
+@app.route("/api/keychain-enhance", methods=["POST"])
+def keychain_enhance():
+    """AI enhance a customer photo (checkbox on the designer page):
+    lighting, sharpness, colour and noise cleaned up, subject unchanged."""
+    f = request.files.get("photo")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    try:
+        out, mime = _gemini_image_edit(
+            f.read(12 * 1024 * 1024), f.mimetype or "image/jpeg",
+            "Enhance this photo for printing: fix the lighting and exposure, "
+            "sharpen details, clean up noise, make the colours natural and vivid. "
+            "Keep the exact same subject, pose, framing and background. "
+            "Do not add, remove or change anything. Return the enhanced photo only.")
+    except RuntimeError as e:
+        if "no_ai_key" in str(e):
+            return jsonify({"error": "AI is not configured on the server yet."}), 503
+        return jsonify({"error": "AI enhance failed, try again."}), 502
+    return Response(out, mimetype=mime)
+
+@app.route("/api/keychain-cartoon", methods=["POST"])
+def keychain_cartoon():
+    """AI cartoon depiction of the photo's subject (designer page):
+    same subject and pose, redrawn as a clean cartoon, isolated on white
+    so the page can cut it out and outline it like the realistic version."""
+    f = request.files.get("photo")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    try:
+        out, mime = _gemini_image_edit(
+            f.read(12 * 1024 * 1024), f.mimetype or "image/jpeg",
+            "Redraw the subject of this photo as a cute, clean cartoon "
+            "illustration for a keychain: same subject, same pose, same "
+            "colours and markings, simplified with smooth bold shapes and "
+            "soft shading. Show the full subject only, centred, isolated on "
+            "a pure white background. No background, no other objects, no text.")
+    except RuntimeError as e:
+        if "no_ai_key" in str(e):
+            return jsonify({"error": "AI is not configured on the server yet."}), 503
+        return jsonify({"error": "AI cartoon failed, try again."}), 502
+    return Response(out, mimetype=mime)
 
 @app.route("/api/lamp-upload", methods=["POST"])
 def lamp_upload():
