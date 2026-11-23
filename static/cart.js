@@ -99,6 +99,8 @@
       /* Tiered (mirrors server): $4, over 50 $3.75, -25c every 50 more,
          floor $3; a back name adds 50c per unit. */
       var u = q > 200 ? 300 : q > 150 ? 325 : q > 100 ? 350 : q > 50 ? 375 : 400;
+      var smm = parseInt((it.size || "54"), 10) || 54;
+      if (smm > 54) u += Math.ceil((Math.min(70, smm) - 54) / 5) * 25;
       try {
         var sd2 = JSON.parse(it.sides || "{}");
         if (sd2 && sd2.back_name) u += 50;

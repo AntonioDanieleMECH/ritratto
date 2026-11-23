@@ -4634,7 +4634,7 @@ def api_checkout():
         engraving = sides_summary(_clean_sides, lang)[:1500]
     # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
     if pid == CUSTOM_KC_PID:
-        amount = kc_custom_unit_cents(qty) * qty  # tiered, not the crew ladder
+        amount = kc_custom_unit_cents(qty, size) * qty  # tiered + size, not the crew ladder
         _bn = kc_back_name(data.get("sides"))
         if _bn:
             amount += 50 * qty  # name on the back: +$0.50 per unit
@@ -4824,7 +4824,7 @@ def api_cart_checkout():
             return jsonify({"error": t(lang, "err_stock")}), 400
         # Same pricing rules as /api/checkout.
         if pid == CUSTOM_KC_PID:
-            line_amount = kc_custom_unit_cents(qty) * qty  # tiered, not the crew ladder
+            line_amount = kc_custom_unit_cents(qty, size) * qty  # tiered + size, not the crew ladder
             _bn = kc_back_name(it.get("sides"))
             if _bn:
                 line_amount += 50 * qty  # name on the back: +$0.50 per unit
@@ -5563,19 +5563,35 @@ def kc_design_error(design, lang):
                     "Design du porte-clés manquant. Retournez au designer et ajoutez-le à nouveau.")
     return None
 
-def kc_custom_unit_cents(qty):
+def kc_size_extra_cents(size_raw):
+    """Bigger keychain, more material (Antonio, 2026-11-23): +25 cents per
+    unit for every 5 mm of length above the 54 mm base, up to 70 mm."""
+    try:
+        mm = int(re.sub(r"[^0-9]", "", str(size_raw or "")) or 54)
+    except ValueError:
+        mm = 54
+    mm = max(54, min(70, mm))
+    if mm <= 54:
+        return 0
+    return -(-(mm - 54) // 5) * 25
+
+
+def kc_custom_unit_cents(qty, size_raw=""):
     """Custom photo keychain unit price (Antonio, 2026-11-23): $4.00 each,
     more than 50 drops to $3.75, then 25 cents less every 50 more, down to
-    a $3.00 floor. A name on the back adds $0.50 per unit (kc_back_name)."""
+    a $3.00 floor. A name on the back adds $0.50 per unit (kc_back_name).
+    Length above 54 mm adds 25c per 5 mm (kc_size_extra_cents)."""
     if qty > 200:
-        return 300
-    if qty > 150:
-        return 325
-    if qty > 100:
-        return 350
-    if qty > 50:
-        return 375
-    return 400
+        base = 300
+    elif qty > 150:
+        base = 325
+    elif qty > 100:
+        base = 350
+    elif qty > 50:
+        base = 375
+    else:
+        base = 400
+    return base + kc_size_extra_cents(size_raw)
 
 def kc_back_name(raw_sides):
     """The designer page sends sides as JSON {"back_name": "..."} for the

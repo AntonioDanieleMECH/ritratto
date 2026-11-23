@@ -115,7 +115,7 @@
         <option value="250">250</option><option value="300">300</option>
       </select></div>
     <div id="priceLine" style="font-size:14px; margin-top:6px;">$4.00 each, <b>total $40.00 CAD</b> for 10</div>
-    <div style="font-size:12.5px; color:#777; margin-top:3px;">Printed on one side. Over 50: $3.75 each, then 25&cent; less every 50 more, down to $3.00 each.</div>
+    <div style="font-size:12.5px; color:#777; margin-top:3px;">Printed on one side. Over 50: $3.75 each, then 25&cent; less every 50 more, down to $3.00 each. Longer than 54 mm: +25&cent; per 5 mm.</div>
     <label style="display:flex; gap:9px; align-items:flex-start; margin-top:12px; cursor:pointer; font-size:14px;">
       <input type="checkbox" id="backNameToggle" style="width:18px; height:18px; margin-top:1px; accent-color:#b98a1c;">
       <span><strong>Add a name on the back</strong> (+$0.50 each)</span>
@@ -491,24 +491,28 @@ function buildFinal(){
     }
   }
   if(maxX===0){ setStatus('No subject found in that photo. Try a clearer photo.'); return; }
+  const sizeMm = parseInt($('size').value, 10) || 60;
+  const subjLong = Math.max(maxX-minX, maxY-minY);
+  const estPxMm = subjLong / Math.max(20, sizeMm - 12);
   // Fill the bays between limbs first (closing): a real keychain outline
   // wraps the figure in one smooth blob like his saint keychains, it does
   // not carve into the stomach where an arm or leg leaves a gap.
-  const closeR = Math.max(16, Math.round(w * 0.075));
+  const closeR = Math.max(14, Math.round(w * 0.05));
   mask = erode(dilate(mask, w, h, closeR), w, h, closeR);
   // opening: shave off whisker-thin spikes so the cut line stays smooth
   // (the whiskers still print, the outline just does not chase them)
+  let closedArea = 0;
+  for(let i=0;i<w*h;i++) closedArea += mask[i];
   const openR = Math.max(6, Math.round(w * 0.007));
   mask = dilate(erode(mask, w, h, openR), w, h, openR);
+  let openedArea = 0;
+  for(let i=0;i<w*h;i++) openedArea += mask[i];
   // centre of mass of the whole silhouette: the tab sits there so the
   // finished keychain hangs straight and balanced, not over one paw.
   let cxSum=0, cCount=0;
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(mask[y*w+x]){ cxSum+=x; cCount++; }
   const centroidX = cCount ? cxSum/cCount : (minX+maxX)/2;
   // tab sized in real millimetres: 5 mm ring hole with a solid wall
-  const sizeMm = parseInt($('size').value, 10) || 60;
-  const subjLong = Math.max(maxX-minX, maxY-minY);
-  const estPxMm = subjLong / Math.max(20, sizeMm - 12);
   const tabR = Math.round(5.7 * estPxMm);
   const tabCX = Math.round(Math.min(Math.max(centroidX, minX + tabR*0.55), maxX - tabR*0.55));
   const tabCY = minY - Math.round(tabR * 0.5); // hole sits higher above the subject
@@ -517,7 +521,12 @@ function buildFinal(){
     const dx=x-tabCX, dy=y-tabCY;
     if(dx*dx+dy*dy <= tabR*tabR) mask[y*w+x]=1;
   }
-  const offsetPx = Math.max(6, Math.round(w * 0.009)); // ~1.2mm added border; with the solid-subject threshold the visible white lands near 2mm, like his saint keychains
+  // White border 1-2 mm depending on complexity (Antonio): a plain shape
+  // gets ~1.3 mm so the printed image fills the keychain; a shape whose
+  // opening pass had to shave a lot (thin protrusions, an arm sticking
+  // out) gets 2 mm and the rounded contour keeps it strong.
+  const complex = (1 - openedArea / Math.max(1, closedArea)) > 0.035;
+  const offsetPx = Math.max(6, Math.round((complex ? 2.0 : 1.3) * estPxMm));
   let dil = dilate(mask, w, h, offsetPx);
   dil = roundOutline(roundOutline(dil, w, h), w, h);
   dil = smoothContour(smoothContour(dil, w, h), w, h); // two contour passes: the second rounds what the first leaves (right tail kink)
@@ -580,6 +589,7 @@ function drawStage(){
 
 // ---------- size ----------
 $('size').addEventListener('input', updateDims);
+$('size').addEventListener('change', ()=>{ if(styledCanvas) buildFinal(); refreshPrice(); });
 function updateDims(){
   const mm = parseInt($('size').value, 10);
   $('mmVal').textContent = mm;
@@ -660,6 +670,8 @@ $('addText').onclick = ()=>{
 // ---------- quantity, price, add to cart ----------
 function kcUnit(q){
   let u = q > 200 ? 300 : q > 150 ? 325 : q > 100 ? 350 : q > 50 ? 375 : 400;
+  const mm = parseInt($('size').value, 10) || 54;
+  if(mm > 54) u += Math.ceil((mm - 54) / 5) * 25; // +25c per 5 mm over 54
   if($('backNameToggle').checked) u += 50;
   return u;
 }
