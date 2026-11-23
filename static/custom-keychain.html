@@ -406,7 +406,9 @@ function roundOutline(dil, w, h){
   const blr = document.createElement('canvas'); blr.width=w; blr.height=h;
   const bctx2 = blr.getContext('2d');
   bctx2.filter = 'blur(11px)';
-  bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0); bctx2.drawImage(src,0,0);
+  // ONE draw only: stacking blurred copies saturates the alpha and the
+  // shape silently grows ~1.5 mm past spec (found measuring the border).
+  bctx2.drawImage(src,0,0);
   bctx2.filter = 'none';
   const bd = bctx2.getImageData(0,0,w,h).data;
   const out = new Uint8Array(w*h);
