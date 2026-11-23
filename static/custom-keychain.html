@@ -391,8 +391,19 @@ function restyle(){
   if(!src) return;
   // A long, wide subject (a car, a group, a name) is turned 90 degrees so
   // the length you pick runs along its long side instead of blowing up
-  // the height (Antonio, 2026-11-23).
-  designRotated = src.width > src.height * 1.02;
+  // the height (Antonio, 2026-11-23). Judged on the SUBJECT's box, not
+  // the canvas: a tall subject in a wide photo must not turn.
+  designRotated = false;
+  {
+    const sd = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
+    let bMinX=1e9, bMaxX=-1, bMinY=1e9, bMaxY=-1;
+    for(let y=0;y<src.height;y++) for(let x=0;x<src.width;x++){
+      if(sd[(y*src.width+x)*4+3] > 175){
+        if(x<bMinX)bMinX=x; if(x>bMaxX)bMaxX=x; if(y<bMinY)bMinY=y; if(y>bMaxY)bMaxY=y;
+      }
+    }
+    if(bMaxX >= 0) designRotated = (bMaxX-bMinX) > (bMaxY-bMinY) * 1.02;
+  }
   let work = src;
   if(designRotated){
     const rc = document.createElement('canvas');
