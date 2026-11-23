@@ -67,6 +67,12 @@
       <small style="color:#777;">Fixes lighting, sharpness and colours before the cutout. Optional, takes a little longer.</small></span>
     </label>
 
+    <label style="display:flex; gap:9px; align-items:flex-start; margin-top:10px; cursor:pointer; font-size:14px;">
+      <input type="checkbox" id="exactPhoto" style="width:18px; height:18px; margin-top:1px; accent-color:#b98a1c;">
+      <span><strong>Just my photo, no AI</strong><br>
+      <small style="color:#777;">Use the exact image you uploaded, untouched. No AI redraw, no repositioning, just the cutout of your photo.</small></span>
+    </label>
+
     <div class="step">2. Style</div>
     <div class="seg">
       <button id="btnReal" class="active">Realistic<small>AI isolates your subject, nicely positioned</small></button>
@@ -182,7 +188,7 @@ async function handleFile(file){
   let workFile = file;
   // Optional AI enhance (live site endpoint /api/keychain-enhance): runs BEFORE
   // the cutout, so the cutout and the print both use the enhanced photo.
-  if($('enhanceAi').checked){
+  if($('enhanceAi').checked && !$('exactPhoto').checked){
     setStatus('<span class="spin"></span> AI is enhancing your photo (lighting, sharpness, colours)...');
     try {
       const fd = new FormData(); fd.append('photo', file);
@@ -236,7 +242,23 @@ function capSize(img, max){
 }
 
 // ---------- style ----------
+$('exactPhoto').addEventListener('change', ()=>{
+  const ex = $('exactPhoto').checked;
+  $('btnReal').disabled = ex; $('btnToon').disabled = ex;
+  $('enhanceAi').disabled = ex;
+  if(ex){
+    style = 'real'; aiRealCanvas = null; aiCartoonCanvas = null; editStack = [];
+    $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
+    if(enhanceUsed){
+      setStatus('Exact photo mode is on. This preview was AI enhanced earlier, so upload the photo once more for a truly untouched version.');
+    } else {
+      if(cutoutCanvas) restyle();
+      setStatus('Exact photo mode: your uploaded image, untouched, just cut out.');
+    }
+  }
+});
 $('btnReal').onclick = async ()=>{
+  if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
   if(!lastFile){ setStatus('Upload a photo first.'); return; }
   if(busy){ setStatus('One step at a time: wait for the current step to finish.'); return; }
   style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
@@ -263,6 +285,7 @@ $('btnReal').onclick = async ()=>{
   restyle();
 };
 $('btnToon').onclick = async ()=>{
+  if($('exactPhoto').checked){ setStatus('Exact photo mode is on: untick "Just my photo, no AI" to use the AI styles.'); return; }
   if(!lastFile){ setStatus('Upload a photo first.'); return; }
   if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Cartoon.'); return; }
   if(!cutoutCanvas){ setStatus('The cutout has not finished yet. Wait for your preview to appear, then tap AI Cartoon.'); return; }
@@ -330,7 +353,7 @@ function dilate(mask, w, h, r){
   bctx.filter = 'none';
   const bd = bctx.getImageData(0,0,w,h).data;
   const out = new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 10 ? 1 : 0;
+  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 25 ? 1 : 0;
   return out;
 }
 function erode(mask, w, h, r){
@@ -354,7 +377,7 @@ function roundOutline(dil, w, h){
   bctx2.filter = 'none';
   const bd = bctx2.getImageData(0,0,w,h).data;
   const out = new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 110 ? 1 : 0;
+  for(let i=0;i<w*h;i++) out[i] = bd[i*4] > 128 ? 1 : 0;
   return out;
 }
 
@@ -409,7 +432,7 @@ function smoothContour(mask, w, h){
 
 function buildFinal(){
   if(!styledCanvas) return;
-  const pad = 90, w = styledCanvas.width + pad*2, h = styledCanvas.height + pad*2;
+  const pad = 130, w = styledCanvas.width + pad*2, h = styledCanvas.height + pad*2;
   const ctx0 = styledCanvas.getContext('2d');
   const data = ctx0.getImageData(0,0,styledCanvas.width,styledCanvas.height).data;
   let mask = new Uint8Array(w*h);
@@ -442,13 +465,13 @@ function buildFinal(){
   const estPxMm = subjLong / Math.max(20, sizeMm - 12);
   const tabR = Math.round(5.7 * estPxMm);
   const tabCX = Math.round(Math.min(Math.max(centroidX, minX + tabR*0.55), maxX - tabR*0.55));
-  const tabCY = minY - Math.round(tabR * 0.15);
+  const tabCY = minY - Math.round(tabR * 0.5); // hole sits higher above the subject
   for(let y=tabCY-tabR;y<=tabCY+tabR;y++) for(let x=tabCX-tabR;x<=tabCX+tabR;x++){
     if(x<0||y<0||x>=w||y>=h) continue;
     const dx=x-tabCX, dy=y-tabCY;
     if(dx*dx+dy*dy <= tabR*tabR) mask[y*w+x]=1;
   }
-  const offsetPx = Math.max(10, Math.round(w * 0.022)); // ~2-3mm border at final size
+  const offsetPx = Math.max(8, Math.round(w * 0.012)); // ~1.5mm border: printed image bigger, less white at the sides
   let dil = dilate(mask, w, h, offsetPx);
   dil = roundOutline(roundOutline(dil, w, h), w, h);
   dil = smoothContour(smoothContour(dil, w, h), w, h); // two contour passes: the second rounds what the first leaves (right tail kink)
