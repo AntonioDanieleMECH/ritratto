@@ -1078,12 +1078,15 @@ def seed():
             "description, description_fr, story, story_fr, depts, "
             "stock, preorder, preorder_ship_date, engravable, purchasable, custom_link, "
             "active, sort, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            ('keychain-custom-photo', 'Custom Photo Keychain', 'Porte-clés photo personnalisé', 499,
+            ('keychain-custom-photo', 'Custom Photo Keychain', 'Porte-clés photo personnalisé', 400,
              '/img/keychains/hero-collage.jpg',
-             'Your own photo, cut out and made into a keychain: a pet, a child, your family, any picture you love. Realistic or AI cartoon, 54 to 70 mm long, with the ring included. Minimum order 10, $3.50 each at 10 or more. Hand crafted in Montreal.',
-             "Votre propre photo, découpée et transformée en porte-clés : un animal, un enfant, votre famille, n'importe quelle image que vous aimez. Réaliste ou dessin animé par IA, de 54 à 70 mm de long, anneau inclus. Commande minimum de 10, 3,50 $ chacun à partir de 10. Fait à la main à Montréal.",
+             'Your own photo, cut out and made into a keychain: a pet, a child, your family, any picture you love. Realistic or AI cartoon, 54 to 70 mm long, with the ring included. Minimum order 10, $4.00 each, less in bulk. Printed on one side, a name can be added on the back. Hand crafted in Montreal.',
+             "Votre propre photo, découpée et transformée en porte-clés : un animal, un enfant, votre famille, n'importe quelle image que vous aimez. Réaliste ou dessin animé par IA, de 54 à 70 mm de long, anneau inclus. Commande minimum de 10, 4,00 $ chacun, moins en gros. Imprimé d'un seul côté, un nom peut être ajouté au dos. Fait à la main à Montréal.",
              '', '', json.dumps(["religious"]),
              None, 0, "", 0, 1, "/custom-keychain.html", 1, 61, now_iso()))
+    # Tiered $4.00 down to $3.00 (Antonio, 2026-11-23): NOT the saint
+    # crew ladder. Idempotent price fix for the already-seeded row.
+    conn.execute("UPDATE products SET price_cents=400 WHERE id='keychain-custom-photo'")
     # 2026-11-07 review fixes: refreshed EN names, 53 mm size line in the
     # descriptions, in-hand photos in five galleries. Idempotent.
     for _pid, _nen, _nfr, _cat, _sen, _sfr in _KC:
@@ -4630,7 +4633,13 @@ def api_checkout():
             return jsonify({"error": str(e)}), 400
         engraving = sides_summary(_clean_sides, lang)[:1500]
     # Size variants (mini bust: Small $19.99 / Large $29.99, MSRP + $5).
-    if pid.startswith(KEYCHAIN_PREFIX):
+    if pid == CUSTOM_KC_PID:
+        amount = kc_custom_unit_cents(qty) * qty  # tiered, not the crew ladder
+        _bn = kc_back_name(data.get("sides"))
+        if _bn:
+            amount += 50 * qty  # name on the back: +$0.50 per unit
+            engraving = ((engraving + "; ") if engraving else "") + "Back name: " + _bn
+    elif pid.startswith(KEYCHAIN_PREFIX):
         amount = kc_unit_cents(qty) * qty
     elif pid == "mini-bust":
         amount = (2999 if size == "Large" else 1999) * qty
@@ -4814,7 +4823,13 @@ def api_cart_checkout():
         if _pool and color not in LIGHTER_COLORS:
             return jsonify({"error": t(lang, "err_stock")}), 400
         # Same pricing rules as /api/checkout.
-        if pid.startswith(KEYCHAIN_PREFIX):
+        if pid == CUSTOM_KC_PID:
+            line_amount = kc_custom_unit_cents(qty) * qty  # tiered, not the crew ladder
+            _bn = kc_back_name(it.get("sides"))
+            if _bn:
+                line_amount += 50 * qty  # name on the back: +$0.50 per unit
+                options = (((options + "; ") if options else "") + "Back name: " + _bn)[:1500]
+        elif pid.startswith(KEYCHAIN_PREFIX):
             line_amount = 499 * qty  # repriced by the crew ladder after the loop
         elif pid == "mini-bust":
             line_amount = (2999 if size == "Large" else 1999) * qty
@@ -4839,11 +4854,12 @@ def api_cart_checkout():
                       "pool": _pool, "initials": initials})
     # Saint keychains: crew pricing (2026-11-07) - the total keychain
     # count across the whole cart sets one unit price for every keychain.
-    _kc_n = sum(l["qty"] for l in lines if l["pid"].startswith(KEYCHAIN_PREFIX))
+    _kc_n = sum(l["qty"] for l in lines
+                if l["pid"].startswith(KEYCHAIN_PREFIX) and l["pid"] != CUSTOM_KC_PID)
     if _kc_n:
         _kc_unit = kc_unit_cents(_kc_n)
         for l in lines:
-            if l["pid"].startswith(KEYCHAIN_PREFIX):
+            if l["pid"].startswith(KEYCHAIN_PREFIX) and l["pid"] != CUSTOM_KC_PID:
                 l["amount"] = _kc_unit * l["qty"]
     for pid, q in total_qty_by_pid.items():
         p = get_product(pid)
@@ -5547,10 +5563,36 @@ def kc_design_error(design, lang):
                     "Design du porte-clés manquant. Retournez au designer et ajoutez-le à nouveau.")
     return None
 
+def kc_custom_unit_cents(qty):
+    """Custom photo keychain unit price (Antonio, 2026-11-23): $4.00 each,
+    more than 50 drops to $3.75, then 25 cents less every 50 more, down to
+    a $3.00 floor. A name on the back adds $0.50 per unit (kc_back_name)."""
+    if qty > 200:
+        return 300
+    if qty > 150:
+        return 325
+    if qty > 100:
+        return 350
+    if qty > 50:
+        return 375
+    return 400
+
+def kc_back_name(raw_sides):
+    """The designer page sends sides as JSON {"back_name": "..."} for the
+    custom keychain. Returns the cleaned name or ""."""
+    if isinstance(raw_sides, str) and raw_sides.strip().startswith("{"):
+        try:
+            d = json.loads(raw_sides)
+            if isinstance(d, dict):
+                return re.sub(r"[^\w \-'.&]", "", str(d.get("back_name") or ""))[:40].strip()
+        except ValueError:
+            pass
+    return ""
+
 def kc_qty_error(qty, lang):
-    """Custom photo keychains: minimum order 10, in steps of 10, max 100
+    """Custom photo keychains: minimum order 10, in steps of 10, max 300
     (Antonio, 2026-11-23)."""
-    if qty < 10 or qty > 100 or qty % 10 != 0:
+    if qty < 10 or qty > 300 or qty % 10 != 0:
         return ("Custom photo keychains are a minimum of 10, in steps of 10."
                 if lang == "en" else
                 "Les porte-clés photo personnalisés sont un minimum de 10, par étapes de 10.")

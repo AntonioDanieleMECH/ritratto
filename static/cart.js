@@ -87,13 +87,24 @@
   function kcUnitFor(n) { return n >= 10 ? 350 : n >= 3 ? 449 : 499; }
   function kcCartCount() {
     return load().reduce(function (s, x) {
-      return s + ((x.pid || "").indexOf("keychain-") === 0 ? (x.qty || 1) : 0);
+      return s + (((x.pid || "").indexOf("keychain-") === 0 &&
+                 x.pid !== "keychain-custom-photo") ? (x.qty || 1) : 0);
     }, 0);
   }
   function lineTotal(it, withIni) {
     var q = it.qty || 1;
     /* Saint keychains: one crew unit price set by the keychain count in
        the whole cart (mirrors the server ladder). */
+    if (it.pid === "keychain-custom-photo") {
+      /* Tiered (mirrors server): $4, over 50 $3.75, -25c every 50 more,
+         floor $3; a back name adds 50c per unit. */
+      var u = q > 200 ? 300 : q > 150 ? 325 : q > 100 ? 350 : q > 50 ? 375 : 400;
+      try {
+        var sd2 = JSON.parse(it.sides || "{}");
+        if (sd2 && sd2.back_name) u += 50;
+      } catch (e) {}
+      return u * q;
+    }
     if ((it.pid || "").indexOf("keychain-") === 0) return kcUnitFor(kcCartCount()) * q;
     var t;
     if (it.pid === "memorial-lamp" && q >= 4 && it.add_cents) {
@@ -121,6 +132,9 @@
     if (it.engraving) parts.push(it.engraving);
     if (it.sides) {
       try {
+        var sdObj = JSON.parse(it.sides);
+        if (sdObj && !Array.isArray(sdObj) && sdObj.back_name)
+          parts.push((lang() === "fr" ? "Nom au dos" : "Back name") + ": " + sdObj.back_name);
         var sd = JSON.parse(it.sides), sp = [];
         sd.forEach(function (s, i) {
           if (s.kind === "gallery") sp.push((i + 1) + ") " + (s.name || "Design"));
@@ -413,8 +427,8 @@
       if (keyOf(items[i]) !== k) continue;
       if (act === "rm") items.splice(i, 1);
       else if (items[i].pid === "keychain-custom-photo") {
-        /* Custom photo keychains: min 10, steps of 10, max 100. */
-        if (act === "inc") items[i].qty = Math.min(100, (items[i].qty || 10) + 10);
+        /* Custom photo keychains: min 10, steps of 10, max 300. */
+        if (act === "inc") items[i].qty = Math.min(300, (items[i].qty || 10) + 10);
         else if (act === "dec") items[i].qty = Math.max(10, (items[i].qty || 10) - 10);
       }
       else if (act === "inc") items[i].qty = Math.min(10, (items[i].qty || 1) + 1);
@@ -427,7 +441,7 @@
 
   function add(it) {
     if (!it || !it.pid) return;
-    var cap = it.pid === "keychain-custom-photo" ? 100 : 10;
+    var cap = it.pid === "keychain-custom-photo" ? 300 : 10;
     it.qty = Math.max(1, Math.min(cap, it.qty || 1));
     var items = load();
     var k = keyOf(it);

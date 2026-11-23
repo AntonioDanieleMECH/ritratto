@@ -85,9 +85,20 @@
       <select id="qtySel" style="font-size:15px; padding:6px 8px; border-radius:8px; border:1.5px solid #d8cfba;">
         <option value="10" selected>10</option><option value="20">20</option>
         <option value="30">30</option><option value="40">40</option>
-        <option value="50">50</option><option value="100">100</option>
+        <option value="50">50</option><option value="60">60</option>
+        <option value="70">70</option><option value="80">80</option>
+        <option value="90">90</option><option value="100">100</option>
+        <option value="150">150</option><option value="200">200</option>
+        <option value="250">250</option><option value="300">300</option>
       </select></div>
-    <div id="priceLine" style="font-size:14px; margin-top:6px;">$3.50 each, <b>total $35.00 CAD</b> for 10</div>
+    <div id="priceLine" style="font-size:14px; margin-top:6px;">$4.00 each, <b>total $40.00 CAD</b> for 10</div>
+    <div style="font-size:12.5px; color:#777; margin-top:3px;">Printed on one side. Over 50: $3.75 each, then 25&cent; less every 50 more, down to $3.00 each.</div>
+    <label style="display:flex; gap:9px; align-items:flex-start; margin-top:12px; cursor:pointer; font-size:14px;">
+      <input type="checkbox" id="backNameToggle" style="width:18px; height:18px; margin-top:1px; accent-color:#b98a1c;">
+      <span><strong>Add a name on the back</strong> (+$0.50 each)</span>
+    </label>
+    <input type="text" id="backName" maxlength="40" placeholder="Name for the back"
+      style="display:none; width:100%; margin-top:8px; padding:10px; border:1.5px solid #d8cfba; border-radius:10px; font-size:14px;">
     <button class="btn" id="addCart" disabled style="background:#A67C2E; font-size:16px;">Add to cart</button>
     <p style="font-size:12.5px; color:#777; margin:8px 0 0;">Then check out from the cart, like any other order. We make them once your order is placed.</p>
 
@@ -106,7 +117,7 @@
       outside your picture, so nothing important gets clipped, and a small tab with a hole is added at the top for the ring.
       White inside the red line is the keychain body.<br><br>
       Note: blurry photos, busy backgrounds and fine hair or fur may need a quick manual cleanup by us before printing.
-      Minimum order is 10 keychains of the same design, $3.50 each.
+      Minimum order is 10 keychains of the same design, $4.00 each, printed on one side.
     </p>
     <div id="actualWrap">
       <p><strong>True size</strong> (on most screens - hold a real keychain up to check)</p>
@@ -173,7 +184,7 @@ async function handleFile(file){
   } catch(err) {
     console.error(err);
     cutoutCanvas = null; styledCanvas = null; finalCanvas = null; placeholder();
-    setStatus('The automatic cutout could not run in this browser. Try Chrome or Safari, or send us the photo and we will set it up for you. Nothing was outlined, because outlining the whole rectangle would be wrong.');
+    setStatus('The automatic cutout could not run in this browser. Try Chrome or Safari, or send us the photo and we will set it up for you. Nothing was outlined, because outlining the whole rectangle would be wrong. (' + ((err && err.message) || err || '').toString().slice(0,120) + ')');
     busy = false;
     return;
   }
@@ -185,6 +196,7 @@ async function handleFile(file){
 async function cutoutFile(fileOrBlob){
   const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal-js@1.5.5/+esm');
   const blob = await removeBackground(fileOrBlob, {
+    publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.5.5/dist/',
     device: 'gpu',
     output: { format: 'image/png', quality: 1 },
     progress: (key, cur, tot) => {
@@ -208,12 +220,14 @@ function capSize(img, max){
 $('btnReal').onclick = ()=>{ style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active'); restyle(); };
 $('btnToon').onclick = async ()=>{
   if(!lastFile){ setStatus('Upload a photo first.'); return; }
+  if(busy){ setStatus('One step at a time: wait for the current step to finish, then tap AI Cartoon.'); return; }
+  if(!cutoutCanvas){ setStatus('The cutout has not finished yet. Wait for your preview to appear, then tap AI Cartoon.'); return; }
   style='toon'; $('btnToon').classList.add('active'); $('btnReal').classList.remove('active');
   if(aiCartoonCanvas){ restyle(); return; }
   // AI cartoon: the server regenerates the subject as a cartoon depiction
   // (Gemini image model, endpoint /api/keychain-cartoon in server.py, live site only).
   // It returns the cartoon on a transparent background, ready to outline.
-  if(busy) return; busy = true;
+  busy = true;
   setStatus('<span class="spin"></span> The AI is redrawing your subject as a cartoon... this takes about 30 to 60 seconds.');
   try {
     const fd = new FormData();
@@ -229,7 +243,8 @@ $('btnToon').onclick = async ()=>{
   } catch(err) {
     console.error(err);
     style='real'; $('btnReal').classList.add('active'); $('btnToon').classList.remove('active');
-    setStatus('The AI cartoon could not be made just now. Your realistic keychain is still ready below.');
+    setStatus(finalCanvas ? 'The AI cartoon could not be made just now. Your realistic keychain is still ready below.'
+                          : 'The AI cartoon could not be made just now. Try again in a moment.');
   }
   busy = false;
   restyle();
@@ -395,9 +410,20 @@ function updateDims(){
 }
 
 // ---------- quantity, price, add to cart ----------
-$('qtySel').addEventListener('change', ()=>{
+function kcUnit(q){
+  let u = q > 200 ? 300 : q > 150 ? 325 : q > 100 ? 350 : q > 50 ? 375 : 400;
+  if($('backNameToggle').checked) u += 50;
+  return u;
+}
+function refreshPrice(){
   const q = parseInt($('qtySel').value, 10);
-  $('priceLine').innerHTML = '$3.50 each, <b>total $' + (q*3.5).toFixed(2) + ' CAD</b> for ' + q;
+  const u = kcUnit(q);
+  $('priceLine').innerHTML = '$' + (u/100).toFixed(2) + ' each, <b>total $' + (q*u/100).toFixed(2) + ' CAD</b> for ' + q;
+}
+$('qtySel').addEventListener('change', refreshPrice);
+$('backNameToggle').addEventListener('change', ()=>{
+  $('backName').style.display = $('backNameToggle').checked ? '' : 'none';
+  refreshPrice();
 });
 function canvasBlob(c){ return new Promise(res => c.toBlob(res, 'image/png')); }
 $('addCart').onclick = async ()=>{
@@ -417,11 +443,12 @@ $('addCart').onclick = async ()=>{
     const qty = parseInt($('qtySel').value, 10);
     window.adnCart.add({
       pid: 'keychain-custom-photo', name: 'Custom Photo Keychain',
-      img: j.preview_url, qty: qty, unit_cents: 350, add_cents: 0,
+      img: j.preview_url, qty: qty, unit_cents: kcUnit(qty), add_cents: 0,
       design: 'Custom kc_' + j.design_id, size: mm + 'mm',
       engraving: 'Style: ' + (style === 'toon' ? 'AI Cartoon' : 'Realistic') +
                  '; AI enhance: ' + (enhanceUsed ? 'yes' : 'no'),
-      saint: '', color: '', initials: '', base: '', sides: ''
+      saint: '', color: '', initials: '', base: '',
+      sides: JSON.stringify({ back_name: $('backNameToggle').checked ? $('backName').value.trim() : '' })
     });
     setStatus('Added to your cart: ' + qty + ' custom keychains, ' + mm + ' mm, ' +
               (style === 'toon' ? 'AI cartoon' : 'realistic') + '. Open the cart to check out.');
