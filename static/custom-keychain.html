@@ -438,7 +438,7 @@ function buildFinal(){
   // (with the hole higher, a big subject in frame could clip the tab top)
   let sMinX=1e9,sMaxX=-1,sMinY=1e9,sMaxY=-1;
   for(let y=0;y<styledCanvas.height;y++) for(let x=0;x<styledCanvas.width;x++){
-    if(data[(y*styledCanvas.width+x)*4+3] > 140){
+    if(data[(y*styledCanvas.width+x)*4+3] > 175){
       if(x<sMinX)sMinX=x; if(x>sMaxX)sMaxX=x; if(y<sMinY)sMinY=y; if(y>sMaxY)sMaxY=y;
     }
   }
@@ -451,7 +451,7 @@ function buildFinal(){
   let mask = new Uint8Array(w*h);
   let minX=w, maxX=0, minY=h, maxY=0, topXsum=0, topCount=0;
   for(let y=0;y<styledCanvas.height;y++) for(let x=0;x<styledCanvas.width;x++){
-    if(data[(y*styledCanvas.width+x)*4+3] > 140){
+    if(data[(y*styledCanvas.width+x)*4+3] > 175){
       mask[(y+pad)*w+(x+pad)] = 1;
       if(x+pad<minX)minX=x+pad; if(x+pad>maxX)maxX=x+pad;
       if(y+pad<minY)minY=y+pad; if(y+pad>maxY)maxY=y+pad;
@@ -484,7 +484,7 @@ function buildFinal(){
     const dx=x-tabCX, dy=y-tabCY;
     if(dx*dx+dy*dy <= tabR*tabR) mask[y*w+x]=1;
   }
-  const offsetPx = Math.max(8, Math.round(w * 0.012)); // ~1.5mm border: printed image bigger, less white at the sides
+  const offsetPx = Math.max(6, Math.round(w * 0.009)); // ~1.2mm added border; with the solid-subject threshold the visible white lands near 2mm, like his saint keychains
   let dil = dilate(mask, w, h, offsetPx);
   dil = roundOutline(roundOutline(dil, w, h), w, h);
   dil = smoothContour(smoothContour(dil, w, h), w, h); // two contour passes: the second rounds what the first leaves (right tail kink)
