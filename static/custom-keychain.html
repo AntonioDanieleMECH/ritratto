@@ -385,14 +385,29 @@ function hasTransparency(c){
   return false;
 }
 
+let designRotated = false;  // true when a wide subject was turned 90 degrees
 function restyle(){
   const src = style === 'toon' ? (aiCartoonCanvas || cutoutCanvas) : style === 'touch' ? (aiTouchCanvas || cutoutCanvas) : (aiRealCanvas || cutoutCanvas);
   if(!src) return;
+  // A long, wide subject (a car, a group, a name) is turned 90 degrees so
+  // the length you pick runs along its long side instead of blowing up
+  // the height (Antonio, 2026-11-23).
+  designRotated = src.width > src.height * 1.02;
+  let work = src;
+  if(designRotated){
+    const rc = document.createElement('canvas');
+    rc.width = src.height; rc.height = src.width;
+    const rctx = rc.getContext('2d');
+    rctx.translate(rc.width/2, rc.height/2);
+    rctx.rotate(Math.PI/2);
+    rctx.drawImage(src, -src.width/2, -src.height/2);
+    work = rc;
+  }
   styledCanvas = document.createElement('canvas');
-  styledCanvas.width = src.width; styledCanvas.height = src.height;
+  styledCanvas.width = work.width; styledCanvas.height = work.height;
   const ctx = styledCanvas.getContext('2d');
   ctx.filter = 'saturate(1.05) contrast(1.03)';
-  ctx.drawImage(src, 0, 0);
+  ctx.drawImage(work, 0, 0);
   ctx.filter = 'none';
   buildFinal();
 }
@@ -508,7 +523,7 @@ function buildFinal(){
   if(sMaxX<0){ setStatus('No subject found in that photo. Try a clearer photo.'); return; }
   const sizeMmPre = parseInt($('size').value, 10) || 60;
   const subjLongPre = Math.max(sMaxX-sMinX, sMaxY-sMinY);
-  const tabRPre = Math.round(5.7 * (subjLongPre / Math.max(20, sizeMmPre - 12)));
+  const tabRPre = Math.round(4.6 * (subjLongPre / Math.max(20, sizeMmPre - 12)));
   const pad = Math.max(130, Math.ceil(tabRPre * 1.8));
   const w = styledCanvas.width + pad*2, h = styledCanvas.height + pad*2;
   let mask = new Uint8Array(w*h);
@@ -538,10 +553,12 @@ function buildFinal(){
   let cxSum=0, cCount=0;
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(mask[y*w+x]){ cxSum+=x; cCount++; }
   const centroidX = cCount ? cxSum/cCount : (minX+maxX)/2;
-  // tab sized in real millimetres: 5 mm ring hole with a solid wall
-  const tabR = Math.round(5.7 * estPxMm);
+  // tab sized in real millimetres, matched to Antonio's own saint cut
+  // files: a small bump (about 9 mm wide where it meets the body, ~6 mm
+  // of white above the figure) with a 4 mm ring hole.
+  const tabR = Math.round(4.6 * estPxMm);
   const tabCX = Math.round(Math.min(Math.max(centroidX, minX + tabR*0.55), maxX - tabR*0.55));
-  const tabCY = minY - Math.round(tabR * 0.5); // hole sits higher above the subject
+  const tabCY = minY - Math.round(tabR * 0.15); // sunk into the body line, small bump on top
   for(let y=tabCY-tabR;y<=tabCY+tabR;y++) for(let x=tabCX-tabR;x<=tabCX+tabR;x++){
     if(x<0||y<0||x>=w||y>=h) continue;
     const dx=x-tabCX, dy=y-tabCY;
@@ -588,8 +605,8 @@ function buildFinal(){
   // red line, drawn 3x offset for thickness
   for(const [ox,oy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]])
     fx.drawImage(edge, fMinX-m+ox, fMinY-m+oy, finalCanvas.width, finalCanvas.height, ox, oy, finalCanvas.width, finalCanvas.height);
-  // ring hole: 5 mm across at the chosen finished size
-  const holeR = Math.max(8, Math.round(2.5 * (fH / sizeMm)));
+  // ring hole: 4 mm across at the chosen finished size (his saint files)
+  const holeR = Math.max(7, Math.round(2.0 * (fH / sizeMm)));
   const hx = tabCX-fMinX+m, hy = tabCY-fMinY+m;
   fx.beginPath(); fx.arc(hx, hy, holeR, 0, Math.PI*2);
   fx.fillStyle = '#faf8f4'; fx.fill();
@@ -619,7 +636,9 @@ function updateDims(){
   $('mmVal').textContent = mm;
   if(!finalCanvas) return;
   const widthMm = mm * (finalCanvas._fW / finalCanvas._fH);
-  $('dims').innerHTML = 'Finished size: <b>' + mm + ' mm long x ' + widthMm.toFixed(1) + ' mm wide</b>, tab and ring hole included.';
+  $('dims').innerHTML = 'Finished size: <b>' + mm + ' mm long x ' + widthMm.toFixed(1) + ' mm wide</b>, tab and ring hole included.' +
+    (designRotated ? ' Your photo is wider than tall, so the design is turned 90 degrees: the length runs along the long side.' : '');
+  if($('actualWrap').style.display === 'block') renderActual();
 }
 
 // ---------- edit tools: erase brush, undo, front text ----------
@@ -730,7 +749,8 @@ $('addCart').onclick = async ()=>{
       img: j.preview_url, qty: qty, unit_cents: kcUnit(qty), add_cents: 0,
       design: 'Custom kc_' + j.design_id, size: mm + 'mm',
       engraving: 'Style: ' + (style === 'toon' ? 'AI Cartoon' : style === 'touch' ? 'AI Touch-Up (same pose)' : 'Realistic') +
-                 '; AI enhance: ' + (enhanceUsed ? 'yes' : 'no'),
+                 '; AI enhance: ' + (enhanceUsed ? 'yes' : 'no') +
+                 (designRotated ? '; Turned 90 deg (wide photo)' : ''),
       saint: '', color: '', initials: '', base: '',
       sides: JSON.stringify({ back_name: $('backNameToggle').checked ? $('backName').value.trim() : '' })
     });
@@ -751,17 +771,23 @@ function download(c, name){
   const a = document.createElement('a');
   a.download = name; a.href = c.toDataURL('image/png'); a.click();
 }
-$('btnActual').onclick = ()=>{
+function renderActual(){
   if(!finalCanvas) return;
-  const wrap = $('actualWrap'); wrap.style.display = 'block';
   const mm = parseInt($('size').value, 10);
-  const pxPerMm = 96/25.4; // CSS reference pixel
   const ac = $('actualStage');
-  ac.style.width = (mm * (finalCanvas._fW/finalCanvas._fH) * pxPerMm) + 'px';
-  ac.style.height = (mm * pxPerMm) + 'px';
+  // Real CSS millimetres: the browser maps them to the physical screen,
+  // unlike a guessed 96 dpi pixel count (which looked the same at every
+  // size on a scaled display).
+  ac.style.width = (mm * (finalCanvas._fW/finalCanvas._fH)) + 'mm';
+  ac.style.height = mm + 'mm';
   ac.width = finalCanvas.width; ac.height = finalCanvas.height;
   ac.getContext('2d').drawImage(finalCanvas, 0, 0);
-  wrap.scrollIntoView({behavior:'smooth'});
+}
+$('btnActual').onclick = ()=>{
+  if(!finalCanvas) return;
+  $('actualWrap').style.display = 'block';
+  renderActual();
+  $('actualWrap').scrollIntoView({behavior:'smooth'});
 };
 </script>
 <script src="/cart.js"></script>
