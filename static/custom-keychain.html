@@ -451,7 +451,7 @@ function buildFinal(){
   const offsetPx = Math.max(10, Math.round(w * 0.022)); // ~2-3mm border at final size
   let dil = dilate(mask, w, h, offsetPx);
   dil = roundOutline(roundOutline(dil, w, h), w, h);
-  dil = smoothContour(dil, w, h); // contour-level smoothing: junctions become flowing curves
+  dil = smoothContour(smoothContour(dil, w, h), w, h); // two contour passes: the second rounds what the first leaves (right tail kink)
   // bounding box of final outline
   let fMinX=w,fMaxX=0,fMinY=h,fMaxY=0;
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(dil[y*w+x]){ if(x<fMinX)fMinX=x; if(x>fMaxX)fMaxX=x; if(y<fMinY)fMinY=y; if(y>fMaxY)fMaxY=y; }
