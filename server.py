@@ -2238,6 +2238,7 @@ def sacred_shell(title, description, body, lang="fr", theme="sacred", active="",
     else:
         brand = '<a class="s-brand" href="/">ADN <span>Creations</span></a>'
         nav_items = [("/keychains", "Porte-clés" if lang == "fr" else "Saint keychains", ""),
+                     ("/ck", "Porte-clés photo · Bêta" if lang == "fr" else "Photo keychains · Beta", ""),
                      ("/shop.html", "Lampes" if lang == "fr" else "Lamps", ""),
                      ("/#saints", "Par saint" if lang == "fr" else "By saint", ""),
                      ("/#cadeaux", "Cadeaux" if lang == "fr" else "Gifts", ""),
@@ -2483,6 +2484,20 @@ def home_page(lang):
                      f'<p class="sub">{h(f4_sub)}</p><div class="cards3">'
                      + "".join(_pcard(p, lang) for p in four) + "</div></section>")
     # suggest the next saint
+    ck_h = ("Ton propre porte-clés, à partir de ta photo" if lang == "fr"
+            else "Your own keychain, from your photo")
+    ck_d = ("Téléverse une photo, vois la découpe en direct et commande ton porte-clés, "
+            "découpé comme nos saints. (Bêta)" if lang == "fr" else
+            "Upload a photo, watch it get cut out live, and order your keychain, "
+            "cut the same way as our saints. (Beta)")
+    ck_b = "Créer le mien" if lang == "fr" else "Create mine"
+    parts.append(
+        '<section class="section"><div style="border:2px solid #b98a1c;background:#fbf3df;'
+        'border-radius:14px;padding:22px 24px">'
+        f'<h2 style="margin-top:0">{h(ck_h)}</h2><p>{h(ck_d)}</p>'
+        f'<p><a class="btn btn-gold" href="/ck">{h(ck_b)}</a> '
+        '<span style="color:#777">adncreations.ca/ck</span></p></div></section>')
+
     parts.append(_saint_suggest_section(lang))
     # by saint
     saints = [(carlo, "Carlo Acutis"), (mini, "Frère André"), (pio, "Padre Pio"),
