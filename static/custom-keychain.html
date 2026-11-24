@@ -549,7 +549,7 @@ function smoothContour(mask, w, h){
   }
   if(pts.length < 60) return mask;
   let poly = pts.filter((_,i)=> i % 3 === 0);
-  for(let it=0; it<3; it++){
+  for(let it=0; it<4; it++){
     const out = [], m = poly.length;
     for(let i=0;i<m;i++){
       const p0 = poly[i], p1 = poly[(i+1)%m];
@@ -601,15 +601,36 @@ function buildFinal(){
   const sizeMm = parseInt($('size').value, 10) || 60;
   const subjLong = Math.max(maxX-minX, maxY-minY);
   const estPxMm = subjLong / Math.max(20, sizeMm - 12);
-  // Light closing (under 1 mm): seals hairline cracks in the silhouette
-  // but, like Antonio's own saint cut files, leaves the natural bays open
-  // (under an arm, between legs) instead of ballooning the outline out.
-  const closeR = Math.max(6, Math.round(0.9 * estPxMm));
+  // Closing 2.4 mm: fills the small ripples and narrow nicks so the cut
+  // line flows in one smooth die-cut curve (Antonio, 2026-11-23: the
+  // smooth outline is the target). Real bays (between legs, under an
+  // arm) are wider than this and stay open.
+  const closeR = Math.max(6, Math.round(2.4 * estPxMm));
   mask = erodeDT(dilateDT(mask, w, h, closeR), w, h, closeR);
-  // opening: shave off whisker-thin spikes so the cut line stays smooth
-  // (the whiskers still print, the outline just does not chase them)
-  const openR = Math.max(4, Math.round(0.35 * estPxMm));
+  // opening: shave off whisker-thin spikes and kill stray specks the
+  // cutout left floating (a fleck island showed up in a test, 2026-11-23)
+  const openR = Math.max(4, Math.round(1.2 * estPxMm));
   mask = dilateDT(erodeDT(mask, w, h, openR), w, h, openR);
+  // Fill enclosed background pockets: if the closing bridges a narrow
+  // bay, the pocket inside must become body, not a dark void in the
+  // white (seen between two torsos in testing). Flood from the frame
+  // edge over background; any background the flood cannot reach is a
+  // pocket and joins the body.
+  {
+    const seen = new Uint8Array(w*h);
+    const stack = [];
+    const seedPx = (i) => { if(!mask[i] && !seen[i]){ seen[i]=1; stack.push(i); } };
+    for(let x=0;x<w;x++){ seedPx(x); seedPx((h-1)*w+x); }
+    for(let y=0;y<h;y++){ seedPx(y*w); seedPx(y*w+w-1); }
+    while(stack.length){
+      const i = stack.pop(), x = i % w, y = (i / w) | 0;
+      if(x>0) seedPx(i-1);
+      if(x<w-1) seedPx(i+1);
+      if(y>0) seedPx(i-w);
+      if(y<h-1) seedPx(i+w);
+    }
+    for(let i=0;i<w*h;i++) if(!mask[i] && !seen[i]) mask[i] = 1;
+  }
   // centre of mass of the whole silhouette: the tab sits there so the
   // finished keychain hangs straight and balanced, not over one paw.
   let cxSum=0, cCount=0;
@@ -620,7 +641,24 @@ function buildFinal(){
   // of white above the figure) with a 4 mm ring hole.
   const tabR = Math.round(4.6 * estPxMm);
   const tabCX = Math.round(Math.min(Math.max(centroidX, minX + tabR*0.55), maxX - tabR*0.55));
-  const tabCY = minY - Math.round(tabR * 0.15); // sunk into the body line, small bump on top
+  // Tab sunk deep so it reads as a smooth peak in the outline, not a
+  // lollipop (Antonio, 2026-11-23). It rises only as much as needed for
+  // the ring hole to clear the printed subject by ~0.8 mm all around:
+  // start sunk, test the hole disc against the subject kept out by the
+  // clearance, step up until clear.
+  const holeRpx = Math.round(2.0 * estPxMm);
+  const keepout = dilateDT(mask, w, h, Math.max(3, Math.round(0.8 * estPxMm)));
+  let tabCY = minY + Math.round(tabR * 0.55);
+  const stepY = Math.max(2, Math.round(0.25 * estPxMm));
+  const discClear = (cy) => {
+    for(let y=cy-holeRpx;y<=cy+holeRpx;y++) for(let x=tabCX-holeRpx;x<=tabCX+holeRpx;x++){
+      if(x<0||y<0||x>=w||y>=h) continue;
+      const dx=x-tabCX, dy=y-cy;
+      if(dx*dx+dy*dy <= holeRpx*holeRpx && keepout[y*w+x]) return false;
+    }
+    return true;
+  };
+  while(tabCY > minY - tabR && !discClear(tabCY)) tabCY -= stepY;
   for(let y=tabCY-tabR;y<=tabCY+tabR;y++) for(let x=tabCX-tabR;x<=tabCX+tabR;x++){
     if(x<0||y<0||x>=w||y>=h) continue;
     const dx=x-tabCX, dy=y-tabCY;
@@ -632,7 +670,7 @@ function buildFinal(){
   // strong: 2 mm of material is added on every side of them.
   const offsetPx = Math.max(6, Math.round(2.0 * estPxMm));
   let dil = dilateDT(mask, w, h, offsetPx);
-  dil = smoothContour(dil, w, h); // one gentle pass: his cut lines keep the figure's natural waviness
+  dil = smoothContour(dil, w, h); // Chaikin-smoothed contour: one flowing die-cut curve
   // bounding box of final outline
   let fMinX=w,fMaxX=0,fMinY=h,fMaxY=0;
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(dil[y*w+x]){ if(x<fMinX)fMinX=x; if(x>fMaxX)fMaxX=x; if(y<fMinY)fMinY=y; if(y>fMaxY)fMaxY=y; }
