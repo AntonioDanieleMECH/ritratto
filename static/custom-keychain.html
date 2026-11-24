@@ -204,6 +204,51 @@
   <p><a href="/keychains">See all 19 saint keychains</a></p>
 </section>
 
+<section class="examples" id="manualBox">
+  <h2>Is the generator not doing your photo justice?</h2>
+  <p>If your design is not generating properly, do not give up on it. Send us your photos and tell us what you have in mind, and we will make the mockup by hand and email it back to you.</p>
+  <form id="mrForm" style="max-width:640px; margin-top:14px;">
+    <label style="display:block; font-size:14px; margin-bottom:10px;"><strong>Your name</strong><br>
+      <input type="text" id="mrName" required maxlength="120" style="width:100%; padding:10px; border:1px solid #d8d2c4; border-radius:8px; margin-top:4px;"></label>
+    <label style="display:block; font-size:14px; margin-bottom:10px;"><strong>Your email</strong> <small style="color:#777;">(so we can send the mockup back)</small><br>
+      <input type="email" id="mrEmail" required maxlength="160" style="width:100%; padding:10px; border:1px solid #d8d2c4; border-radius:8px; margin-top:4px;"></label>
+    <label style="display:block; font-size:14px; margin-bottom:10px;"><strong>What do you want?</strong><br>
+      <textarea id="mrDetails" required rows="4" maxlength="3000" placeholder="Describe the keychain you want: who or what is in the photo, anything to add, remove or change..." style="width:100%; padding:10px; border:1px solid #d8d2c4; border-radius:8px; margin-top:4px;"></textarea></label>
+    <label style="display:block; font-size:14px; margin-bottom:10px;"><strong>What will it be used for?</strong><br>
+      <input type="text" id="mrUse" maxlength="500" placeholder="A gift, a fundraiser, an event, your shop..." style="width:100%; padding:10px; border:1px solid #d8d2c4; border-radius:8px; margin-top:4px;"></label>
+    <label style="display:block; font-size:14px; margin-bottom:10px;"><strong>How many?</strong><br>
+      <input type="text" id="mrQty" maxlength="40" placeholder="e.g. 10, 50, not sure yet" style="width:100%; padding:10px; border:1px solid #d8d2c4; border-radius:8px; margin-top:4px;"></label>
+    <label style="display:block; font-size:14px; margin-bottom:12px;"><strong>Your photos</strong> <small style="color:#777;">(up to 4)</small><br>
+      <input type="file" id="mrPhotos" accept="image/*" multiple style="margin-top:4px;"></label>
+    <button type="submit" id="mrBtn" style="background:#b98a1c; color:#fff; font-weight:700; font-size:15px; padding:12px 22px; border:0; border-radius:9px; cursor:pointer;">Send my request</button>
+    <p id="mrStatus" style="font-size:14px; margin-top:10px;"></p>
+  </form>
+</section>
+<script>
+document.getElementById('mrForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('mrBtn'), st = document.getElementById('mrStatus');
+  btn.disabled = true; st.textContent = 'Sending...';
+  const fd = new FormData();
+  fd.append('name', document.getElementById('mrName').value);
+  fd.append('email', document.getElementById('mrEmail').value);
+  fd.append('details', document.getElementById('mrDetails').value);
+  fd.append('use_for', document.getElementById('mrUse').value);
+  fd.append('qty', document.getElementById('mrQty').value);
+  for (const f of document.getElementById('mrPhotos').files) fd.append('photos', f);
+  try {
+    const r = await fetch('/api/keychain-manual-request', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'something went wrong');
+    st.textContent = 'Thank you, your request is in. We will reply by email with your mockup.';
+    e.target.reset();
+  } catch (err) {
+    st.textContent = 'Sorry, that did not send: ' + err.message + '. You can also email us from the contact page.';
+  }
+  btn.disabled = false;
+});
+</script>
+
 <script type="module">
 const $ = id => document.getElementById(id);
 const stage = $('stage'), sctx = stage.getContext('2d');

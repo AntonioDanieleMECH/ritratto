@@ -62,6 +62,9 @@ DESIGN_UPLOAD_DIR = os.path.join(STATIC_DIR, "design_uploads")
 # and real order designs would have been lost (found 2026-11-23, all test
 # designs 404'd after a deploy). Served by an explicit route below.
 KEYCHAIN_DESIGN_DIR = os.path.join(DATA_DIR, "keychain_designs")
+# Photos from the manual-mockup request box on the keychain page: also on
+# the persistent disk, served by an explicit route below.
+MANUAL_REQ_DIR = os.path.join(DATA_DIR, "manual_requests")
 _LEGACY_KC_DIR = os.path.join(STATIC_DIR, "keychain_designs")
 PRODUCT_IMG_DIR = os.path.join(STATIC_DIR, "img", "products")
 DB = os.path.join(DATA_DIR, "jobs.db")
@@ -69,6 +72,7 @@ os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(LAMP_UPLOAD_DIR, exist_ok=True)
 os.makedirs(DESIGN_UPLOAD_DIR, exist_ok=True)
 os.makedirs(KEYCHAIN_DESIGN_DIR, exist_ok=True)
+os.makedirs(MANUAL_REQ_DIR, exist_ok=True)
 try:
     if os.path.isdir(_LEGACY_KC_DIR):
         for _fn in os.listdir(_LEGACY_KC_DIR):
@@ -615,6 +619,12 @@ def db():
         "CREATE TABLE IF NOT EXISTS saint_suggestions "
         "(id TEXT PRIMARY KEY, created TEXT, saint TEXT, name TEXT DEFAULT '', "
         " email TEXT DEFAULT '', note TEXT DEFAULT '')"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS manual_requests "
+        "(id TEXT PRIMARY KEY, created TEXT, name TEXT, email TEXT, "
+        " details TEXT, use_for TEXT DEFAULT '', qty TEXT DEFAULT '', "
+        " photos TEXT DEFAULT '')"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS orders "
@@ -5607,6 +5617,13 @@ def keychain_design_file(fname):
     return send_from_directory(KEYCHAIN_DESIGN_DIR, os.path.basename(fname))
 
 
+@app.route("/manual_requests/<path:fname>")
+def manual_request_file(fname):
+    """Serve a photo from a manual-mockup request (persistent disk,
+    unguessable ids). Basename only, no traversal."""
+    return send_from_directory(MANUAL_REQ_DIR, os.path.basename(fname))
+
+
 def load_upright(stream):
     return ImageOps.exif_transpose(Image.open(stream)).convert("RGB")
 
@@ -5707,6 +5724,50 @@ def keychain_design_upload():
                     "preview_url": f"/keychain_designs/kc_{did}_prev.png",
                     "cutout_url": f"/keychain_designs/kc_{did}_cut.png",
                     "original_url": f"/keychain_designs/kc_{did}_orig.jpg"})
+
+
+@app.route("/api/keychain-manual-request", methods=["POST"])
+def keychain_manual_request():
+    """Manual mockup request from the box at the bottom of the custom
+    keychain page (Antonio, 2026-11-24): when the generator does not do
+    someone's photo justice, they explain what they want, what it is for
+    and how many, attach photos, and he makes the mockup by hand and
+    replies later. Saved to the DB, photos on the persistent disk, and
+    emailed to the support inbox with links to the photos."""
+    name = (request.form.get("name") or "").strip()[:120]
+    email = (request.form.get("email") or "").strip()[:160]
+    details = (request.form.get("details") or "").strip()[:3000]
+    use_for = (request.form.get("use_for") or "").strip()[:500]
+    qty = (request.form.get("qty") or "").strip()[:40]
+    if not name or not details or "@" not in email:
+        return jsonify({"error": "name, a valid email and a few words about what you want are needed"}), 400
+    rid = uuid.uuid4().hex[:10]
+    saved = []
+    for i, f in enumerate(request.files.getlist("photos")[:4]):
+        if not f or not f.filename:
+            continue
+        try:
+            img = load_upright(f.stream)
+            img.thumbnail((1600, 1600), Image.LANCZOS)
+            fn = f"mr_{rid}_{i + 1}.jpg"
+            img.save(os.path.join(MANUAL_REQ_DIR, fn), "JPEG", quality=88)
+            saved.append(fn)
+        except Exception:
+            continue
+    conn = db()
+    conn.execute(
+        "INSERT INTO manual_requests (id, created, name, email, details, use_for, qty, photos) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (rid, now_iso(), name, email, details, use_for, qty, ",".join(saved)))
+    conn.commit()
+    conn.close()
+    base = request.url_root.rstrip("/")
+    links = "\n".join(f"{base}/manual_requests/{fn}" for fn in saved) or "(no photos attached)"
+    ok, _ = send_email(
+        SUPPORT_EMAIL, f"Manual keychain mockup request from {name}",
+        f"Name: {name}\nEmail: {email}\nHow many: {qty or '-'}\n"
+        f"What it will be used for: {use_for or '-'}\n\nWhat they want:\n{details}\n\nPhotos:\n{links}\n")
+    return jsonify({"ok": True, "emailed": ok, "request_id": rid})
 
 def _gemini_image_edit(img_bytes, mime, prompt):
     """One Gemini image edit/generation call. Returns (bytes, mime) or
