@@ -2492,11 +2492,10 @@ def home_page(lang):
             "cut the same way as our saints. (Beta)")
     ck_b = "Créer le mien" if lang == "fr" else "Create mine"
     parts.append(
-        '<section class="section"><div style="border:2px solid #b98a1c;background:#fbf3df;'
+        '<section class="section"><div style="border:2px solid #b98a1c;background:#fbf3df;color:#241f16;'
         'border-radius:14px;padding:22px 24px">'
         f'<h2 style="margin-top:0">{h(ck_h)}</h2><p>{h(ck_d)}</p>'
-        f'<p><a class="btn btn-gold" href="/ck">{h(ck_b)}</a> '
-        '<span style="color:#777">adncreations.ca/ck</span></p></div></section>')
+        f'<p><a class="btn btn-gold" href="/ck">{h(ck_b)}</a></p></div></section>')
 
     parts.append(_saint_suggest_section(lang))
     # by saint
@@ -3376,13 +3375,14 @@ document.addEventListener("DOMContentLoaded", function(){
          "Yes. Groups order 10 or more at $3.50 each, and we take consignment orders for parish and shrine gift shops. Use the contact page for wholesale."),
     ])
     ck_banner = (
-        '<div style="border:2px solid #b98a1c;background:#fbf3df;border-radius:14px;'
-        'padding:16px 20px;margin:0 0 22px;font-size:16px">'
+        '<div style="border:2px solid #b98a1c;background:#fbf3df;color:#241f16;border-radius:14px;'
+        'padding:16px 20px;margin:0 0 22px;font-size:16px;line-height:1.5">'
         + ("<strong>Nouveau \u00b7 B\u00eata :</strong> ton propre porte-cl\u00e9s \u00e0 partir de ta photo, "
-           "d\u00e9coup\u00e9 comme nos saints. Essaie l\u2019outil de cr\u00e9ation : "
-           '<a href="/ck"><strong>adncreations.ca/ck</strong></a>' if fr else
+           "d\u00e9coup\u00e9 comme nos saints."
+           '<p style="margin:12px 0 0"><a class="btn btn-gold" href="/ck">Cr\u00e9er mon porte-cl\u00e9s</a></p>' if fr else
            "<strong>New \u00b7 Beta:</strong> your own keychain from your photo, cut the same "
-           'way as our saints. Try the designer: <a href="/ck"><strong>adncreations.ca/ck</strong></a>')
+           "way as our saints."
+           '<p style="margin:12px 0 0"><a class="btn btn-gold" href="/ck">Create my keychain</a></p>')
         + "</div>")
     body = body.replace('<div class="kc-filters">', ck_banner + '<div class="kc-filters">', 1)
     _faq_html = ('<section class="section"><h2 style="font-family:var(--serif)">'
