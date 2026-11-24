@@ -570,6 +570,26 @@ function smoothContour(mask, w, h){
   return outMask;
 }
 
+function fillPockets(mask, w, h){
+  // Flood from the frame edge over background; any background the flood
+  // cannot reach is enclosed by the subject and joins the body.
+  const seen = new Uint8Array(w*h);
+  const stack = [];
+  const seedPx = (i) => { if(!mask[i] && !seen[i]){ seen[i]=1; stack.push(i); } };
+  for(let x=0;x<w;x++){ seedPx(x); seedPx((h-1)*w+x); }
+  for(let y=0;y<h;y++){ seedPx(y*w); seedPx(y*w+w-1); }
+  while(stack.length){
+    const i = stack.pop(), x = i % w, y = (i / w) | 0;
+    if(x>0) seedPx(i-1);
+    if(x<w-1) seedPx(i+1);
+    if(y>0) seedPx(i-w);
+    if(y<h-1) seedPx(i+w);
+  }
+  const out = new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) out[i] = (mask[i] || !seen[i]) ? 1 : 0;
+  return out;
+}
+
 function buildFinal(){
   if(!styledCanvas) return;
   const ctx0 = styledCanvas.getContext('2d');
@@ -598,6 +618,14 @@ function buildFinal(){
     }
   }
   if(maxX===0){ setStatus('No subject found in that photo. Try a clearer photo.'); return; }
+  // Fill enclosed interior regions FIRST, while the artwork's own lines
+  // still seal them (Antonio, 2026-11-24): the white areas inside a logo
+  // are part of the print, not cutouts, and the red outline belongs on
+  // the outside only. The opening below erodes thin lines and would
+  // break the seal before a later fill could run, leaving cut lines
+  // traced inside the design. Open bays (between legs, under an arm)
+  // reach the frame edge, so the flood never touches them.
+  mask = fillPockets(mask, w, h);
   const sizeMm = parseInt($('size').value, 10) || 60;
   const subjLong = Math.max(maxX-minX, maxY-minY);
   const estPxMm = subjLong / Math.max(20, sizeMm - 12);
@@ -611,26 +639,10 @@ function buildFinal(){
   // cutout left floating (a fleck island showed up in a test, 2026-11-23)
   const openR = Math.max(4, Math.round(1.2 * estPxMm));
   mask = dilateDT(erodeDT(mask, w, h, openR), w, h, openR);
-  // Fill enclosed background pockets: if the closing bridges a narrow
-  // bay, the pocket inside must become body, not a dark void in the
-  // white (seen between two torsos in testing). Flood from the frame
-  // edge over background; any background the flood cannot reach is a
-  // pocket and joins the body.
-  {
-    const seen = new Uint8Array(w*h);
-    const stack = [];
-    const seedPx = (i) => { if(!mask[i] && !seen[i]){ seen[i]=1; stack.push(i); } };
-    for(let x=0;x<w;x++){ seedPx(x); seedPx((h-1)*w+x); }
-    for(let y=0;y<h;y++){ seedPx(y*w); seedPx(y*w+w-1); }
-    while(stack.length){
-      const i = stack.pop(), x = i % w, y = (i / w) | 0;
-      if(x>0) seedPx(i-1);
-      if(x<w-1) seedPx(i+1);
-      if(y>0) seedPx(i-w);
-      if(y<h-1) seedPx(i+w);
-    }
-    for(let i=0;i<w*h;i++) if(!mask[i] && !seen[i]) mask[i] = 1;
-  }
+  // Fill enclosed background pockets again after the morphology: if the
+  // closing bridges a narrow bay, the pocket inside must become body,
+  // not a dark void in the white (seen between two torsos in testing).
+  mask = fillPockets(mask, w, h);
   // centre of mass of the whole silhouette: the tab sits there so the
   // finished keychain hangs straight and balanced, not over one paw.
   let cxSum=0, cCount=0;
