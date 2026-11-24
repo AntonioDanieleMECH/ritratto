@@ -2412,10 +2412,25 @@ def home_page(lang):
     # hero
     n_sun = sundays_before_advent()
     tag = st("hero_tag", lang)
-    if tag and n_sun >= 0:
+    # Edge cases the raw template reads broken in (flagged by Antonio
+    # 2026-11-23 when it showed "Only 0 Sundays left before Advent"):
+    # 0 left means Advent starts this coming Sunday; during Advent say
+    # so; after Christmas hide the pill instead of showing 0 all winter.
+    from datetime import date as _d
+    _today = _d.today()
+    if tag and n_sun == 0:
+        tag_html = ('<span class="hero-tag">' + h(
+            "L\u2019Avent commence ce dimanche" if lang == "fr"
+            else "Advent starts this Sunday") + "</span>")
+    elif tag and n_sun == 1:
+        _t1 = (tag.replace("{sundays}", "1")
+               .replace("Sundays", "Sunday").replace("dimanches", "dimanche"))
+        tag_html = f'<span class="hero-tag">{h(_t1)}</span>'
+    elif tag and n_sun > 1:
         tag_html = f'<span class="hero-tag">{h(tag.replace("{sundays}", str(n_sun)))}</span>'
-    elif tag and n_sun < 0:
-        tag_html = f'<span class="hero-tag">{h(tag.replace("{sundays}", "0"))}</span>'
+    elif tag and n_sun < 0 and _today <= _d(_today.year, 12, 24):
+        tag_html = ('<span class="hero-tag">' + h(
+            "C\u2019est l\u2019Avent" if lang == "fr" else "Advent is here") + "</span>")
     else:
         tag_html = ""
     order_date = "11 décembre" if lang == "fr" else "December 11"
