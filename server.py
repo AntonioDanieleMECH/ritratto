@@ -133,7 +133,7 @@ def get_lang():
 # French is the default and must stay at least as complete as the English.
 STR = {
     "fr": {
-        "nav_work": "Réalisations", "nav_shop": "Boutique", "nav_engraving": "Gravure",
+        "nav_work": "Réalisations", "nav_shop": "Boutique", "nav_custom": "Porte-clés photo", "nav_engraving": "Gravure",
         "nav_portraits": "Portraits", "nav_progress": "En cours", "nav_about": "À propos",
         "nav_contact": "Contact", "nav_suggest": "Idées", "nav_reviews": "Avis", "nav_cta": "Magasiner", "menu": "Menu",
         "follow_ms": "Suivez nos créations sur Making Stuff",
@@ -221,7 +221,7 @@ STR = {
         "story_title": "L'histoire de la pièce",
     },
     "en": {
-        "nav_work": "Work", "nav_shop": "Shop", "nav_engraving": "Engraving",
+        "nav_work": "Work", "nav_shop": "Shop", "nav_custom": "Photo Keychains", "nav_engraving": "Engraving",
         "nav_portraits": "Portraits", "nav_progress": "Progress", "nav_about": "About",
         "nav_contact": "Contact", "nav_suggest": "Ideas", "nav_reviews": "Reviews", "nav_cta": "Shop now", "menu": "Menu",
         "follow_ms": "Follow our builds on Making Stuff",
@@ -1901,6 +1901,7 @@ FONT_LINK = ("<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">"
              "&family=Inter:wght@400;500;600;700&display=swap\" rel=\"stylesheet\">")
 
 NAV_LINKS = [("work", "nav_work", "/work.html"), ("shop", "nav_shop", "/shop.html"),
+             ("custom", "nav_custom", "/ck"),
              ("engraving", "nav_engraving", "/engraving.html"),
              ("portraits", "nav_portraits", "/portraits.html"),
              ("progress", "nav_progress", "/progress.html"),
@@ -1991,7 +1992,7 @@ def shell(title, description, body, active="", og_image="", og_url="", lang="fr"
 <a class="social-btn" href="{IG_PAGE_URL}" target="_blank" rel="noopener">{s["follow_ig"]}</a>
 </div>
 <div><h4>{s["footer_explore"]}</h4><ul class="footer-links">
-<li><a href="/work.html">{s["nav_work"]}</a></li><li><a href="/shop.html">{s["nav_shop"]}</a></li>
+<li><a href="/work.html">{s["nav_work"]}</a></li><li><a href="/shop.html">{s["nav_shop"]}</a></li><li><a href="/ck">{s["nav_custom"]}</a></li>
 <li><a href="/engraving.html">{s["nav_engraving"]}</a></li><li><a href="/portraits.html">{s["nav_portraits"]}</a></li>
 <li><a href="/progress.html">{s["nav_progress"]}</a></li><li><a href="/suggest.html">{s["nav_suggest"]}</a></li><li><a href="/about.html">{s["nav_about"]}</a></li>
 <li><a href="/reviews.html">{s["nav_reviews"]}</a></li>
@@ -3359,6 +3360,16 @@ document.addEventListener("DOMContentLoaded", function(){
         ("Can I order for my parish, school or youth group?",
          "Yes. Groups order 10 or more at $3.50 each, and we take consignment orders for parish and shrine gift shops. Use the contact page for wholesale."),
     ])
+    ck_banner = (
+        '<div style="border:2px solid #b98a1c;background:#fbf3df;border-radius:14px;'
+        'padding:16px 20px;margin:0 0 22px;font-size:16px">'
+        + ("<strong>Nouveau \u00b7 B\u00eata :</strong> ton propre porte-cl\u00e9s \u00e0 partir de ta photo, "
+           "d\u00e9coup\u00e9 comme nos saints. Essaie l\u2019outil de cr\u00e9ation : "
+           '<a href="/ck"><strong>adncreations.ca/ck</strong></a>' if fr else
+           "<strong>New \u00b7 Beta:</strong> your own keychain from your photo, cut the same "
+           'way as our saints. Try the designer: <a href="/ck"><strong>adncreations.ca/ck</strong></a>')
+        + "</div>")
+    body = body.replace('<div class="kc-filters">', ck_banner + '<div class="kc-filters">', 1)
     _faq_html = ('<section class="section"><h2 style="font-family:var(--serif)">'
                  + ("Questions fréquentes" if fr else "Frequently asked questions")
                  + "</h2>" + "".join(f"<h3>{h(q)}</h3><p>{h(a)}</p>" for q, a in _faq)
@@ -3389,6 +3400,14 @@ document.addEventListener("DOMContentLoaded", function(){
     return sacred_shell(title, desc, body, lang=lang, theme="sacred",
                         path="/keychains", extra_head=_seo_head,
                         og_image=CANONICAL_URL + "/img/keychains/keychain-carlo-acutis-1.jpg")
+
+
+@app.route("/ck")
+def ck_short():
+    """Short link for the custom photo keychain designer (for print/QR on
+    a physical keychain): adncreations.ca/ck (Antonio, 2026-11-23)."""
+    track_visit("/ck")
+    return redirect("/custom-keychain.html", code=302)
 
 
 @app.route("/keychains")

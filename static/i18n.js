@@ -8,10 +8,13 @@
 
   var I18N = {
     fr: {
-      "nav.work": "Réalisations", "nav.shop": "Boutique", "nav.engraving": "Gravure",
+      "nav.work": "Réalisations", "nav.shop": "Boutique", "nav.custom": "Porte-clés photo", "nav.engraving": "Gravure",
       "nav.portraits": "Portraits", "nav.progress": "En cours", "nav.about": "À propos",
       "nav.contact": "Contact", "nav.reviews": "Avis", "nav.cta": "Magasiner", "menu": "Menu",
       "nav.suggest": "Idées",
+      "home.ck_kicker": "NOUVEAU · BÊTA", "home.ck_h": "Ton propre porte-clés, à partir de ta photo",
+      "home.ck_d": "Téléverse une photo, vois la découpe en direct et commande ton porte-clés, découpé comme nos saints. Essaie-le à adncreations.ca/ck",
+      "home.ck_btn": "Créer le mien",
       "follow.ms": "Suivez nos créations sur Making Stuff",
       "follow.ig": "Suivez nos créations sur Instagram",
       "footer.tag": "Objets de prière et cadeaux faits à la main à Montréal, en bioplastique d'origine végétale.",
@@ -268,10 +271,13 @@
       "login.disabled": "La connexion par mot de passe n'est pas encore configurée. Utilisez votre lien d'administration."
     },
     en: {
-      "nav.work": "Work", "nav.shop": "Shop", "nav.engraving": "Engraving",
+      "nav.work": "Work", "nav.shop": "Shop", "nav.custom": "Photo Keychains", "nav.engraving": "Engraving",
       "nav.portraits": "Portraits", "nav.progress": "Progress", "nav.about": "About",
       "nav.contact": "Contact", "nav.reviews": "Reviews", "nav.cta": "Shop now", "menu": "Menu",
       "nav.suggest": "Ideas",
+      "home.ck_kicker": "NEW · BETA", "home.ck_h": "Your own keychain, from your photo",
+      "home.ck_d": "Upload a photo, watch it get cut out live, and order your keychain, cut the same way as our saints. Try it at adncreations.ca/ck",
+      "home.ck_btn": "Create mine",
       "follow.ms": "Follow our builds on Making Stuff",
       "follow.ig": "Follow our builds on Instagram",
       "footer.tag": "Prayer objects and gifts, hand crafted in Montreal from plant-based bioplastic.",

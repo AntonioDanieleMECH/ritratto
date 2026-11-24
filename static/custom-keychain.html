@@ -11,6 +11,13 @@
   header h1 { margin:0; font-size:22px; letter-spacing:.3px; }
   header p { margin:4px 0 0; font-size:13px; opacity:.85; }
   .proto { background:#b98a1c; color:#fff; font-size:12px; font-weight:700; padding:3px 8px; border-radius:20px; vertical-align:middle; margin-left:8px;}
+  .examples { max-width:1060px; margin:0 auto; padding:6px 16px 56px; }
+  .examples h2 { font-size:20px; margin:0 0 6px; }
+  .examples p { color:#555; font-size:14px; line-height:1.5; }
+  .exgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:14px; margin:16px 0 8px; }
+  .exgrid figure { margin:0; background:#fff; border:1px solid #e6dfd2; border-radius:12px; overflow:hidden; }
+  .exgrid img { width:100%; height:170px; object-fit:cover; display:block; }
+  .exgrid figcaption { padding:8px 10px; font-size:13px; font-weight:600; }
   main { max-width:1060px; margin:0 auto; padding:22px 16px 60px; display:grid; grid-template-columns:340px 1fr; gap:22px; }
   @media (max-width:820px){ main{ grid-template-columns:1fr; } }
   .card { background:#fff; border:1px solid #e6dfd2; border-radius:14px; padding:18px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
@@ -48,8 +55,9 @@
 </head>
 <body>
 <header class="header-inner">
-  <h1>Custom Photo Keychain</h1>
+  <h1>Custom Photo Keychain <span class="proto">BETA</span></h1>
   <p>ADN Creations - upload a photo, see exactly how your keychain would be cut.</p>
+  <p style="margin-top:8px; font-size:12.5px;">Beta feature: we are still perfecting this tool, and a person checks every design before it is made. Short link: <strong>adncreations.ca/ck</strong></p>
 </header>
 
 <main>
@@ -151,6 +159,20 @@
     </div>
   </section>
 </main>
+
+<section class="examples">
+  <h2>The keychains we already make</h2>
+  <p>These are our saint keychains, designed and printed in Montreal. Your photo keychain is cut the same way: full colour, a clean outline around the subject, metal ring included.</p>
+  <div class="exgrid">
+    <figure><img src="/img/keychains/keychain-carlo-acutis-1.jpg" alt="Saint Carlo Acutis keychain" loading="lazy"><figcaption>Saint Carlo Acutis</figcaption></figure>
+    <figure><img src="/img/keychains/keychain-frere-andre-1.jpg" alt="Saint Frere Andre keychain" loading="lazy"><figcaption>Saint Frere Andre</figcaption></figure>
+    <figure><img src="/img/keychains/keychain-joseph-1.jpg" alt="Saint Joseph keychain" loading="lazy"><figcaption>Saint Joseph</figcaption></figure>
+    <figure><img src="/img/keychains/keychain-anthony-1.jpg" alt="Saint Anthony keychain" loading="lazy"><figcaption>Saint Anthony</figcaption></figure>
+    <figure><img src="/img/keychains/keychain-don-bosco-1.jpg" alt="Don Bosco keychain" loading="lazy"><figcaption>Don Bosco</figcaption></figure>
+    <figure><img src="/img/keychains/keychain-michael-1.jpg" alt="Saint Michael keychain" loading="lazy"><figcaption>Saint Michael</figcaption></figure>
+  </div>
+  <p><a href="/keychains">See all 19 saint keychains</a></p>
+</section>
 
 <script type="module">
 const $ = id => document.getElementById(id);
